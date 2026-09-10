@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================================
+   MERIDIAN — design tokens
+   Light is the base palette; dark overrides the same variables.
+   ============================================================ */
+:root {
+  --m-font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Inter, Roboto, Helvetica, Arial, sans-serif;
+  --m-font-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, 'Liberation Mono', monospace;
+
+  --m-canvas: 246 246 244;
+  --m-panel: 255 255 255;
+  --m-raised: 250 250 248;
+  --m-sunken: 240 240 237;
+  --m-line: 226 227 222;
+  --m-line-strong: 205 207 200;
+  --m-ink: 24 26 29;
+  --m-ink-2: 71 76 83;
+  --m-ink-3: 116 122 130;
+  --m-ink-4: 158 164 172;
+  --m-accent: 42 92 214;
+  --m-accent-soft: 226 234 251;
+  --m-brass: 156 122 48;
+  --m-pos: 13 124 90;
+  --m-neg: 190 45 58;
+  --m-warn: 176 112 12;
+  --m-info: 42 92 214;
+  color-scheme: light;
+}
+
+[data-theme='dark'] {
+  --m-canvas: 9 11 15;
+  --m-panel: 16 19 25;
+  --m-raised: 22 26 34;
+  --m-sunken: 12 15 20;
+  --m-line: 33 39 49;
+  --m-line-strong: 51 60 74;
+  --m-ink: 232 236 241;
+  --m-ink-2: 176 183 194;
+  --m-ink-3: 130 139 152;
+  --m-ink-4: 96 105 118;
+  --m-accent: 90 143 255;
+  --m-accent-soft: 24 37 66;
+  --m-brass: 201 166 96;
+  --m-pos: 39 176 122;
+  --m-neg: 231 92 102;
+  --m-warn: 216 158 46;
+  --m-info: 90 143 255;
+  color-scheme: dark;
+}
+
+@layer base {
+  * { border-color: rgb(var(--m-line)); }
+  html { -webkit-text-size-adjust: 100%; }
+  body {
+    background-color: rgb(var(--m-canvas));
+    color: rgb(var(--m-ink));
+    font-family: var(--m-font-sans);
+    font-size: 13px;
+    line-height: 19px;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'tnum';
+    -webkit-font-smoothing: antialiased;
+  }
+  ::selection { background: rgb(var(--m-accent) / 0.24); }
+  h1, h2, h3, h4 { font-weight: 600; letter-spacing: -0.011em; }
+  table { border-collapse: separate; border-spacing: 0; }
+  input, select, textarea, button { font: inherit; color: inherit; }
+  /* Scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgb(var(--m-line-strong)); border-radius: 6px; border: 3px solid rgb(var(--m-canvas)); }
+  ::-webkit-scrollbar-thumb:hover { background: rgb(var(--m-ink-4)); }
+  ::-webkit-scrollbar-corner { background: transparent; }
+}
+
+@layer components {
+  .num { font-family: var(--m-font-mono); font-variant-numeric: tabular-nums; font-size: 12px; letter-spacing: -0.02em; }
+  .panel { background: rgb(var(--m-panel)); border: 1px solid rgb(var(--m-line)); border-radius: 6px; }
+  .label {
+    font-size: 10px; line-height: 14px; letter-spacing: 0.07em; text-transform: uppercase;
+    font-weight: 600; color: rgb(var(--m-ink-3));
+  }
+  .hairline { border-bottom: 1px solid rgb(var(--m-line)); }
+  .focus-ring:focus-visible { outline: none; box-shadow: 0 0 0 2px rgb(var(--m-accent) / 0.45); }
+  .link { color: rgb(var(--m-accent)); text-decoration: none; }
+  .link:hover { text-decoration: underline; text-underline-offset: 2px; }
+  .skeleton {
+    background: linear-gradient(90deg, rgb(var(--m-sunken)) 25%, rgb(var(--m-raised)) 37%, rgb(var(--m-sunken)) 63%);
+    background-size: 800px 100%;
+  }
+  .grid-dense-table th, .grid-dense-table td { padding: 5px 10px; }
+}
+
+@media print {
+  .no-print { display: none !important; }
+  body { background: #fff; color: #000; font-size: 11px; }
+  .panel { border: 1px solid #ccc; box-shadow: none; break-inside: avoid; }
+  .print-page-break { break-before: page; }
+}
