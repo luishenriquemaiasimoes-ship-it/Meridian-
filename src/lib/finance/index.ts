@@ -13,3 +13,4 @@ export * from './risk';
 export * from './factors';
 export * from './expectedReturn';
 export * from './format';
+export * from './modelDefaults';

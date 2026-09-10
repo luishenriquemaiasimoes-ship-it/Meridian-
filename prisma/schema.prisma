@@ -1,0 +1,909 @@
+// ============================================================
+//  MERIDIAN — data model
+//  Reference data (companies, securities, prices, financials) is global and
+//  sourced from a DataProvider. Everything a user authors — theses, models,
+//  notes, portfolios, alerts — is scoped to a Workspace.
+// ============================================================
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ------------------------- Identity & tenancy -------------------------
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  passwordHash String
+  avatarColor  String    @default("#2A5CD6")
+  title        String?
+  theme        String    @default("dark") // dark | light | system
+  locale       String    @default("pt-BR")
+  onboarded    Boolean   @default(false)
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+  lastLoginAt  DateTime?
+
+  memberships   Membership[]
+  sessions      Session[]
+  auditLogs     AuditLog[]
+  notes         ResearchNote[]
+  memos         InvestmentMemo[]
+  conversations AiConversation[]
+  notifications Notification[]
+  votes         CommitteeVote[]
+  comments      CommitteeComment[]
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  token     String   @unique
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Organization {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  kind         String   @default("ASSET_MANAGEMENT") // ASSET_MANAGEMENT | EQUITY_RESEARCH | FAMILY_OFFICE | INDEPENDENT
+  plan         String   @default("TRIAL") // TRIAL | PROFESSIONAL | TEAM | INSTITUTIONAL
+  baseCurrency String   @default("BRL")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  memberships Membership[]
+  workspaces  Workspace[]
+}
+
+model Membership {
+  id             String   @id @default(cuid())
+  userId         String
+  organizationId String
+  role           String   @default("ANALYST") // ADMIN | PORTFOLIO_MANAGER | ANALYST | RESEARCHER | VIEWER
+  createdAt      DateTime @default(now())
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, organizationId])
+  @@index([organizationId])
+}
+
+model Workspace {
+  id                String   @id @default(cuid())
+  organizationId    String
+  name              String
+  slug              String
+  kind              String   @default("RESEARCH") // PERSONAL | RESEARCH | PORTFOLIO | TEAM
+  market            String   @default("BRAZIL") // BRAZIL | US | GLOBAL
+  baseCurrency      String   @default("BRL")
+  benchmarkId       String?
+  riskFreeRate      Float    @default(0.105)
+  equityRiskPremium Float    @default(0.055)
+  statutoryTaxRate  Float    @default(0.34)
+  isDemo            Boolean  @default(false)
+  layout            String? // JSON dashboard layout
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  benchmark    Benchmark?   @relation(fields: [benchmarkId], references: [id])
+
+  theses          InvestmentThesis[]
+  valuations      ValuationModel[]
+  notes           ResearchNote[]
+  memos           InvestmentMemo[]
+  portfolios      Portfolio[]
+  watchlists      Watchlist[]
+  alerts          Alert[]
+  screens         SavedScreen[]
+  documents       Document[]
+  conversations   AiConversation[]
+  auditLogs       AuditLog[]
+  notifications   Notification[]
+  peerGroups      PeerGroup[]
+  adjustments     NormalizationAdjustment[]
+  committeeItems  CommitteeItem[]
+  earningsReviews EarningsReview[]
+  dataSources     DataSource[]
+
+  @@unique([organizationId, slug])
+}
+
+// --------------------------- Reference data ---------------------------
+
+model Company {
+  id                    String   @id @default(cuid())
+  ticker                String   @unique
+  name                  String
+  legalName             String?
+  exchange              String
+  country               String
+  sector                String
+  industry              String
+  currency              String   @default("BRL")
+  accountingStandard    String   @default("IFRS")
+  fiscalYearEnd         String   @default("12-31")
+  description           String
+  businessModel         String?
+  competitiveAdvantages String? // JSON array
+  website               String?
+  employees             Int?
+  foundedYear           Int?
+  ceo                   String?
+  headquarters          String?
+  reportingUnit         String   @default("MILLIONS")
+  themes                String? // JSON array of theme slugs
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  security        Security?
+  statements      FinancialStatement[]
+  segments        SegmentDatum[]
+  managementItems ManagementRecord[]
+  ownership       OwnershipRecord[]
+  estimates       Estimate[]
+  newsItems       NewsItem[]
+  earnings        EarningsEvent[]
+  peerLinks       PeerLink[]                @relation("CompanyPeers")
+  peerOf          PeerLink[]                @relation("PeerCompany")
+  theses          InvestmentThesis[]
+  valuations      ValuationModel[]
+  notes           ResearchNote[]
+  memos           InvestmentMemo[]
+  positions       PortfolioPosition[]
+  transactions    PortfolioTransaction[]
+  watchlistItems  WatchlistItem[]
+  alerts          Alert[]
+  documents       Document[]
+  adjustments     NormalizationAdjustment[]
+  committeeItems  CommitteeItem[]
+  catalysts       Catalyst[]
+  risks           RiskItem[]
+  targetHistory   TargetPriceRecord[]
+  earningsReviews EarningsReview[]
+
+  @@index([sector])
+  @@index([country])
+}
+
+model Security {
+  id                String   @id @default(cuid())
+  companyId         String   @unique
+  ticker            String   @unique
+  isin              String?
+  type              String   @default("EQUITY")
+  currency          String   @default("BRL")
+  sharesOutstanding Float
+  freeFloat         Float?
+  lastPrice         Float
+  previousClose     Float
+  dayHigh           Float?
+  dayLow            Float?
+  week52High        Float?
+  week52Low         Float?
+  averageVolume     Float?
+  beta              Float?
+  priceAsOf         DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  company Company    @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  prices  PriceBar[]
+}
+
+model PriceBar {
+  id         String   @id @default(cuid())
+  securityId String
+  date       DateTime
+  open       Float
+  high       Float
+  low        Float
+  close      Float
+  volume     Float
+  security   Security @relation(fields: [securityId], references: [id], onDelete: Cascade)
+
+  @@unique([securityId, date])
+  @@index([securityId, date])
+}
+
+model FinancialStatement {
+  id            String   @id @default(cuid())
+  companyId     String
+  label         String
+  periodType    String // FY | Q
+  fiscalYear    Int
+  fiscalQuarter Int?
+  endDate       DateTime
+  currency      String
+  standard      String   @default("IFRS")
+  unit          String   @default("MILLIONS")
+  source        String   @default("MockMarketDataProvider")
+  isEstimate    Boolean  @default(false)
+  confidence    Float    @default(1)
+  income        String // JSON IncomeStatement
+  balance       String // JSON BalanceSheet
+  cashFlow      String // JSON CashFlowStatement
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, label])
+  @@index([companyId, periodType, endDate])
+}
+
+model SegmentDatum {
+  id          String  @id @default(cuid())
+  companyId   String
+  segment     String
+  kind        String  @default("BUSINESS") // BUSINESS | GEOGRAPHY
+  fiscalYear  Int
+  revenue     Float?
+  ebitda      Float?
+  capex       Float?
+  assets      Float?
+  marketShare Float?
+  company     Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, segment, kind, fiscalYear])
+}
+
+model ManagementRecord {
+  id         String  @id @default(cuid())
+  companyId  String
+  name       String
+  role       String
+  since      Int?
+  background String?
+  company    Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model OwnershipRecord {
+  id        String  @id @default(cuid())
+  companyId String
+  holder    String
+  kind      String  @default("INSTITUTIONAL") // CONTROLLING | INSTITUTIONAL | RETAIL | TREASURY | INSIDER
+  stake     Float
+  company   Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model Estimate {
+  id            String  @id @default(cuid())
+  companyId     String
+  fiscalYear    Int
+  fiscalQuarter Int?
+  metric        String // revenue | ebitda | ebit | netIncome | eps
+  value         Float
+  analysts      Int     @default(1)
+  source        String  @default("MockConsensusProvider")
+  company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, fiscalYear, fiscalQuarter, metric])
+}
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  companyId   String
+  headline    String
+  summary     String
+  source      String
+  url         String?
+  publishedAt DateTime
+  sentiment   String   @default("NEUTRAL") // POSITIVE | NEGATIVE | NEUTRAL
+  impact      String   @default("LOW") // LOW | MEDIUM | HIGH
+  kind        String   @default("NEWS") // NEWS | FILING | PRESENTATION | TRANSCRIPT
+  company     Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, publishedAt])
+}
+
+model EarningsEvent {
+  id               String   @id @default(cuid())
+  companyId        String
+  label            String
+  fiscalYear       Int
+  fiscalQuarter    Int
+  reportDate       DateTime
+  status           String   @default("REPORTED") // SCHEDULED | REPORTED
+  revenue          Float?
+  ebitda           Float?
+  ebit             Float?
+  netIncome        Float?
+  eps              Float?
+  fcf              Float?
+  consensusRevenue Float?
+  consensusEbitda  Float?
+  consensusEps     Float?
+  guidance         String? // JSON
+  commentary       String?
+  createdAt        DateTime @default(now())
+
+  company Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  reviews EarningsReview[]
+
+  @@unique([companyId, label])
+  @@index([companyId, reportDate])
+}
+
+model PeerLink {
+  id        String  @id @default(cuid())
+  companyId String
+  peerId    String
+  rank      Int     @default(0)
+  company   Company @relation("CompanyPeers", fields: [companyId], references: [id], onDelete: Cascade)
+  peer      Company @relation("PeerCompany", fields: [peerId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, peerId])
+}
+
+model Benchmark {
+  id            String   @id @default(cuid())
+  code          String   @unique
+  name          String
+  currency      String   @default("BRL")
+  region        String   @default("BRAZIL")
+  lastValue     Float
+  previousValue Float
+  createdAt     DateTime @default(now())
+
+  history    BenchmarkPoint[]
+  workspaces Workspace[]
+}
+
+model BenchmarkPoint {
+  id          String    @id @default(cuid())
+  benchmarkId String
+  date        DateTime
+  value       Float
+  benchmark   Benchmark @relation(fields: [benchmarkId], references: [id], onDelete: Cascade)
+
+  @@unique([benchmarkId, date])
+}
+
+model MarketIndicator {
+  id       String   @id @default(cuid())
+  code     String   @unique
+  name     String
+  category String // INDEX | RATE | FX | COMMODITY | MACRO
+  value    Float
+  previous Float
+  unit     String   @default("POINTS")
+  currency String?
+  asOf     DateTime
+  source   String   @default("MockMarketDataProvider")
+}
+
+// ------------------------- Research artefacts -------------------------
+
+model InvestmentThesis {
+  id                String   @id @default(cuid())
+  workspaceId       String
+  companyId         String
+  recommendation    String   @default("HOLD") // STRONG_BUY | BUY | HOLD | SELL | STRONG_SELL
+  targetPrice       Float?
+  timeHorizonMonths Int      @default(12)
+  conviction        String   @default("MEDIUM") // LOW | MEDIUM | HIGH | VERY_HIGH
+  status            String   @default("ACTIVE") // ACTIVE | UNDER_REVIEW | DETERIORATING | CLOSED
+  coreThesis        String
+  bullCase          String?
+  baseCase          String?
+  bearCase          String?
+  growthDrivers     String? // JSON array
+  moat              String? // JSON array of moat sources
+  assumptions       String? // JSON array of {label, metric, target, comparator, current}
+  authorName        String
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  workspace     Workspace           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company       Company             @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  catalysts     Catalyst[]
+  risks         RiskItem[]
+  targetHistory TargetPriceRecord[]
+
+  @@unique([workspaceId, companyId])
+}
+
+model Catalyst {
+  id             String    @id @default(cuid())
+  thesisId       String?
+  companyId      String
+  title          String
+  kind           String    @default("EARNINGS") // EARNINGS | INVESTOR_DAY | DIVIDEND | M_AND_A | REGULATORY | CONTRACT | PRODUCT | MACRO | CAPITAL_ALLOCATION
+  expectedDate   DateTime?
+  expectedImpact String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  direction      String    @default("POSITIVE") // POSITIVE | NEGATIVE | UNCERTAIN
+  probability    Float     @default(0.5)
+  status         String    @default("PENDING") // PENDING | CONFIRMED | OCCURRED | CANCELLED
+  notes          String?
+  createdAt      DateTime  @default(now())
+
+  thesis  InvestmentThesis? @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  company Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model RiskItem {
+  id          String   @id @default(cuid())
+  thesisId    String?
+  companyId   String
+  title       String
+  category    String   @default("OPERATIONAL") // OPERATIONAL | FINANCIAL | REGULATORY | MACRO | COMPETITIVE | VALUATION | GOVERNANCE
+  severity    String   @default("MEDIUM") // LOW | MEDIUM | HIGH
+  probability Float    @default(0.3)
+  mitigation  String?
+  createdAt   DateTime @default(now())
+
+  thesis  InvestmentThesis? @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  company Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+}
+
+model TargetPriceRecord {
+  id                     String   @id @default(cuid())
+  thesisId               String?
+  companyId              String
+  targetPrice            Float
+  previousTarget         Float?
+  recommendation         String
+  previousRecommendation String?
+  reason                 String
+  authorName             String
+  createdAt              DateTime @default(now())
+
+  thesis  InvestmentThesis? @relation(fields: [thesisId], references: [id], onDelete: Cascade)
+  company Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([companyId, createdAt])
+}
+
+model ValuationModel {
+  id          String   @id @default(cuid())
+  workspaceId String
+  companyId   String
+  name        String
+  kind        String   @default("DCF") // DCF | SOTP | COMPS | REVERSE_DCF
+  status      String   @default("DRAFT") // DRAFT | ACTIVE | ARCHIVED
+  assumptions String // JSON DcfAssumptions or SotpInput
+  scenarios   String? // JSON ScenarioDefinition[]
+  outputs     String? // JSON cached DcfResult summary
+  notes       String?
+  authorName  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, companyId])
+}
+
+model PeerGroup {
+  id           String    @id @default(cuid())
+  workspaceId  String
+  name         String
+  companyIds   String // JSON array
+  anchorTicker String?
+  createdAt    DateTime  @default(now())
+  workspace    Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model NormalizationAdjustment {
+  id          String   @id @default(cuid())
+  workspaceId String
+  companyId   String
+  periodLabel String
+  lineItem    String // EBITDA | EBIT | NET_INCOME
+  category    String
+  amount      Float
+  rationale   String
+  authorName  String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, companyId])
+}
+
+model ResearchNote {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  companyId      String?
+  authorId       String
+  title          String
+  status         String   @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  recommendation String?
+  targetPrice    Float?
+  conviction     String?
+  sections       String // JSON [{key,title,body}]
+  tags           String? // JSON array
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company?              @relation(fields: [companyId], references: [id])
+  author    User                  @relation(fields: [authorId], references: [id])
+  versions  ResearchNoteVersion[]
+
+  @@index([workspaceId, updatedAt])
+}
+
+model ResearchNoteVersion {
+  id         String       @id @default(cuid())
+  noteId     String
+  version    Int
+  sections   String
+  title      String
+  authorName String
+  createdAt  DateTime     @default(now())
+  note       ResearchNote @relation(fields: [noteId], references: [id], onDelete: Cascade)
+
+  @@unique([noteId, version])
+}
+
+model InvestmentMemo {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  companyId      String
+  authorId       String
+  title          String
+  status         String   @default("DRAFT") // DRAFT | UNDER_REVIEW | APPROVED | REJECTED | ARCHIVED
+  sections       String // JSON [{key,title,body}]
+  recommendation String?
+  targetPrice    Float?
+  portfolioRole  String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace      Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company        Company         @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  author         User            @relation(fields: [authorId], references: [id])
+  committeeItems CommitteeItem[]
+}
+
+model Document {
+  id          String   @id @default(cuid())
+  workspaceId String
+  companyId   String?
+  name        String
+  kind        String   @default("OTHER") // EARNINGS_RELEASE | PRESENTATION | TRANSCRIPT | FILING | MODEL | OTHER
+  mimeType    String
+  sizeBytes   Int
+  content     String? // extracted text
+  extraction  String? // JSON extracted metrics with provenance
+  tags        String? // JSON array
+  uploadedBy  String
+  createdAt   DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company?  @relation(fields: [companyId], references: [id])
+
+  @@index([workspaceId, createdAt])
+}
+
+model EarningsReview {
+  id           String   @id @default(cuid())
+  workspaceId  String
+  companyId    String
+  earningsId   String
+  headline     String
+  analysis     String // JSON {positives, negatives, surprises, guidance, commentary, thesisImpact, valuationImpact}
+  thesisImpact String   @default("NEUTRAL") // SUPPORTS | NEUTRAL | WEAKENS
+  authorName   String
+  createdAt    DateTime @default(now())
+
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  earnings  EarningsEvent @relation(fields: [earningsId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, earningsId])
+}
+
+// --------------------------- Portfolio ---------------------------
+
+model Portfolio {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  name          String
+  description   String?
+  baseCurrency  String   @default("BRL")
+  cash          Float    @default(0)
+  benchmarkCode String   @default("IBOV")
+  inceptionDate DateTime @default(now())
+  isModel       Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace    Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  positions    PortfolioPosition[]
+  transactions PortfolioTransaction[]
+  valuations   PortfolioValuationPoint[]
+  targets      RebalanceTargetRecord[]
+
+  @@index([workspaceId])
+}
+
+model PortfolioPosition {
+  id           String   @id @default(cuid())
+  portfolioId  String
+  companyId    String
+  quantity     Float
+  averagePrice Float
+  openedAt     DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, companyId])
+}
+
+model PortfolioTransaction {
+  id          String   @id @default(cuid())
+  portfolioId String
+  companyId   String?
+  kind        String // BUY | SELL | DIVIDEND | DEPOSIT | WITHDRAWAL | FEE
+  quantity    Float    @default(0)
+  price       Float    @default(0)
+  amount      Float
+  fees        Float    @default(0)
+  tradeDate   DateTime
+  note        String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+
+  portfolio Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+  company   Company?  @relation(fields: [companyId], references: [id])
+
+  @@index([portfolioId, tradeDate])
+}
+
+model PortfolioValuationPoint {
+  id          String    @id @default(cuid())
+  portfolioId String
+  date        DateTime
+  value       Float
+  benchmark   Float
+  portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, date])
+}
+
+model RebalanceTargetRecord {
+  id           String    @id @default(cuid())
+  portfolioId  String
+  ticker       String
+  targetWeight Float
+  portfolio    Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
+
+  @@unique([portfolioId, ticker])
+}
+
+model Watchlist {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  items     WatchlistItem[]
+}
+
+model WatchlistItem {
+  id          String   @id @default(cuid())
+  watchlistId String
+  companyId   String
+  note        String?
+  addedAt     DateTime @default(now())
+
+  watchlist Watchlist @relation(fields: [watchlistId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([watchlistId, companyId])
+}
+
+model SavedScreen {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  name          String
+  filters       String // JSON ScreenFilter[]
+  sortBy        String?
+  factorWeights String? // JSON
+  createdBy     String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+// ------------------------ Monitoring & audit ------------------------
+
+model Alert {
+  id              String    @id @default(cuid())
+  workspaceId     String
+  companyId       String?
+  name            String
+  category        String    @default("PRICE") // PRICE | VALUATION | FUNDAMENTAL | EARNINGS | THESIS | PORTFOLIO
+  metric          String
+  comparator      String // GT | GTE | LT | LTE | CROSSES_ABOVE | CROSSES_BELOW
+  threshold       Float
+  severity        String    @default("IMPORTANT") // CRITICAL | IMPORTANT | INFORMATIONAL
+  enabled         Boolean   @default(true)
+  lastTriggeredAt DateTime?
+  lastValue       Float?
+  createdBy       String
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  workspace Workspace    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  events    AlertEvent[]
+
+  @@index([workspaceId, enabled])
+}
+
+model AlertEvent {
+  id        String   @id @default(cuid())
+  alertId   String
+  value     Float
+  message   String
+  createdAt DateTime @default(now())
+  alert     Alert    @relation(fields: [alertId], references: [id], onDelete: Cascade)
+
+  @@index([alertId, createdAt])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  workspaceId String
+  userId      String?
+  severity    String    @default("INFORMATIONAL") // CRITICAL | IMPORTANT | INFORMATIONAL
+  category    String    @default("SYSTEM")
+  title       String
+  body        String
+  ticker      String?
+  href        String?
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, createdAt])
+}
+
+model AuditLog {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  userId        String?
+  actorName     String
+  action        String // CREATE | UPDATE | DELETE | EXPORT | LOGIN | AI_QUERY
+  entityType    String
+  entityId      String?
+  entityLabel   String?
+  field         String?
+  previousValue String?
+  newValue      String?
+  summary       String
+  createdAt     DateTime @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User?     @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId, createdAt])
+}
+
+model DataSource {
+  id          String    @id @default(cuid())
+  workspaceId String
+  code        String
+  name        String
+  kind        String // MARKET_DATA | FUNDAMENTALS | CONSENSUS | NEWS | USER_UPLOAD | MANUAL
+  status      String    @default("CONNECTED") // CONNECTED | DEGRADED | DISCONNECTED
+  isMock      Boolean   @default(true)
+  lastSyncAt  DateTime?
+  coverage    String? // JSON
+  notes       String?
+  createdAt   DateTime  @default(now())
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, code])
+}
+
+// ------------------------ AI & committee ------------------------
+
+model AiConversation {
+  id          String   @id @default(cuid())
+  workspaceId String
+  userId      String
+  title       String
+  contextType String? // COMPANY | PORTFOLIO | DCF | SCREEN | GLOBAL
+  contextId   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace   @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user      User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  messages  AiMessage[]
+
+  @@index([workspaceId, updatedAt])
+}
+
+model AiMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           String // user | assistant
+  content        String
+  blocks         String? // JSON [{kind: FACT|CALCULATION|INTERPRETATION|OPINION|MISSING, text, sources}]
+  provider       String   @default("deterministic")
+  createdAt      DateTime @default(now())
+
+  conversation AiConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  @@index([conversationId, createdAt])
+}
+
+model CommitteeItem {
+  id             String    @id @default(cuid())
+  workspaceId    String
+  companyId      String
+  memoId         String?
+  title          String
+  proposal       String // BUY | SELL | INCREASE | REDUCE | HOLD
+  recommendation String?
+  targetPrice    Float?
+  proposedWeight Float?
+  status         String    @default("DRAFT") // DRAFT | UNDER_REVIEW | APPROVED | REJECTED | ARCHIVED
+  meetingDate    DateTime?
+  summary        String
+  createdBy      String
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company            @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  memo      InvestmentMemo?    @relation(fields: [memoId], references: [id])
+  votes     CommitteeVote[]
+  comments  CommitteeComment[]
+}
+
+model CommitteeVote {
+  id        String   @id @default(cuid())
+  itemId    String
+  userId    String
+  vote      String // APPROVE | REJECT | ABSTAIN
+  rationale String?
+  createdAt DateTime @default(now())
+
+  item CommitteeItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, userId])
+}
+
+model CommitteeComment {
+  id        String   @id @default(cuid())
+  itemId    String
+  userId    String
+  body      String
+  createdAt DateTime @default(now())
+
+  item CommitteeItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  user User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
