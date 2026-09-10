@@ -1,4 +1,5 @@
 import { prisma, parseJson } from '@/lib/db';
+import { DEFAULT_TTL_MS, memo } from '../cache';
 import {
   findCompanyByTicker, loadPeerTickers, loadPriceHistory, loadStatements, mapCompany,
   type CompanyRecord, type SecurityRecord,
@@ -60,7 +61,16 @@ export interface EarningsRow {
   commentary: string | null;
 }
 
+/**
+ * The complete view of one company. Cached for a short interval because the
+ * company layout, its tabs and the AI context all need the same payload within
+ * a single navigation.
+ */
 export async function getCompanyDossier(ticker: string): Promise<CompanyDossier | null> {
+  return memo(`dossier:${ticker.toUpperCase()}`, DEFAULT_TTL_MS, () => loadCompanyDossier(ticker));
+}
+
+async function loadCompanyDossier(ticker: string): Promise<CompanyDossier | null> {
   const row = await findCompanyByTicker(ticker);
   if (!row) return null;
   const company = mapCompany(row);
