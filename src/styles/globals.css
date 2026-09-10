@@ -27,6 +27,34 @@
   --m-neg: 190 45 58;
   --m-warn: 176 112 12;
   --m-info: 42 92 214;
+
+  /* Data-visualization palette — validated for CVD separation and contrast
+     against this surface (see docs/DESIGN.md). Assigned in fixed slot order,
+     never cycled; a ninth series folds into "Other". */
+  --viz-1: #2a78d6;
+  --viz-2: #eb6834;
+  --viz-3: #1baf7a;
+  --viz-4: #eda100;
+  --viz-5: #e87ba4;
+  --viz-6: #008300;
+  --viz-7: #4a3aa7;
+  --viz-8: #e34948;
+  --viz-grid: #e6e6e1;
+  --viz-axis: #c3c2b7;
+  --viz-ink: #52514e;
+  --viz-muted: #898781;
+  --viz-surface: #ffffff;
+  /* Sequential ramp (one hue, light to dark) for magnitude encodings. */
+  --viz-seq-1: #cde2fb;
+  --viz-seq-2: #9ec5f4;
+  --viz-seq-3: #6da7ec;
+  --viz-seq-4: #3987e5;
+  --viz-seq-5: #256abf;
+  --viz-seq-6: #184f95;
+  /* Diverging poles with a neutral midpoint. */
+  --viz-div-neg: #d03b3b;
+  --viz-div-mid: #f0efec;
+  --viz-div-pos: #2a78d6;
   color-scheme: light;
 }
 
@@ -48,6 +76,30 @@
   --m-neg: 231 92 102;
   --m-warn: 216 158 46;
   --m-info: 90 143 255;
+
+  /* Same eight hues, re-stepped for the dark surface and validated there. */
+  --viz-1: #3987e5;
+  --viz-2: #d95926;
+  --viz-3: #199e70;
+  --viz-4: #c98500;
+  --viz-5: #d55181;
+  --viz-6: #008300;
+  --viz-7: #9085e9;
+  --viz-8: #e66767;
+  --viz-grid: #21262f;
+  --viz-axis: #333c4a;
+  --viz-ink: #b0b7c2;
+  --viz-muted: #828b98;
+  --viz-surface: #101319;
+  --viz-seq-1: #0d366b;
+  --viz-seq-2: #184f95;
+  --viz-seq-3: #256abf;
+  --viz-seq-4: #3987e5;
+  --viz-seq-5: #6da7ec;
+  --viz-seq-6: #9ec5f4;
+  --viz-div-neg: #e66767;
+  --viz-div-mid: #383835;
+  --viz-div-pos: #3987e5;
   color-scheme: dark;
 }
 
