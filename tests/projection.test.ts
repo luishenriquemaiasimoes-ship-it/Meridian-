@@ -1,0 +1,398 @@
+import { describe, expect, it } from 'vitest';
+import { project } from '@/lib/finance/projection/engine';
+import { valueProjection } from '@/lib/finance/projection/valuation';
+import { buildDebtSchedule, buildVintageSchedule } from '@/lib/finance/projection/schedule';
+import type { ProjectionInput } from '@/lib/finance/projection/types';
+
+/* A concession, modelled the way the reference model does it: a toll
+   revenue built from traffic and an index-linked tariff, an accessory
+   line as a share of it, a construction line mirroring capex, costs
+   built from their own drivers, an asset base amortised to the end of
+   the contract, and debt on a schedule. */
+function concession(overrides: Partial<ProjectionInput> = {}): ProjectionInput {
+  return {
+    baseYear: 2025,
+    years: 8,
+    opening: {
+      cash: 6_844,
+      shortTermInvestments: 27_490,
+      receivables: 12_064,
+      inventory: 0,
+      otherCurrentAssets: 6_564,
+      tangibleAssets: 7_698,
+      intangibleAssets: 679_464,
+      otherNonCurrentAssets: 37_096,
+      payables: 6_870,
+      shortTermDebt: 34_301,
+      longTermDebt: 448_770,
+      otherCurrentLiabilities: 29_120,
+      otherNonCurrentLiabilities: 23_677,
+      provisions: 3_950,
+      shareCapital: 169_918,
+      retainedEarnings: 60_614,
+      minorityInterest: 0,
+    },
+    revenue: [
+      {
+        key: 'toll', label: 'Receita de pedágio', kind: 'VOLUME_PRICE',
+        baseVolume: 29_565.614, volumeGrowth: [0.005, 0.006, 0.007, 0.008],
+        basePrice: 6.2, priceGrowth: [0.045, 0.041, 0.038, 0.035], priceIndex: 'IPCA',
+        source: 'Tarifa homologada e tráfego reportado',
+      },
+      { key: 'accessory', label: 'Receita acessória', kind: 'PCT_OF', ofKey: 'toll', pctOf: [0.057] },
+      { key: 'construction', label: 'Receita de construção', kind: 'CONSTRUCTION', pctOfCapex: [0.909] },
+    ],
+    revenueDeductions: [0.072],
+    costs: [
+      { key: 'construction', label: 'Custo de construção', block: 'COGS', kind: 'CONSTRUCTION' },
+      { key: 'opex', label: 'Pessoal, manutenção e serviços', block: 'COGS', kind: 'PCT_REVENUE', pct: [0.387] },
+      { key: 'sga', label: 'SG&A', block: 'SGA', kind: 'PCT_REVENUE', pct: [0.076] },
+    ],
+    capex: [
+      {
+        key: 'programme', label: 'Programa de investimentos', block: undefined as never,
+        pctRevenue: [0.165], tangibleShare: 0.035, usefulLife: 20,
+        amortiseToYear: 2045, contractedRemaining: 451_690,
+      } as never,
+    ],
+    workingCapital: {
+      receivableDays: 19.4, payableDays: 23.6, inventoryDays: 0,
+      otherAssetDays: 10.6, otherLiabilityDays: 47,
+      provisionDays: [{ key: 'maintenance', label: 'Provisão para manutenção', days: 6.1 }],
+    },
+    debt: {
+      openingBalance: 483_071, costOfDebt: 0.101, amortisationYears: 20,
+      capexFundedByDebt: 0.75, newDebtTenor: 19, cashYield: 0.1,
+      source: 'Última debênture emitida: IPCA + spread',
+    },
+    distribution: { payout: [0] },
+    taxRate: [0.34],
+    wacc: 0.109, costOfEquity: 0.203, sharesOutstanding: 1_000, currentPrice: 100,
+    covenants: [{ key: 'dscr', label: 'DSCR', measure: 'DSCR', threshold: 1.3, comparator: 'GTE' }],
+    ...overrides,
+  };
+}
+
+describe('vintage schedules', () => {
+  it('keeps charging the opening balance over the life it has left', () => {
+    const s = buildVintageSchedule({
+      baseYear: 2025, years: 5, openingBalance: 1000, openingLife: 10,
+      additions: [0, 0, 0, 0, 0], lifeFor: () => 10,
+    });
+    expect(s.chargeByYear.get(2026)).toBeCloseTo(100, 6);
+    expect(s.closingByYear.get(2030)).toBeCloseTo(500, 6);
+  });
+
+  it('shortens each vintage as a contract runs down', () => {
+    // Added in 2026 with the contract ending 2030: four years left, not ten.
+    const s = buildVintageSchedule({
+      baseYear: 2025, years: 5, openingBalance: 0, openingLife: 0,
+      additions: [400, 0, 0, 0, 0], lifeFor: (y) => 2030 - y + 1,
+    });
+    expect(s.chargeByYear.get(2026)).toBeCloseTo(80, 6);
+    expect(s.closingByYear.get(2030)).toBeCloseTo(0, 6);
+  });
+
+  it('writes off exactly what was added, never more', () => {
+    const s = buildVintageSchedule({
+      baseYear: 2025, years: 12, openingBalance: 500, openingLife: 5,
+      additions: [100, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0], lifeFor: () => 4,
+    });
+    expect(s.totalCharge).toBeCloseTo(800, 6);
+    expect(s.closingByYear.get(2037)).toBeCloseTo(0, 6);
+  });
+});
+
+describe('debt schedule', () => {
+  const s = buildDebtSchedule({
+    baseYear: 2025, years: 5, openingBalance: 1000, amortisationYears: 10,
+    costOfDebt: 0.1, draws: [200, 200, 0, 0, 0], newDebtTenor: 5,
+  });
+
+  it('runs opening to closing through draws and amortisation', () => {
+    const y1 = s.years[0];
+    expect(y1.opening).toBe(1000);
+    expect(y1.draws).toBe(200);
+    expect(y1.amortisation).toBeCloseTo(100, 6);
+    expect(y1.closing).toBeCloseTo(1100, 6);
+  });
+
+  it('charges interest on the average balance, not the opening one', () => {
+    const y1 = s.years[0];
+    expect(y1.interest).toBeCloseTo(((1000 + 1100) / 2) * 0.1, 6);
+  });
+
+  it('each year opens where the last one closed', () => {
+    for (let i = 1; i < s.years.length; i++) {
+      expect(s.years[i].opening).toBeCloseTo(s.years[i - 1].closing, 9);
+    }
+  });
+
+  it('never amortises more than is outstanding', () => {
+    const tight = buildDebtSchedule({
+      baseYear: 2025, years: 4, openingBalance: 100, amortisationYears: 1,
+      costOfDebt: 0.1, draws: [0, 0, 0, 0], newDebtTenor: 1,
+    });
+    expect(tight.years.every((y) => y.amortisation <= y.opening + y.draws + 1e-9)).toBe(true);
+    expect(tight.years.every((y) => y.closing >= -1e-9)).toBe(true);
+  });
+});
+
+describe('the projected balance sheet', () => {
+  const r = project(concession());
+
+  it('closes in every projected year', () => {
+    for (const b of r.balance) {
+      expect(`${b.year}: gap ${b.balanceGap.toFixed(6)}`).toBe(`${b.year}: gap ${(0).toFixed(6)}`);
+    }
+    expect(r.balance.every((b) => b.balances)).toBe(true);
+  });
+
+  it('says so rather than plugging when the opening balance does not itself balance', () => {
+    const broken = concession();
+    broken.opening = { ...broken.opening, cash: broken.opening.cash + 50_000 };
+    const bad = project(broken);
+    expect(bad.balance.every((b) => b.balances)).toBe(false);
+    expect(bad.warnings.some((w) => /does not close/.test(w))).toBe(true);
+    // The gap is the error introduced, carried rather than hidden.
+    expect(bad.balance[0].balanceGap).toBeCloseTo(50_000, 6);
+  });
+
+  it('carries the asset base forward as capex less depreciation', () => {
+    for (let i = 1; i < r.balance.length; i++) {
+      const prior = r.balance[i - 1];
+      const now = r.balance[i];
+      const added = r.capexTotal[i];
+      const charged = -(r.income[i].da);
+      const moved = (now.tangibleAssets + now.intangibleAssets) - (prior.tangibleAssets + prior.intangibleAssets);
+      expect(moved).toBeCloseTo(added - charged, 4);
+    }
+  });
+
+  it('splits debt between what falls due next year and the rest', () => {
+    for (let i = 0; i < r.balance.length; i++) {
+      const b = r.balance[i];
+      expect(b.shortTermDebt + b.longTermDebt).toBeCloseTo(r.debtSchedule.years[i].closing, 6);
+    }
+  });
+});
+
+describe('the projected cash flow', () => {
+  const r = project(concession());
+
+  it('articulates: opening cash plus the net change is closing cash', () => {
+    for (const c of r.cashFlow) {
+      expect(c.openingCash + c.netChangeInCash).toBeCloseTo(c.closingCash, 6);
+    }
+  });
+
+  it('hands closing cash to the next year and to the balance sheet', () => {
+    for (let i = 0; i < r.cashFlow.length; i++) {
+      expect(r.cashFlow[i].closingCash).toBeCloseTo(r.balance[i].cash, 6);
+      if (i > 0) expect(r.cashFlow[i].openingCash).toBeCloseTo(r.cashFlow[i - 1].closingCash, 9);
+    }
+  });
+
+  it('sums its three blocks to the net change', () => {
+    for (const c of r.cashFlow) {
+      expect(c.operatingCashFlow + c.investingCashFlow + c.financingCashFlow)
+        .toBeCloseTo(c.netChangeInCash, 6);
+    }
+  });
+
+  it('warns when cash goes negative rather than drawing on a balance that is not there', () => {
+    const starved = concession();
+    starved.opening = { ...starved.opening, cash: 0 };
+    starved.debt = { ...starved.debt, capexFundedByDebt: 0 };
+    const bad = project(starved);
+    if (bad.cashFlow.some((c) => c.closingCash < 0)) {
+      expect(bad.warnings.some((w) => /Cash goes negative/.test(w))).toBe(true);
+    }
+  });
+});
+
+describe('the revenue build-up', () => {
+  const r = project(concession());
+
+  it('builds the toll line from traffic and tariff, not from a growth rate', () => {
+    const y1 = r.revenue[0].lines.find((l) => l.key === 'toll')!;
+    expect(y1.volume).toBeCloseTo(29_565.614 * 1.005, 4);
+    expect(y1.price).toBeCloseTo(6.2 * 1.045, 6);
+    expect(y1.gross).toBeCloseTo((y1.volume as number) * (y1.price as number), 4);
+  });
+
+  it('resolves a line stated as a share of another line', () => {
+    const y1 = r.revenue[0];
+    const toll = y1.lines.find((l) => l.key === 'toll')!;
+    const accessory = y1.lines.find((l) => l.key === 'accessory')!;
+    expect(accessory.gross).toBeCloseTo(toll.gross * 0.057, 6);
+  });
+
+  it('recognises the capital programme as revenue and as cost, netting to nothing', () => {
+    const construction = r.revenue[0].lines.find((l) => l.key === 'construction')!;
+    const cost = r.income[0].costLines.find((c) => c.key === 'construction')!;
+    expect(construction.gross).toBeCloseTo(r.capexTotal[0] * 0.909, 6);
+    expect(cost.amount).toBeCloseTo(r.capexTotal[0], 6);
+  });
+
+  it('keeps the declared line order rather than the order it resolved them in', () => {
+    expect(r.revenue[0].lines.map((l) => l.key)).toEqual(['toll', 'accessory', 'construction']);
+  });
+});
+
+describe('working capital from payment terms', () => {
+  const r = project(concession());
+
+  it('sizes receivables on the stated days, not on a percentage', () => {
+    const wc = r.workingCapital[0];
+    expect(wc.receivables).toBeCloseTo((r.revenue[0].netRevenue * 19.4) / 365, 6);
+  });
+
+  it('treats a rise in working capital as a use of cash', () => {
+    for (let i = 1; i < r.workingCapital.length; i++) {
+      const rose = r.workingCapital[i].netWorkingCapital > r.workingCapital[i - 1].netWorkingCapital;
+      if (rose) expect(r.workingCapital[i].change).toBeLessThan(0);
+    }
+  });
+});
+
+describe('FCFF, FCFE and the two routes to equity', () => {
+  const input = concession();
+  const r = project(input);
+  const v = valueProjection(input, r);
+
+  it('taxes EBIT rather than reusing the levered tax charge', () => {
+    const c = v.cashFlows[0];
+    const inc = r.income[0];
+    expect(c.taxOnEbit).toBeCloseTo(-inc.ebit * (inc.effectiveTaxRate ?? 0), 6);
+    // The levered charge is smaller, because the interest shielded some of it.
+    expect(Math.abs(c.taxOnEbit)).toBeGreaterThan(Math.abs(inc.taxes));
+  });
+
+  it('builds FCFF from NOPAT, D&A, capex and working capital', () => {
+    for (const c of v.cashFlows) {
+      expect(c.fcff).toBeCloseTo(c.nopat + c.da + c.capex + c.workingCapitalChange, 6);
+    }
+  });
+
+  it('builds FCFE from FCFF by serving and rolling the debt', () => {
+    for (const c of v.cashFlows) {
+      expect(c.fcfe).toBeCloseTo(c.fcff + c.debtDrawn + c.debtRepaid + c.netInterestAfterTax, 6);
+    }
+  });
+
+  it('gives the interest its tax shield on the way to the equity', () => {
+    const c = v.cashFlows[0];
+    const inc = r.income[0];
+    const gross = inc.financialExpense + inc.financialIncome;
+    expect(Math.abs(c.netInterestAfterTax)).toBeLessThan(Math.abs(gross));
+  });
+
+  it('discounts each flow at the rate that belongs to it', () => {
+    const c = v.cashFlows[2];
+    expect(c.pvFcff).toBeCloseTo(c.fcff / (1 + (input.wacc as number)) ** c.period, 6);
+    expect(c.pvFcfe).toBeCloseTo(c.fcfe / (1 + (input.costOfEquity as number)) ** c.period, 6);
+  });
+
+  it('gives a concession no terminal value, because the asset stops', () => {
+    expect(v.terminalValue).toBeNull();
+    expect(v.enterpriseValue).toBeCloseTo(v.pvExplicitFcff as number, 6);
+  });
+
+  it('gives an ongoing business a terminal value when one is asked for', () => {
+    const ongoing = concession();
+    ongoing.capex = [{ key: 'maintenance', label: 'Capex', pctRevenue: [0.08], tangibleShare: 1, usefulLife: 12 }];
+    const rr = project(ongoing);
+    const vv = valueProjection(ongoing, rr, { terminalGrowth: 0.03 });
+    expect(vv.terminalValue).not.toBeNull();
+    expect(vv.enterpriseValue as number).toBeGreaterThan(vv.pvExplicitFcff as number);
+  });
+
+  it('reports the gap between the two routes instead of picking one quietly', () => {
+    expect(v.equityValueFromFcff).not.toBeNull();
+    expect(v.equityValueFromFcfe).not.toBeNull();
+    expect(v.routeGap).toBeCloseTo(
+      (v.equityValueFromFcfe as number) - (v.equityValueFromFcff as number), 6);
+  });
+
+  it('returns an unlevered and a levered IRR that price their own stream', () => {
+    expect(v.unleveredIrr).not.toBeNull();
+    expect(v.leveredIrr).not.toBeNull();
+    // Paying the equity value for the equity stream earns the cost of equity.
+    expect(v.leveredIrr as number).toBeCloseTo(input.costOfEquity as number, 2);
+  });
+
+  it('scales the value by the stake actually held', () => {
+    const partial = { ...concession(), ownership: 0.65 };
+    const rp = project(partial);
+    const vp = valueProjection(partial, rp);
+    const full = valueProjection(concession(), r);
+    expect(vp.attributableEquityValue as number)
+      .toBeCloseTo((full.attributableEquityValue as number) * 0.65, 4);
+  });
+});
+
+describe('covenants', () => {
+  const input = concession();
+  const r = project(input);
+  const v = valueProjection(input, r);
+
+  it('tests the ratio every projected year', () => {
+    expect(v.covenants).toHaveLength(r.income.length);
+    expect(v.covenants.every((c) => c.measure === 'DSCR')).toBe(true);
+  });
+
+  it('computes DSCR as EBITDA over interest plus amortisation', () => {
+    const c = v.covenants[0];
+    const inc = r.income[0];
+    const d = r.debtSchedule.years[0];
+    expect(c.value).toBeCloseTo(inc.ebitda / (Math.abs(inc.financialExpense) + d.amortisation), 6);
+  });
+
+  it('reports headroom, not just pass or fail', () => {
+    for (const c of v.covenants) {
+      if (c.value === null) continue;
+      expect(c.headroom).toBeCloseTo((c.value as number) - c.threshold, 9);
+      expect(c.passes).toBe((c.value as number) >= c.threshold);
+    }
+  });
+
+  it('raises a breach as an event of default, not as a footnote', () => {
+    const tight = concession();
+    tight.covenants = [{ key: 'dscr', label: 'DSCR', measure: 'DSCR', threshold: 99, comparator: 'GTE' }];
+    const vv = valueProjection(tight, project(tight));
+    expect(vv.covenantBreaches.length).toBeGreaterThan(0);
+    expect(vv.warnings.some((w) => /event of default/.test(w))).toBe(true);
+  });
+});
+
+describe('the construction pass-through', () => {
+  it('lets a cost driver exclude it, because it adds revenue without economics', () => {
+    const withPassThrough = concession();
+    withPassThrough.costs = [
+      { key: 'construction', label: 'Custo de construção', block: 'COGS', kind: 'CONSTRUCTION' },
+      { key: 'opex', label: 'Opex', block: 'COGS', kind: 'PCT_REVENUE', pct: [0.387],
+        base: 'NET_REVENUE_EX_CONSTRUCTION' },
+      { key: 'sga', label: 'SG&A', block: 'SGA', kind: 'PCT_REVENUE', pct: [0.076] },
+    ];
+    const r = project(withPassThrough);
+    const rev = r.revenue[0];
+    const opex = r.income[0].costLines.find((c) => c.key === 'opex')!;
+
+    expect(rev.netRevenueExConstruction).toBeLessThan(rev.netRevenue);
+    expect(opex.amount).toBeCloseTo(rev.netRevenueExConstruction * 0.387, 6);
+
+    // Stated against reported revenue the same driver costs more, which is
+    // exactly the overstatement the option exists to avoid.
+    const naive = project(concession());
+    const naiveOpex = naive.income[0].costLines.find((c) => c.key === 'opex')!;
+    expect(naiveOpex.amount).toBeGreaterThan(opex.amount);
+  });
+
+  it('still balances with the pass-through excluded from the driver', () => {
+    const m = concession();
+    m.costs = m.costs.map((c) =>
+      c.key === 'opex' ? { ...c, base: 'NET_REVENUE_EX_CONSTRUCTION' as const } : c);
+    expect(project(m).balance.every((b) => b.balances)).toBe(true);
+  });
+});
