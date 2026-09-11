@@ -209,9 +209,11 @@ export function computeCompanyMetrics(input: MetricsInputs): CompanyMetrics {
   const minority = basis?.balance.minorityInterestEquity ?? 0;
   const enterpriseValue = isNum(marketCap) && isNum(nd) ? (marketCap as number) + (nd as number) + minority : null;
 
+  // No basis and no annual means no statements are loaded; the snapshot then
+  // reports nulls rather than being handed an object cast into the shape.
   const snapshot = basis
     ? fundamentalSnapshot(basis, priorAnnual)
-    : fundamentalSnapshot(annuals[0] ?? ({} as FinancialPeriod), null);
+    : fundamentalSnapshot(annuals[0] ?? null, null);
 
   const roicResult = basis ? calculateRoic(basis, priorAnnual, rates.statutoryTaxRate) : null;
 

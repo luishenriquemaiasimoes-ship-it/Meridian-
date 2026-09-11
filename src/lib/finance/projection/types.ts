@@ -141,6 +141,13 @@ export interface DebtPlan {
   capexFundedByDebt: number;
   /** Tenor of new draws. */
   newDebtTenor: number;
+  /**
+   * Whether maturing debt is refinanced. A going concern that has announced no
+   * deleveraging rolls what comes due and draws on top of it for growth;
+   * assuming it repays out of operating cash instead invents a funding gap and
+   * understates the equity. Off means the stack amortises down as scheduled.
+   */
+  rollMaturities?: boolean;
   /** Explicit draws per year, when the programme is known rather than derived. */
   draws?: number[];
   /** Explicit amortisations per year, overriding the straight-line schedule. */

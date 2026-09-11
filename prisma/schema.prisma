@@ -516,6 +516,10 @@ model ValuationModel {
   /// JSON { chosen, rationale } recording where the target sits against the
   /// sell-side range and why, when the analyst has said.
   consensusNote String?
+  /// JSON ProjectionInput — the full three-statement model: revenue drivers,
+  /// cost build-up, capex programme, debt schedule and payment terms. Null on
+  /// a model that has only ever been a DCF.
+  projection    String?
   notes         String?
   authorName    String
   createdAt     DateTime @default(now())

@@ -1,5 +1,5 @@
 import { isNum, safeDiv } from '../core';
-import { buildDebtSchedule, buildVintageSchedule, type DebtSchedule, type VintageSchedule } from './schedule';
+import { buildDebtSchedule, buildVintageSchedule, chargeIn, closingIn, type DebtSchedule, type VintageSchedule } from './schedule';
 import type {
   CapexLine, CostLine, ProjectionInput, RevenueLine, WorkingCapitalTerms,
 } from './types';
@@ -345,6 +345,24 @@ export interface ProjectionResult {
   warnings: string[];
 }
 
+
+/**
+ * How far off the balance sheet may be before it counts as not closing.
+ *
+ * Two things are being tolerated, and only two. Floating-point accumulation
+ * over a long horizon, which is parts per quadrillion. And the rounding in the
+ * reported statements the opening balance is read from: those are stated to the
+ * cent, so the cent arrives in the model through no fault of the model. A real
+ * modelling error — a line that moves on the balance sheet without moving
+ * through the cash flow — is the size of that line, which is orders of
+ * magnitude above either.
+ */
+const ROUNDING_IN_SOURCE = 0.02;
+
+function balanceTolerance(totalAssets: number): number {
+  return Math.max(ROUNDING_IN_SOURCE, Math.abs(totalAssets) * 1e-6);
+}
+
 export function project(input: ProjectionInput): ProjectionResult {
   const warnings: string[] = [];
   const n = input.years;
@@ -391,9 +409,23 @@ export function project(input: ProjectionInput): ProjectionResult {
   });
 
   /* --- debt ------------------------------------------------------ */
-  const draws = input.debt.draws?.length
+  let draws = input.debt.draws?.length
     ? capexTotal.map((_, i) => at(input.debt.draws, i, 0))
     : capexTotal.map((c) => c * input.debt.capexFundedByDebt);
+
+  if (input.debt.rollMaturities && !input.debt.draws?.length) {
+    // Refinancing what matures needs the schedule the refinancing changes, so
+    // it is run once to read the maturities and again with them rolled.
+    const dry = buildDebtSchedule({
+      baseYear: input.baseYear, years: n,
+      openingBalance: input.debt.openingBalance,
+      amortisationYears: input.debt.amortisationYears,
+      costOfDebt: input.debt.costOfDebt,
+      draws, newDebtTenor: input.debt.newDebtTenor,
+      amortisations: input.debt.amortisations,
+    });
+    draws = draws.map((d, i) => d + dry.years[i].amortisation);
+  }
 
   const debtSchedule = buildDebtSchedule({
     baseYear: input.baseYear, years: n,
@@ -435,8 +467,8 @@ export function project(input: ProjectionInput): ProjectionResult {
     const cogs = -cogsByYear[i];
     const sga = -rows.filter((r) => r.block === 'SGA').reduce((s, r) => s + r.amount, 0);
 
-    const depreciation = depreciationSchedule.chargeByYear.get(year) ?? 0;
-    const amortisation = amortisationSchedule.chargeByYear.get(year) ?? 0;
+    const depreciation = chargeIn(depreciationSchedule, year);
+    const amortisation = chargeIn(amortisationSchedule, year);
     const da = depreciation + amortisation;
 
     // EBITDA is struck before D&A; the cost lines above exclude it by design.
@@ -494,8 +526,8 @@ export function project(input: ProjectionInput): ProjectionResult {
     /* --- balance sheet ------------------------------------------ */
     retained = retained + netIncome + dividends;
     const provisionTotal = wc.provisions.reduce((s, p) => s + p.amount, 0);
-    const tangible = depreciationSchedule.closingByYear.get(year) ?? 0;
-    const intangible = amortisationSchedule.closingByYear.get(year) ?? 0;
+    const tangible = closingIn(depreciationSchedule, year) ?? 0;
+    const intangible = closingIn(amortisationSchedule, year) ?? 0;
 
     const currentAssets = cash + (opening.shortTermInvestments ?? 0) + wc.receivables + wc.inventory + wc.otherAssets;
     const nonCurrentAssets = tangible + intangible + (opening.otherNonCurrentAssets ?? 0);
@@ -527,8 +559,7 @@ export function project(input: ProjectionInput): ProjectionResult {
       minorityInterest: opening.minorityInterest ?? 0, equity,
       totalLiabilitiesAndEquity,
       balanceGap: gap,
-      // A thousandth of the balance sheet is rounding; more is a modelling error.
-      balances: Math.abs(gap) <= Math.max(1e-6, Math.abs(totalAssets) * 1e-6),
+      balances: Math.abs(gap) <= balanceTolerance(totalAssets),
     });
   }
 

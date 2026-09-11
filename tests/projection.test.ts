@@ -79,8 +79,8 @@ describe('vintage schedules', () => {
       baseYear: 2025, years: 5, openingBalance: 1000, openingLife: 10,
       additions: [0, 0, 0, 0, 0], lifeFor: () => 10,
     });
-    expect(s.chargeByYear.get(2026)).toBeCloseTo(100, 6);
-    expect(s.closingByYear.get(2030)).toBeCloseTo(500, 6);
+    expect(s.rows.find((r) => r.year === 2026)?.charge).toBeCloseTo(100, 6);
+    expect(s.rows.find((r) => r.year === 2030)?.closing).toBeCloseTo(500, 6);
   });
 
   it('shortens each vintage as a contract runs down', () => {
@@ -89,8 +89,8 @@ describe('vintage schedules', () => {
       baseYear: 2025, years: 5, openingBalance: 0, openingLife: 0,
       additions: [400, 0, 0, 0, 0], lifeFor: (y) => 2030 - y + 1,
     });
-    expect(s.chargeByYear.get(2026)).toBeCloseTo(80, 6);
-    expect(s.closingByYear.get(2030)).toBeCloseTo(0, 6);
+    expect(s.rows.find((r) => r.year === 2026)?.charge).toBeCloseTo(80, 6);
+    expect(s.rows.find((r) => r.year === 2030)?.closing).toBeCloseTo(0, 6);
   });
 
   it('writes off exactly what was added, never more', () => {
@@ -99,7 +99,7 @@ describe('vintage schedules', () => {
       additions: [100, 100, 100, 0, 0, 0, 0, 0, 0, 0, 0, 0], lifeFor: () => 4,
     });
     expect(s.totalCharge).toBeCloseTo(800, 6);
-    expect(s.closingByYear.get(2037)).toBeCloseTo(0, 6);
+    expect(s.rows.find((r) => r.year === 2037)?.closing).toBeCloseTo(0, 6);
   });
 });
 
@@ -394,5 +394,108 @@ describe('the construction pass-through', () => {
     m.costs = m.costs.map((c) =>
       c.key === 'opex' ? { ...c, base: 'NET_REVENUE_EX_CONSTRUCTION' as const } : c);
     expect(project(m).balance.every((b) => b.balances)).toBe(true);
+  });
+});
+
+describe('refinancing', () => {
+  const deleveraging = concession();
+  const rolling = { ...concession(), debt: { ...concession().debt, rollMaturities: true } };
+
+  it('rolls what matures instead of repaying it out of operating cash', () => {
+    const a = project(deleveraging);
+    const b = project(rolling);
+    expect(b.debtSchedule.years[0].draws)
+      .toBeCloseTo(a.debtSchedule.years[0].draws + a.debtSchedule.years[0].amortisation, 6);
+  });
+
+  it('holds the debt stack roughly flat rather than amortising it away', () => {
+    const a = project(deleveraging);
+    const b = project(rolling);
+    const last = b.debtSchedule.years.length - 1;
+    expect(b.debtSchedule.years[last].closing).toBeGreaterThan(a.debtSchedule.years[last].closing);
+  });
+
+  it('leaves more cash in the business, because less of it went to lenders', () => {
+    const a = project(deleveraging);
+    const b = project(rolling);
+    expect(b.cashFlow[b.cashFlow.length - 1].closingCash)
+      .toBeGreaterThan(a.cashFlow[a.cashFlow.length - 1].closingCash);
+  });
+
+  it('still closes the balance sheet every year', () => {
+    expect(project(rolling).balance.every((x) => x.balances)).toBe(true);
+  });
+
+  it('leaves an explicit draw schedule alone, because that is the analyst speaking', () => {
+    const explicit = {
+      ...concession(),
+      debt: { ...concession().debt, rollMaturities: true, draws: [1000, 1000, 0, 0, 0, 0, 0, 0] },
+    };
+    expect(project(explicit).debtSchedule.years[0].draws).toBe(1000);
+  });
+});
+
+describe('crossing the API boundary', () => {
+  // The engine runs on the server and the tables render on the client, so
+  // everything the tables read has to survive JSON. A Map serialises to `{}`,
+  // which renders as an empty column rather than as an error.
+  const r = project(concession());
+  const v = valueProjection(concession(), r);
+  const round = JSON.parse(JSON.stringify({ projected: r, valuation: v }));
+
+  it('keeps the depreciation schedule readable after serialisation', () => {
+    expect(round.projected.depreciationSchedule.rows).toHaveLength(r.depreciationSchedule.rows.length);
+    expect(round.projected.depreciationSchedule.rows[0].charge)
+      .toBeCloseTo(r.depreciationSchedule.rows[0].charge, 6);
+  });
+
+  it('keeps every statement and schedule an array, not a keyed collection', () => {
+    for (const path of [
+      round.projected.income, round.projected.balance, round.projected.cashFlow,
+      round.projected.revenue, round.projected.workingCapital,
+      round.projected.depreciationSchedule.rows, round.projected.amortisationSchedule.rows,
+      round.projected.debtSchedule.years, round.valuation.cashFlows, round.valuation.covenants,
+    ]) {
+      expect(Array.isArray(path)).toBe(true);
+      expect(path.length).toBeGreaterThan(0);
+    }
+  });
+
+  it('loses no figure the tables depend on', () => {
+    expect(round.projected.balance[0].totalAssets).toBeCloseTo(r.balance[0].totalAssets, 6);
+    expect(round.valuation.cashFlows[0].fcfe).toBeCloseTo(v.cashFlows[0].fcfe, 6);
+    expect(round.valuation.covenants[0].value).toBeCloseTo(v.covenants[0].value as number, 6);
+  });
+});
+
+describe('the balance tolerance', () => {
+  it('tolerates the cent the reported statements are rounded to', () => {
+    const m = concession();
+    // A cent of rounding in the opening balance is the source's, not the model's.
+    m.opening = { ...m.opening, cash: m.opening.cash + 0.01 };
+    expect(project(m).balance.every((b) => b.balances)).toBe(true);
+  });
+
+  it('does not tolerate an error the size of a real line', () => {
+    const m = concession();
+    m.opening = { ...m.opening, cash: m.opening.cash + 100 };
+    const r = project(m);
+    expect(r.balance.every((b) => b.balances)).toBe(false);
+    expect(r.balance[0].balanceGap).toBeCloseTo(100, 6);
+  });
+
+  it('scales with the balance sheet, so a large company is not held to a cent', () => {
+    const big = concession();
+    const scale = 1000;
+    big.opening = Object.fromEntries(
+      Object.entries(big.opening).map(([k, v]) => [k, typeof v === 'number' ? v * scale : v]),
+    ) as typeof big.opening;
+    big.revenue = big.revenue.map((r) => ({
+      ...r,
+      baseVolume: r.baseVolume ? r.baseVolume * scale : r.baseVolume,
+      baseRevenue: r.baseRevenue ? r.baseRevenue * scale : r.baseRevenue,
+    }));
+    big.debt = { ...big.debt, openingBalance: big.debt.openingBalance * scale };
+    expect(project(big).balance.every((b) => b.balances)).toBe(true);
   });
 });

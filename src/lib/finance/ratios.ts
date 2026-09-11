@@ -204,10 +204,49 @@ export interface FundamentalSnapshot {
   netWorkingCapital: number | null;
 }
 
+/** A snapshot for a company whose statements are not loaded yet. */
+const EMPTY_SNAPSHOT: FundamentalSnapshot = {
+  grossMargin: null,
+  ebitdaMargin: null,
+  ebitMargin: null,
+  netMargin: null,
+  fcfMargin: null,
+  roe: null,
+  roa: null,
+  roce: null,
+  assetTurnover: null,
+  inventoryTurnover: null,
+  receivablesTurnover: null,
+  dso: null,
+  dio: null,
+  dpo: null,
+  cashConversionCycle: null,
+  netDebt: null,
+  totalDebt: null,
+  netDebtToEbitda: null,
+  debtToEquity: null,
+  interestCoverage: null,
+  cfo: null,
+  capex: null,
+  fcf: null,
+  fcfConversion: null,
+  capexToRevenue: null,
+  effectiveTaxRate: null,
+  bookValuePerShare: null,
+  netWorkingCapital: null,
+};
+
+/**
+ * Every ratio for one period. The period is nullable because a company can be
+ * covered before its statements are loaded, and the honest answer then is a
+ * snapshot of nulls — not a snapshot computed from an object shaped like a
+ * period but empty, which is how this used to throw.
+ */
 export function fundamentalSnapshot(
-  p: FinancialPeriod,
+  p: FinancialPeriod | null | undefined,
   prior?: FinancialPeriod | null,
 ): FundamentalSnapshot {
+  if (!p?.income) return EMPTY_SNAPSHOT;
   return {
     grossMargin: grossMargin(p.income),
     ebitdaMargin: ebitdaMargin(p.income),

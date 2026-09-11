@@ -21,12 +21,24 @@ export interface Vintage {
 
 export interface VintageSchedule {
   vintages: Vintage[];
-  /** Charge per projected year, positive. */
-  chargeByYear: Map<number, number>;
-  /** Closing gross balance per year. */
-  closingByYear: Map<number, number>;
+  /**
+   * One row per projected year. An array rather than a Map on purpose: this
+   * crosses an API boundary, and a Map serialises to `{}` — which is the kind
+   * of bug that shows up as an empty table rather than as an error.
+   */
+  rows: { year: number; charge: number; closing: number }[];
   /** Total charged over the horizon. */
   totalCharge: number;
+}
+
+/** Charge for one year, or zero when the year is outside the horizon. */
+export function chargeIn(schedule: VintageSchedule, year: number): number {
+  return schedule.rows.find((r) => r.year === year)?.charge ?? 0;
+}
+
+/** Closing balance for one year, or null when the year is outside the horizon. */
+export function closingIn(schedule: VintageSchedule, year: number): number | null {
+  return schedule.rows.find((r) => r.year === year)?.closing ?? null;
 }
 
 /**
@@ -73,7 +85,7 @@ export function buildVintageSchedule(input: {
     }
   }
 
-  const closingByYear = new Map<number, number>();
+  const rows: { year: number; charge: number; closing: number }[] = [];
   let balance = openingBalance;
   let totalCharge = 0;
   for (let i = 0; i < years; i++) {
@@ -82,10 +94,10 @@ export function buildVintageSchedule(input: {
     const charge = chargeByYear.get(year) ?? 0;
     balance = balance + addition - charge;
     totalCharge += charge;
-    closingByYear.set(year, balance);
+    rows.push({ year, charge, closing: balance });
   }
 
-  return { vintages, chargeByYear, closingByYear, totalCharge };
+  return { vintages, rows, totalCharge };
 }
 
 /* ------------------------------ Debt ------------------------------ */

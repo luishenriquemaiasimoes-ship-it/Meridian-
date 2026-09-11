@@ -167,3 +167,23 @@ describe('fundamentalSnapshot', () => {
     expect(s.fcf).toBeNull();
   });
 });
+
+describe('a snapshot without statements', () => {
+  it('returns nulls rather than throwing when the period is missing', () => {
+    const s = fundamentalSnapshot(null);
+    expect(s.grossMargin).toBeNull();
+    expect(s.netDebt).toBeNull();
+    expect(s.cashConversionCycle).toBeNull();
+  });
+
+  it('does the same for undefined, which is what an empty list yields', () => {
+    expect(() => fundamentalSnapshot(undefined)).not.toThrow();
+    expect(fundamentalSnapshot(undefined).roe).toBeNull();
+  });
+
+  it('reports every field, so a caller reading one never finds it absent', () => {
+    const s = fundamentalSnapshot(null);
+    expect(Object.values(s).every((v) => v === null)).toBe(true);
+    expect(Object.keys(s).length).toBeGreaterThan(20);
+  });
+});
