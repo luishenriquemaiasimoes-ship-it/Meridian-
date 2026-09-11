@@ -672,10 +672,18 @@ model PortfolioTransaction {
 }
 
 model PortfolioValuationPoint {
-  id          String    @id @default(cuid())
+  id          String @id @default(cuid())
   portfolioId String
   date        DateTime
+  /// Total net asset value of the book on this date, in the base currency.
   value       Float
+  /// Units outstanding. Subscriptions and redemptions create or cancel units at
+  /// the prevailing unit value, so a flow changes `value` but never `unitValue`.
+  units       Float  @default(1)
+  /// Time-weighted unit value, rebased to 100 at inception. Performance and risk
+  /// are measured on this series so that cash flows do not read as returns.
+  unitValue   Float  @default(100)
+  /// The benchmark index rebased to the same starting unit value.
   benchmark   Float
   portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)
 

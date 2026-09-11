@@ -62,7 +62,7 @@ export interface PortfolioAnalytics {
   };
   concentration: ReturnType<typeof concentration>;
   lookThrough: { key: string; label: string; value: number | null; coverage: number; format: string; benchmark: number | null }[];
-  navSeries: { date: string; value: number; benchmark: number }[];
+  navSeries: { date: string; value: number; unitValue: number; benchmark: number }[];
   performance: ReturnType<typeof performanceStats>;
   benchmarkPerformance: ReturnType<typeof performanceStats>;
   tracking: ReturnType<typeof trackingStats>;
@@ -133,10 +133,17 @@ export async function getPortfolioAnalytics(
   const summary = buildPortfolio(inputs, portfolioRow.cash, portfolioRow.baseCurrency);
   const contributions = contributionByPosition(summary);
 
+  // `value` is the book's net asset value and `unitValue` the time-weighted unit
+  // price. Performance and risk are measured on the unit price so that a
+  // subscription or redemption never reads as a return; the NAV is what the
+  // screen shows as the size of the book.
   const navSeries = navPoints.map((p) => ({
-    date: p.date.toISOString().slice(0, 10), value: p.value, benchmark: p.benchmark,
+    date: p.date.toISOString().slice(0, 10),
+    value: p.value,
+    unitValue: p.unitValue,
+    benchmark: p.benchmark,
   }));
-  const navValues = navSeries.map((p) => p.value);
+  const navValues = navSeries.map((p) => p.unitValue);
   const benchValues = navSeries.map((p) => p.benchmark);
   const dates = navSeries.map((p) => p.date);
 

@@ -5,7 +5,10 @@ import type {
   PriceBarData, QuoteData, SegmentData,
 } from '../types';
 import { BLUEPRINTS, findBlueprint } from './blueprints';
-import { AS_OF, generateCompany, makeRng, seedFromString, type GeneratedCompany } from './generator';
+import {
+  AS_OF, generateCompany, makeRng, MARKET_DAILY_VOL, marketShocks, PRICE_HISTORY_DAYS,
+  seedFromString, tradingDays, type GeneratedCompany, type MarketFactorCode,
+} from './generator';
 
 /**
  * Deterministic in-memory provider. Produces the demo universe without any
@@ -118,29 +121,60 @@ export const BENCHMARKS: Omit<BenchmarkData, 'history'>[] = [
   { code: 'CDI', name: 'CDI (cash benchmark)', currency: 'BRL', region: 'BRAZIL', lastValue: 100, previousValue: 99.96 },
 ];
 
-/** Three years of daily benchmark levels, ending at the quoted value. */
-export function buildBenchmarkHistory(code: string, lastValue: number, days = 760): { date: string; value: number }[] {
+/**
+ * An index is its constituents, so its drift is theirs. The capitalisation-
+ * weighted price drift of the names listed on that market, divided by their
+ * capitalisation-weighted beta, gives the drift of the factor those betas are
+ * measured against — which keeps the index and the companies inside it from
+ * telling two different stories about the same market.
+ */
+function indexDrift(factor: MarketFactorCode): number {
+  const listed = BLUEPRINTS.filter((b) =>
+    factor === 'IBOV' ? b.profile.country === 'Brazil' : b.profile.country !== 'Brazil',
+  );
+  let cap = 0;
+  let driftWeighted = 0;
+  let betaWeighted = 0;
+  for (const b of listed) {
+    const marketCap = b.anchors.shares * b.anchors.price;
+    cap += marketCap;
+    driftWeighted += marketCap * b.anchors.priceDrift;
+    betaWeighted += marketCap * b.anchors.beta;
+  }
+  if (cap === 0) return 0;
+  const beta = betaWeighted / cap;
+  return beta > 0 ? driftWeighted / cap / beta : driftWeighted / cap;
+}
+
+/**
+ * Three years of daily benchmark levels, ending at the quoted value. IBOV and
+ * SPX are driven by the same market shocks the equity generator uses, so an
+ * index and the companies listed on it move together. CDI is a cash rate and
+ * has its own near-deterministic path.
+ */
+export function buildBenchmarkHistory(code: string, lastValue: number, days = PRICE_HISTORY_DAYS): { date: string; value: number }[] {
+  const isCash = code === 'CDI';
+  const factor: MarketFactorCode = code === 'IBOV' ? 'IBOV' : 'SPX';
+  const vol = isCash ? 0.0002 : MARKET_DAILY_VOL[factor];
+  const drift = isCash ? 0.1065 / 252 : indexDrift(factor) / 252;
+  const shocks = isCash ? null : marketShocks(factor, days);
   const rng = makeRng(seedFromString(`bench-${code}`));
-  const vol = code === 'CDI' ? 0.0002 : code === 'IBOV' ? 0.0105 : 0.0085;
-  const drift = code === 'CDI' ? 0.1065 / 252 : code === 'IBOV' ? 0.00035 : 0.00048;
+
   const levels: number[] = [];
   let level = 1;
   for (let i = 0; i < days; i++) {
-    const u1 = Math.max(rng(), 1e-9);
-    const u2 = rng();
-    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-    level *= Math.exp(drift - 0.5 * vol ** 2 + vol * z);
+    let z: number;
+    if (shocks) {
+      z = shocks[i];
+    } else {
+      const u1 = Math.max(rng(), 1e-9);
+      const u2 = rng();
+      z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+    }
+    level *= Math.exp(drift + vol * z);
     levels.push(level);
   }
   const scale = lastValue / levels[levels.length - 1];
-
-  const dates: string[] = [];
-  let cursor = new Date(`${AS_OF}T00:00:00Z`);
-  while (dates.length < days) {
-    const dow = cursor.getUTCDay();
-    if (dow !== 0 && dow !== 6) dates.push(cursor.toISOString().slice(0, 10));
-    cursor = new Date(cursor.getTime() - 86400000);
-  }
-  dates.reverse();
+  const dates = tradingDays(days);
   return levels.map((v, i) => ({ date: dates[i], value: Math.round(v * scale * 100) / 100 }));
 }

@@ -98,7 +98,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.02, cashPctRevenue: 0.14, netDebtToEbitda: 0.6,
       costOfDebt: 0.078, arDays: 22, invDays: 62, apDays: 48,
       dividendPayout: 0.6, buybackPctNetIncome: 0.15, minorityPctNetIncome: 0.02,
-      shares: 4270, price: 61.4, beta: 1.22, annualVolatility: 0.34, priceDrift: -0.02,
+      shares: 4270, price: 61.4, beta: 1.22, annualVolatility: 0.34, priceDrift: 0.03,
       averageVolume: 42_000_000, freeFloat: 0.86,
     },
     {
@@ -145,7 +145,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.0, cashPctRevenue: 0.10, netDebtToEbitda: 0.9,
       costOfDebt: 0.082, arDays: 20, invDays: 45, apDays: 40,
       dividendPayout: 0.55, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.03,
-      shares: 13040, price: 38.6, beta: 1.18, annualVolatility: 0.32, priceDrift: 0.03,
+      shares: 13040, price: 38.6, beta: 1.18, annualVolatility: 0.32, priceDrift: 0.08,
       averageVolume: 58_000_000, freeFloat: 0.63,
     },
     {
@@ -190,7 +190,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.03, cashPctRevenue: 0.55, netDebtToEbitda: -0.4,
       costOfDebt: 0.105, arDays: 40, invDays: 0, apDays: 30,
       dividendPayout: 0.62, buybackPctNetIncome: 0.06, minorityPctNetIncome: 0.02,
-      shares: 9800, price: 35.2, beta: 0.94, annualVolatility: 0.26, priceDrift: 0.06,
+      shares: 9800, price: 35.2, beta: 0.94, annualVolatility: 0.26, priceDrift: 0.11,
       averageVolume: 36_000_000, freeFloat: 0.52,
     },
     {
@@ -235,7 +235,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.01, cashPctRevenue: 0.60, netDebtToEbitda: -0.5,
       costOfDebt: 0.104, arDays: 38, invDays: 0, apDays: 28,
       dividendPayout: 0.45, buybackPctNetIncome: 0.02, minorityPctNetIncome: 0.01,
-      shares: 5720, price: 25.9, beta: 1.05, annualVolatility: 0.30, priceDrift: -0.04,
+      shares: 5720, price: 25.9, beta: 1.05, annualVolatility: 0.30, priceDrift: 0.01,
       averageVolume: 28_000_000, freeFloat: 0.49,
     },
     {
@@ -279,7 +279,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.06, cashPctRevenue: 0.20, netDebtToEbitda: -0.7,
       costOfDebt: 0.09, arDays: 62, invDays: 105, apDays: 55,
       dividendPayout: 0.42, buybackPctNetIncome: 0.03, minorityPctNetIncome: 0.005,
-      shares: 4200, price: 41.8, beta: 0.86, annualVolatility: 0.29, priceDrift: 0.05,
+      shares: 4200, price: 41.8, beta: 0.86, annualVolatility: 0.29, priceDrift: 0.1,
       averageVolume: 18_000_000, freeFloat: 0.42,
     },
     {
@@ -324,7 +324,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.22, cashPctRevenue: 0.15, netDebtToEbitda: 2.6,
       costOfDebt: 0.118, arDays: 34, invDays: 40, apDays: 46,
       dividendPayout: 0.25, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.0,
-      shares: 1060, price: 33.4, beta: 1.31, annualVolatility: 0.38, priceDrift: -0.09,
+      shares: 1060, price: 33.4, beta: 1.31, annualVolatility: 0.38, priceDrift: -0.04,
       averageVolume: 21_000_000, freeFloat: 0.71,
     },
     {
@@ -368,7 +368,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.35, cashPctRevenue: 0.19, netDebtToEbitda: -0.9,
       costOfDebt: 0.08, arDays: 28, invDays: 48, apDays: 92,
       dividendPayout: 0.72, buybackPctNetIncome: 0.04, minorityPctNetIncome: 0.04,
-      shares: 15700, price: 12.6, beta: 0.72, annualVolatility: 0.24, priceDrift: 0.01,
+      shares: 15700, price: 12.6, beta: 0.72, annualVolatility: 0.24, priceDrift: 0.06,
       averageVolume: 26_000_000, freeFloat: 0.28,
     },
     {
@@ -414,7 +414,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 1.55, cashPctRevenue: 0.42, netDebtToEbitda: 0.8,
       costOfDebt: 0.107, arDays: 18, invDays: 0, apDays: 22,
       dividendPayout: 0.75, buybackPctNetIncome: 0.15, minorityPctNetIncome: 0.0,
-      shares: 5450, price: 11.9, beta: 1.02, annualVolatility: 0.31, priceDrift: -0.03,
+      shares: 5450, price: 11.9, beta: 1.02, annualVolatility: 0.31, priceDrift: 0.02,
       averageVolume: 33_000_000, freeFloat: 0.98,
     },
     {
@@ -459,7 +459,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.09, cashPctRevenue: 0.24, netDebtToEbitda: 2.9,
       costOfDebt: 0.075, arDays: 44, invDays: 80, apDays: 52,
       dividendPayout: 0.18, buybackPctNetIncome: 0.12, minorityPctNetIncome: 0.0,
-      shares: 1290, price: 54.2, beta: 1.09, annualVolatility: 0.33, priceDrift: 0.02,
+      shares: 1290, price: 54.2, beta: 1.09, annualVolatility: 0.33, priceDrift: 0.07,
       averageVolume: 14_000_000, freeFloat: 0.55,
     },
     {
@@ -502,7 +502,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.0, cashPctRevenue: 0.22, netDebtToEbitda: 0.7,
       costOfDebt: 0.086, arDays: 18, invDays: 30, apDays: 34,
       dividendPayout: 0.0, buybackPctNetIncome: 0.18, minorityPctNetIncome: 0.0,
-      shares: 810, price: 41.7, beta: 1.24, annualVolatility: 0.41, priceDrift: 0.04,
+      shares: 810, price: 41.7, beta: 1.24, annualVolatility: 0.41, priceDrift: 0.09,
       averageVolume: 12_000_000, freeFloat: 0.88,
     },
     {
@@ -546,7 +546,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.08, cashPctRevenue: 0.18, netDebtToEbitda: 3.4,
       costOfDebt: 0.112, arDays: 52, invDays: 22, apDays: 62,
       dividendPayout: 0.28, buybackPctNetIncome: 0.02, minorityPctNetIncome: 0.06,
-      shares: 1230, price: 31.5, beta: 0.78, annualVolatility: 0.27, priceDrift: 0.03,
+      shares: 1230, price: 31.5, beta: 0.78, annualVolatility: 0.27, priceDrift: 0.08,
       averageVolume: 16_000_000, freeFloat: 0.93,
     },
     {
@@ -590,7 +590,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.05, cashPctRevenue: 0.19, netDebtToEbitda: 0.3,
       costOfDebt: 0.116, arDays: 78, invDays: 105, apDays: 88,
       dividendPayout: 0.35, buybackPctNetIncome: 0.08, minorityPctNetIncome: 0.0,
-      shares: 960, price: 16.4, beta: 1.16, annualVolatility: 0.34, priceDrift: 0.0,
+      shares: 960, price: 16.4, beta: 1.16, annualVolatility: 0.34, priceDrift: 0.05,
       averageVolume: 19_000_000, freeFloat: 0.97,
     },
     {
@@ -633,7 +633,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.55, cashPctRevenue: 0.24, netDebtToEbitda: 0.2,
       costOfDebt: 0.113, arDays: 68, invDays: 0, apDays: 40,
       dividendPayout: 0.30, buybackPctNetIncome: 0.10, minorityPctNetIncome: 0.0,
-      shares: 610, price: 34.8, beta: 0.92, annualVolatility: 0.32, priceDrift: 0.07,
+      shares: 610, price: 34.8, beta: 0.92, annualVolatility: 0.32, priceDrift: 0.12,
       averageVolume: 9_000_000, freeFloat: 0.95,
     },
     {
@@ -677,7 +677,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.02, cashPctRevenue: 0.07, netDebtToEbitda: 0.9,
       costOfDebt: 0.115, arDays: 22, invDays: 92, apDays: 78,
       dividendPayout: 0.30, buybackPctNetIncome: 0.03, minorityPctNetIncome: 0.0,
-      shares: 1690, price: 17.8, beta: 0.81, annualVolatility: 0.28, priceDrift: -0.05,
+      shares: 1690, price: 17.8, beta: 0.81, annualVolatility: 0.28, priceDrift: 0.0,
       averageVolume: 15_000_000, freeFloat: 0.90,
     },
     {
@@ -720,7 +720,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.05, cashPctRevenue: 0.65, netDebtToEbitda: -0.6,
       costOfDebt: 0.108, arDays: 32, invDays: 0, apDays: 24,
       dividendPayout: 0.42, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.01,
-      shares: 4180, price: 39.7, beta: 1.12, annualVolatility: 0.30, priceDrift: 0.08,
+      shares: 4180, price: 39.7, beta: 1.12, annualVolatility: 0.30, priceDrift: 0.13,
       averageVolume: 17_000_000, freeFloat: 0.35,
     },
     {
@@ -765,7 +765,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       goodwillPctRevenue: 0.95, cashPctRevenue: 0.09, netDebtToEbitda: 1.9,
       costOfDebt: 0.114, arDays: 26, invDays: 18, apDays: 44,
       dividendPayout: 0.15, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.01,
-      shares: 7450, price: 3.42, beta: 1.28, annualVolatility: 0.42, priceDrift: 0.01,
+      shares: 7450, price: 3.42, beta: 1.28, annualVolatility: 0.42, priceDrift: 0.06,
       averageVolume: 40_000_000, freeFloat: 0.31,
     },
     {

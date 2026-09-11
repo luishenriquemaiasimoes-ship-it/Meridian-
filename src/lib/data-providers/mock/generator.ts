@@ -21,7 +21,7 @@ export const LATEST_FISCAL_YEAR = 2025;
 export const HISTORY_YEARS = 6;              // FY2020 .. FY2025
 export const QUARTERS_BACK = 10;             // 1Q24 .. 2Q26
 export const AS_OF = '2026-09-10';
-export const PRICE_HISTORY_DAYS = 760;
+export const PRICE_HISTORY_DAYS = 1400;      // ~5.5 years of trading days
 
 /** Small, fast, deterministic PRNG (mulberry32). */
 export function makeRng(seed: number) {
@@ -353,35 +353,88 @@ export function buildQuarterlyPeriods(bp: CompanyBlueprint, annuals: FinancialPe
 
 /* ------------------------------ Prices ------------------------------ */
 
+/**
+ * The trading-day calendar every generated series shares: `days` weekdays
+ * ending on AS_OF, oldest first. Because prices, benchmark levels and NAV
+ * points are all stamped from this one calendar, a return computed from any of
+ * them is a genuine one-day return and can be annualised with 252 periods.
+ */
+export function tradingDays(days = PRICE_HISTORY_DAYS, endDate = AS_OF): string[] {
+  const dates: string[] = [];
+  let cursor = new Date(`${endDate}T00:00:00Z`);
+  while (dates.length < days) {
+    const dow = cursor.getUTCDay();
+    if (dow !== 0 && dow !== 6) dates.push(cursor.toISOString().slice(0, 10));
+    cursor = new Date(cursor.getTime() - 86400000);
+  }
+  return dates.reverse();
+}
+
+export type MarketFactorCode = 'IBOV' | 'SPX';
+
+/** Daily standard deviation of each market factor (≈16.7% and ≈13.5% a year). */
+export const MARKET_DAILY_VOL: Record<MarketFactorCode, number> = { IBOV: 0.0105, SPX: 0.0085 };
+
+function boxMuller(rng: () => number): number {
+  const u1 = Math.max(rng(), 1e-9);
+  const u2 = rng();
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+const FACTOR_CACHE = new Map<string, number[]>();
+
+/**
+ * Standard-normal daily shocks for a market index. Every company in that market
+ * is built from these same shocks, scaled by its beta, so the universe has a
+ * real common factor: correlations between holdings are non-zero, portfolio
+ * diversification is not free, and the beta quoted for a company is the beta
+ * you get back if you regress its generated prices on the index.
+ */
+export function marketShocks(code: MarketFactorCode, days = PRICE_HISTORY_DAYS): number[] {
+  const key = `${code}:${days}`;
+  const cached = FACTOR_CACHE.get(key);
+  if (cached) return cached;
+  const rng = makeRng(seedFromString(`market-factor-${code}-a`));
+  const out = Array.from({ length: days }, () => boxMuller(rng));
+  FACTOR_CACHE.set(key, out);
+  return out;
+}
+
+/** The market factor a company loads on, from where it is listed. */
+export function marketFactorFor(country: string): MarketFactorCode {
+  return country === 'Brazil' ? 'IBOV' : 'SPX';
+}
+
 export function buildPriceHistory(bp: CompanyBlueprint, days = PRICE_HISTORY_DAYS): PriceBarData[] {
   const a = bp.anchors;
   const rng = makeRng(seedFromString(`${bp.profile.ticker}-px`));
   const dailyVol = a.annualVolatility / Math.sqrt(252);
   const dailyDrift = a.priceDrift / 252;
 
+  // Two-factor return: beta x market shock, plus an idiosyncratic shock sized so
+  // that the total daily variance still equals the company's annual volatility
+  // anchor. The systematic share is capped so a high-beta, low-volatility anchor
+  // cannot demand more variance than the anchor allows.
+  const factorCode = marketFactorFor(bp.profile.country);
+  const shocks = marketShocks(factorCode, days);
+  const systematicVol = Math.min(a.beta * MARKET_DAILY_VOL[factorCode], dailyVol * 0.95);
+  const idiosyncraticVol = Math.sqrt(Math.max(0, dailyVol ** 2 - systematicVol ** 2));
+
+  // `priceDrift` is the compound (geometric) return the path should deliver, so
+  // it enters the exponent directly; adding a -0.5 sigma-squared term here would
+  // make a volatile name drift below the rate its anchor claims.
   const closes: number[] = [];
   let level = 1;
   for (let i = 0; i < days; i++) {
-    // Box-Muller for a normal shock.
-    const u1 = Math.max(rng(), 1e-9);
-    const u2 = rng();
-    const z = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
-    level *= Math.exp(dailyDrift - 0.5 * dailyVol ** 2 + dailyVol * z);
+    const shock = systematicVol * shocks[i] + idiosyncraticVol * boxMuller(rng);
+    level *= Math.exp(dailyDrift + shock);
     closes.push(level);
   }
   // Rescale so the final close equals the quoted price.
   const scale = a.price / closes[closes.length - 1];
 
   const bars: PriceBarData[] = [];
-  const end = new Date(`${AS_OF}T00:00:00Z`);
-  let cursor = new Date(end);
-  const dates: string[] = [];
-  while (dates.length < days) {
-    const dow = cursor.getUTCDay();
-    if (dow !== 0 && dow !== 6) dates.push(cursor.toISOString().slice(0, 10));
-    cursor = new Date(cursor.getTime() - 86400000);
-  }
-  dates.reverse();
+  const dates = tradingDays(days);
 
   for (let i = 0; i < days; i++) {
     const close = closes[i] * scale;

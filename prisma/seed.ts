@@ -50,10 +50,11 @@ async function seedBenchmarksAndMacro() {
       },
     });
     created[b.code] = row.id;
-    // Store weekly points to keep the database compact while preserving shape.
-    const weekly = b.history.filter((_, i) => i % 5 === 0);
+    // Every trading day is stored. Sampling the series would silently change
+    // the meaning of a return: a five-day gap annualised at 252 periods
+    // overstates volatility by the square root of five.
     await prisma.benchmarkPoint.createMany({
-      data: weekly.map((p) => ({ benchmarkId: row.id, date: d(p.date), value: p.value })),
+      data: b.history.map((p) => ({ benchmarkId: row.id, date: d(p.date), value: p.value })),
     });
   }
   await prisma.marketIndicator.createMany({
@@ -114,11 +115,10 @@ async function seedUniverse() {
       },
     });
 
-    // Store every second bar: enough resolution for charts and risk statistics
-    // while keeping the demo database small.
-    const sampled = bars.filter((_, i) => i % 2 === 0 || i === bars.length - 1);
+    // Every trading day is stored, so a close-to-close return is a genuine
+    // one-day return and can be annualised with 252 periods.
     await prisma.priceBar.createMany({
-      data: sampled.map((b) => ({
+      data: bars.map((b) => ({
         securityId: security.id, date: d(b.date),
         open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume,
       })),
@@ -572,75 +572,69 @@ async function seedWorkspaceContent(ctx: Ctx) {
   }
 
   /* ------------------------------ Portfolios ------------------------------ */
-  const holdings: { ticker: string; quantity: number; averagePrice: number; days: number }[] = [
-    { ticker: 'VALE3', quantity: 640_000, averagePrice: 57.2, days: 400 },
-    { ticker: 'PETR4', quantity: 900_000, averagePrice: 34.8, days: 520 },
-    { ticker: 'ITUB4', quantity: 1_050_000, averagePrice: 29.4, days: 610 },
-    { ticker: 'WEGE3', quantity: 480_000, averagePrice: 44.6, days: 300 },
-    { ticker: 'SUZB3', quantity: 260_000, averagePrice: 49.8, days: 250 },
-    { ticker: 'BBAS3', quantity: 720_000, averagePrice: 27.6, days: 340 },
-    { ticker: 'ABEV3', quantity: 1_400_000, averagePrice: 11.9, days: 700 },
-    { ticker: 'B3SA3', quantity: 900_000, averagePrice: 12.8, days: 420 },
-    { ticker: 'RENT3', quantity: 180_000, averagePrice: 44.1, days: 380 },
-    { ticker: 'TOTS3', quantity: 210_000, averagePrice: 29.7, days: 260 },
-    { ticker: 'EQTL3', quantity: 300_000, averagePrice: 29.2, days: 210 },
-    { ticker: 'PRIO3', quantity: 160_000, averagePrice: 38.4, days: 190 },
+  // The book is built across the whole price history: a core established near
+  // inception and additions layered in later. Average prices are set from the
+  // generated close on the trade date below, so cost basis, the transaction
+  // ledger and the NAV history all describe the same events.
+  const holdings: { ticker: string; quantity: number; days: number }[] = [
+    { ticker: 'ITUB4', quantity: 1_050_000, days: 1_340 },
+    { ticker: 'ABEV3', quantity: 1_400_000, days: 1_320 },
+    { ticker: 'VALE3', quantity: 640_000, days: 1_300 },
+    { ticker: 'PETR4', quantity: 900_000, days: 1_270 },
+    { ticker: 'BBAS3', quantity: 720_000, days: 1_180 },
+    { ticker: 'B3SA3', quantity: 900_000, days: 980 },
+    { ticker: 'WEGE3', quantity: 480_000, days: 760 },
+    { ticker: 'RENT3', quantity: 180_000, days: 620 },
+    { ticker: 'SUZB3', quantity: 260_000, days: 430 },
+    { ticker: 'TOTS3', quantity: 210_000, days: 360 },
+    { ticker: 'EQTL3', quantity: 300_000, days: 260 },
+    { ticker: 'PRIO3', quantity: 160_000, days: 190 },
   ];
 
-  const flagship = await prisma.portfolio.create({
-    data: {
-      workspaceId: ctx.workspaceId, name: 'Meridian Equities FIA',
-      description: 'Flagship long-only Brazilian equity fund benchmarked against the Ibovespa.',
-      baseCurrency: 'BRL', cash: 4_250_000, benchmarkCode: 'IBOV',
-      inceptionDate: d('2021-03-01'), isModel: false,
-    },
+  const flagshipCash = 4_250_000;
+  const flagshipBuilt = await buildBook({
+    workspaceId: ctx.workspaceId,
+    name: 'Meridian Equities FIA',
+    description: 'Flagship long-only Brazilian equity fund benchmarked against the Ibovespa.',
+    baseCurrency: 'BRL',
+    cash: flagshipCash,
+    benchmarkCode: 'IBOV',
+    isModel: false,
+    holdings,
+    companyIds: ctx.companyIds,
+    daysAgo,
+    traderName: ctx.names.pm,
+    treasurerName: ctx.names.admin,
+    depositNote: 'Fund seed capital.',
+    tradeNote: 'Position opened following committee approval.',
   });
-
-  for (const h of holdings) {
-    const companyId = ctx.companyIds[h.ticker];
-    if (!companyId) continue;
-    await prisma.portfolioPosition.create({
-      data: { portfolioId: flagship.id, companyId, quantity: h.quantity, averagePrice: h.averagePrice, openedAt: daysAgo(h.days) },
-    });
-    await prisma.portfolioTransaction.create({
-      data: {
-        portfolioId: flagship.id, companyId, kind: 'BUY', quantity: h.quantity,
-        price: h.averagePrice, amount: -(h.quantity * h.averagePrice), fees: h.quantity * h.averagePrice * 0.0003,
-        tradeDate: daysAgo(h.days), note: 'Initial position built following committee approval.',
-        createdBy: ctx.names.pm,
-      },
-    });
-  }
-  await prisma.portfolioTransaction.create({
-    data: {
-      portfolioId: flagship.id, kind: 'DEPOSIT', amount: 40_000_000, tradeDate: d('2021-03-01'),
-      note: 'Fund seed capital.', createdBy: ctx.names.admin,
-    },
-  });
+  const flagship = flagshipBuilt.portfolio;
 
   // Global sleeve, a smaller model portfolio.
-  const global = await prisma.portfolio.create({
-    data: {
-      workspaceId: ctx.workspaceId, name: 'Global Quality Sleeve',
-      description: 'Model portfolio of global compounders used for the offshore allocation study.',
-      baseCurrency: 'BRL', cash: 900_000, benchmarkCode: 'SPX',
-      inceptionDate: d('2023-06-01'), isModel: true,
-    },
-  });
   const globalHoldings = [
-    { ticker: 'MSFT', quantity: 9_000, averagePrice: 430 },
-    { ticker: 'GOOGL', quantity: 14_000, averagePrice: 198 },
-    { ticker: 'NVDA', quantity: 18_000, averagePrice: 132 },
-    { ticker: 'META', quantity: 4_200, averagePrice: 590 },
-    { ticker: 'AAPL', quantity: 12_000, averagePrice: 214 },
+    { ticker: 'MSFT', quantity: 9_000, days: 1_120 },
+    { ticker: 'AAPL', quantity: 12_000, days: 1_050 },
+    { ticker: 'GOOGL', quantity: 14_000, days: 880 },
+    { ticker: 'NVDA', quantity: 18_000, days: 540 },
+    { ticker: 'META', quantity: 4_200, days: 300 },
   ];
-  for (const h of globalHoldings) {
-    const companyId = ctx.companyIds[h.ticker];
-    if (!companyId) continue;
-    await prisma.portfolioPosition.create({
-      data: { portfolioId: global.id, companyId, quantity: h.quantity, averagePrice: h.averagePrice, openedAt: daysAgo(300) },
-    });
-  }
+  const globalBuilt = await buildBook({
+    workspaceId: ctx.workspaceId,
+    name: 'Global Quality Sleeve',
+    description: 'Model portfolio of global compounders used for the offshore allocation study.',
+    baseCurrency: 'BRL',
+    cash: 900_000,
+    benchmarkCode: 'SPX',
+    isModel: true,
+    holdings: globalHoldings,
+    companyIds: ctx.companyIds,
+    daysAgo,
+    traderName: ctx.names.pm,
+    treasurerName: ctx.names.admin,
+    depositNote: 'Allocation funded from the offshore sleeve.',
+    tradeNote: 'Model position opened for the offshore allocation study.',
+  });
+  const global = globalBuilt.portfolio;
 
   await prisma.rebalanceTargetRecord.createMany({
     data: [
@@ -659,11 +653,12 @@ async function seedWorkspaceContent(ctx: Ctx) {
     ],
   });
 
-  // Daily NAV history for both portfolios, tied to the benchmark path.
-  const ibov = await prisma.benchmark.findUnique({ where: { code: 'IBOV' }, include: { history: { orderBy: { date: 'asc' } } } });
-  const spx = await prisma.benchmark.findUnique({ where: { code: 'SPX' }, include: { history: { orderBy: { date: 'asc' } } } });
-  await seedNavSeries(flagship.id, ibov?.history ?? [], 38_000_000, 1.08, 0.0004);
-  await seedNavSeries(global.id, spx?.history ?? [], 12_000_000, 1.02, 0.0006);
+  // NAV history is derived from the ledger rather than invented: on each trading
+  // day the book is valued at the close of what it actually held that day, plus
+  // the cash it actually had. Every risk and attribution number downstream is
+  // therefore a statement about the same positions shown on the screen.
+  await seedNavSeries(flagship.id, 'IBOV', flagshipBuilt);
+  await seedNavSeries(global.id, 'SPX', globalBuilt);
 
   /* -------------------------------- Alerts -------------------------------- */
   const alerts = [
@@ -918,31 +913,223 @@ async function seedWorkspaceContent(ctx: Ctx) {
   }
 }
 
-async function seedNavSeries(
-  portfolioId: string,
-  benchmarkHistory: { date: Date; value: number }[],
-  startingValue: number,
-  betaToBenchmark: number,
-  dailyAlpha: number,
-) {
-  if (!benchmarkHistory.length) return;
-  const base = benchmarkHistory[0].value;
-  let nav = startingValue;
-  const rows: { portfolioId: string; date: Date; value: number; benchmark: number }[] = [];
-  for (let i = 0; i < benchmarkHistory.length; i++) {
-    const point = benchmarkHistory[i];
-    if (i > 0) {
-      const prev = benchmarkHistory[i - 1].value;
-      const benchReturn = prev !== 0 ? point.value / prev - 1 : 0;
-      nav *= 1 + benchReturn * betaToBenchmark + dailyAlpha;
-    }
-    rows.push({
-      portfolioId,
-      date: point.date,
-      value: Math.round(nav * 100) / 100,
-      benchmark: Math.round((point.value / base) * startingValue * 100) / 100,
+interface BuiltBook {
+  portfolio: { id: string; name: string; cash: number };
+  /** One entry per holding: shares held and the day they were bought. */
+  lots: { ticker: string; companyId: string; quantity: number; price: number; tradeDate: Date }[];
+  /** Cash the book holds today, after every purchase above. */
+  endingCash: number;
+  inceptionDate: Date;
+  /** Subscriptions into the fund, in date order. Redemptions would be negative. */
+  flows: { date: Date; amount: number }[];
+}
+
+/**
+ * Creates a portfolio, its positions and the transaction ledger that produced
+ * them. Each position is bought at the generated closing price on its trade
+ * date, so the cost basis on screen is a price that actually occurred; the
+ * opening deposit is then whatever those purchases plus the ending cash
+ * required, which keeps the cash ledger articulated.
+ */
+async function buildBook(spec: {
+  workspaceId: string;
+  name: string;
+  description: string;
+  baseCurrency: string;
+  cash: number;
+  benchmarkCode: string;
+  isModel: boolean;
+  holdings: { ticker: string; quantity: number; days: number }[];
+  companyIds: Record<string, string>;
+  daysAgo: (n: number) => Date;
+  traderName: string;
+  treasurerName: string;
+  depositNote: string;
+  tradeNote: string;
+}): Promise<BuiltBook> {
+  const FEE_RATE = 0.0003;
+  const lots: BuiltBook['lots'] = [];
+
+  for (const h of spec.holdings) {
+    const companyId = spec.companyIds[h.ticker];
+    if (!companyId) continue;
+    const target = spec.daysAgo(h.days);
+    // The close on or immediately before the intended trade date.
+    const bar = await prisma.priceBar.findFirst({
+      where: { security: { companyId }, date: { lte: target } },
+      orderBy: { date: 'desc' },
+    });
+    if (!bar) continue;
+    lots.push({ ticker: h.ticker, companyId, quantity: h.quantity, price: bar.close, tradeDate: bar.date });
+  }
+  if (!lots.length) throw new Error(`No price history to build "${spec.name}".`);
+
+  const inceptionDate = lots.reduce((min, l) => (l.tradeDate < min ? l.tradeDate : min), lots[0].tradeDate);
+  const inceptionKey = inceptionDate.toISOString().slice(0, 10);
+  const cost = (l: BuiltBook['lots'][number]) => l.quantity * l.price * (1 + FEE_RATE);
+
+  // The book stays invested: the opening subscription funds the positions taken
+  // at launch plus the working cash balance, and every later purchase is funded
+  // by a subscription on the same day. The fund therefore never sits on idle
+  // cash it did not choose to hold.
+  const openingLots = lots.filter((l) => l.tradeDate.toISOString().slice(0, 10) === inceptionKey);
+  const laterLots = lots.filter((l) => l.tradeDate.toISOString().slice(0, 10) !== inceptionKey);
+  const openingDeposit = openingLots.reduce((s, l) => s + cost(l), 0) + spec.cash;
+
+  const portfolio = await prisma.portfolio.create({
+    data: {
+      workspaceId: spec.workspaceId, name: spec.name, description: spec.description,
+      baseCurrency: spec.baseCurrency, cash: spec.cash, benchmarkCode: spec.benchmarkCode,
+      inceptionDate, isModel: spec.isModel,
+    },
+  });
+
+  const flows: { date: Date; amount: number }[] = [{ date: inceptionDate, amount: openingDeposit }];
+  await prisma.portfolioTransaction.create({
+    data: {
+      portfolioId: portfolio.id, kind: 'DEPOSIT',
+      amount: Math.round(openingDeposit * 100) / 100,
+      tradeDate: inceptionDate, note: spec.depositNote, createdBy: spec.treasurerName,
+    },
+  });
+  for (const l of laterLots) {
+    const amount = Math.round(cost(l) * 100) / 100;
+    flows.push({ date: l.tradeDate, amount });
+    await prisma.portfolioTransaction.create({
+      data: {
+        portfolioId: portfolio.id, kind: 'DEPOSIT', amount,
+        tradeDate: l.tradeDate, note: `Subscription funding the ${l.ticker} position.`,
+        createdBy: spec.treasurerName,
+      },
     });
   }
+
+  for (const l of lots) {
+    await prisma.portfolioPosition.create({
+      data: {
+        portfolioId: portfolio.id, companyId: l.companyId, quantity: l.quantity,
+        averagePrice: l.price, openedAt: l.tradeDate,
+      },
+    });
+    await prisma.portfolioTransaction.create({
+      data: {
+        portfolioId: portfolio.id, companyId: l.companyId, kind: 'BUY', quantity: l.quantity,
+        price: l.price, amount: -(l.quantity * l.price), fees: l.quantity * l.price * FEE_RATE,
+        tradeDate: l.tradeDate, note: spec.tradeNote, createdBy: spec.traderName,
+      },
+    });
+  }
+
+  return { portfolio, lots, endingCash: spec.cash, inceptionDate, flows };
+}
+
+/**
+ * Values the book at every trading day from inception: shares held on that day
+ * at that day's close, plus the cash the ledger says the book held. The
+ * benchmark column is the index rebased to the same starting NAV, so the two
+ * series are directly comparable.
+ */
+async function seedNavSeries(portfolioId: string, benchmarkCode: string, book: BuiltBook) {
+  const tickers = book.lots.map((l) => l.ticker);
+  const bars = await prisma.priceBar.findMany({
+    where: { security: { company: { ticker: { in: tickers } } }, date: { gte: book.inceptionDate } },
+    orderBy: { date: 'asc' },
+    include: { security: { include: { company: { select: { ticker: true, currency: true } } } } },
+  });
+  if (!bars.length) return;
+
+  const fx = await prisma.marketIndicator.findUnique({ where: { code: 'USDBRL' } });
+  const usdBrl = fx?.value ?? 5.18;
+  const rateFor = (currency: string) => (currency === 'USD' ? usdBrl : 1);
+
+  // close[date][ticker]
+  const closes = new Map<string, Map<string, number>>();
+  for (const b of bars) {
+    const key = b.date.toISOString().slice(0, 10);
+    if (!closes.has(key)) closes.set(key, new Map());
+    closes.get(key)!.set(b.security.company.ticker, b.close * rateFor(b.security.company.currency));
+  }
+  const dates = Array.from(closes.keys()).sort();
+
+  const benchmark = await prisma.benchmark.findUnique({
+    where: { code: benchmarkCode },
+    include: { history: { orderBy: { date: 'asc' } } },
+  });
+  const benchByDate = new Map(
+    (benchmark?.history ?? []).map((h) => [h.date.toISOString().slice(0, 10), h.value] as const),
+  );
+
+  const FEE_RATE = 0.0003;
+  const BASE_UNIT_VALUE = 100;
+  const flowsByDate = new Map<string, number>();
+  for (const f of book.flows) {
+    const key = f.date.toISOString().slice(0, 10);
+    flowsByDate.set(key, (flowsByDate.get(key) ?? 0) + f.amount);
+  }
+
+  const rows: {
+    portfolioId: string; date: Date; value: number; units: number; unitValue: number; benchmark: number;
+  }[] = [];
+  let lastBench: number | null = null;
+  let baseBench: number | null = null;
+  let units = 0;
+  let cash = 0;
+  let unitValue = BASE_UNIT_VALUE;
+
+  for (const date of dates) {
+    const priced = closes.get(date)!;
+
+    // Value yesterday's book at today's close, *before* today's flow: that is
+    // the price at which units are created, so a subscription buys in at a
+    // price it did not itself move.
+    let equityBefore = 0;
+    let priceable = true;
+    for (const lot of book.lots) {
+      if (lot.tradeDate.toISOString().slice(0, 10) >= date) continue;
+      const close = priced.get(lot.ticker);
+      if (close === undefined) { priceable = false; break; }
+      equityBefore += lot.quantity * close;
+    }
+    if (!priceable) continue;
+
+    if (units > 0) unitValue = (equityBefore + cash) / units;
+
+    const subscription = flowsByDate.get(date) ?? 0;
+    if (subscription !== 0) {
+      cash += subscription;
+      units += subscription / unitValue;
+    }
+
+    // Today's purchases settle at their trade price.
+    let equity = equityBefore;
+    for (const lot of book.lots) {
+      if (lot.tradeDate.toISOString().slice(0, 10) !== date) continue;
+      const close = priced.get(lot.ticker);
+      if (close === undefined) { priceable = false; break; }
+      cash -= lot.quantity * lot.price * (1 + FEE_RATE);
+      equity += lot.quantity * close;
+    }
+    if (!priceable || units <= 0) continue;
+
+    const nav = equity + cash;
+    unitValue = nav / units;
+
+    const bench: number | null = benchByDate.get(date) ?? lastBench;
+    if (bench === null) continue;
+    lastBench = bench;
+    baseBench ??= bench;
+    if (baseBench === null) continue;
+
+    rows.push({
+      portfolioId,
+      date: new Date(`${date}T00:00:00.000Z`),
+      value: Math.round(nav * 100) / 100,
+      units: Math.round(units * 1e6) / 1e6,
+      unitValue: Math.round(unitValue * 1e6) / 1e6,
+      benchmark: Math.round((bench / baseBench) * BASE_UNIT_VALUE * 1e6) / 1e6,
+    });
+  }
+
   await prisma.portfolioValuationPoint.createMany({ data: rows });
 }
 
