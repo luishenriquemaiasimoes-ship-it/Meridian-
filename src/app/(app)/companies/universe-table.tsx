@@ -43,7 +43,7 @@ export function UniverseTable({ rows, sectors, countries }: { rows: UniverseRow[
     { key: 'sector', header: 'Sector', width: '150px', value: (r) => r.sector, render: (r) => <span className="truncate text-xs text-ink-3">{r.sector}</span> },
     { key: 'price', header: 'Price', align: 'right', value: (r) => r.price, render: (r) => <Num value={r.price} format="currency" currency={r.currency as Currency} /> },
     { key: 'day', header: 'Day', align: 'right', value: (r) => r.dailyChangePct, render: (r) => <Delta value={r.dailyChangePct} /> },
-    { key: 'mcap', header: 'Market cap', align: 'right', value: (r) => r.marketCap, render: (r) => <Num value={r.marketCap} format="currencyCompact" currency={r.currency as Currency} /> },
+    { key: 'mcap', header: 'Market cap', align: 'right', value: (r) => r.marketCap, render: (r) => <Num value={r.marketCap} format="currencyMillions" currency={r.currency as Currency} /> },
   ];
 
   const byView: Record<View, Column<UniverseRow>[]> = {

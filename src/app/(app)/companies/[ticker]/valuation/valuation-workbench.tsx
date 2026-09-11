@@ -280,8 +280,8 @@ export function ValuationWorkbench(props: {
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <MetricCard label="Fair value / share" value={result.fairValuePerShare} format="currency" currency={currency} decimals={2} accent
           sublabel={`vs ${formatPercent(result.upside, 1, { signed: true })} to price`} />
-        <MetricCard label="Enterprise value" value={result.enterpriseValue} format="currencyCompact" currency={currency} />
-        <MetricCard label="Equity value" value={result.equityValue} format="currencyCompact" currency={currency}
+        <MetricCard label="Enterprise value" value={result.enterpriseValue} format="currencyMillions" currency={currency} />
+        <MetricCard label="Equity value" value={result.equityValue} format="currencyMillions" currency={currency}
           sublabel="after net debt and minority interest" />
         <MetricCard label="Terminal value share" value={result.terminalValuePctOfEv} format="percent"
           sublabel="of enterprise value" tooltip="A high share means the valuation rests on perpetuity assumptions rather than the explicit forecast." />
@@ -610,21 +610,21 @@ function ModelTab({
   removeYear: () => void;
   peerMedianEvEbitda: number | null;
 }) {
-  const rows: { label: string; formula?: string; pick: (y: (typeof result.years)[number]) => number | null; format: 'currencyCompact' | 'percent' | 'ratio'; emphasis?: boolean; editable?: 'revenueGrowth' | 'ebitdaMargin' }[] = [
-    { label: 'Revenue', pick: (y) => y.revenue, format: 'currencyCompact', emphasis: true },
+  const rows: { label: string; formula?: string; pick: (y: (typeof result.years)[number]) => number | null; format: 'currencyMillions' | 'percent' | 'ratio'; emphasis?: boolean; editable?: 'revenueGrowth' | 'ebitdaMargin' }[] = [
+    { label: 'Revenue', pick: (y) => y.revenue, format: 'currencyMillions', emphasis: true },
     { label: 'Revenue growth', pick: (y) => y.revenueGrowth, format: 'percent', editable: 'revenueGrowth' },
     { label: 'EBITDA margin', pick: (y) => y.ebitdaMargin, format: 'percent', editable: 'ebitdaMargin' },
-    { label: 'EBITDA', formula: 'Revenue × EBITDA margin', pick: (y) => y.ebitda, format: 'currencyCompact', emphasis: true },
-    { label: 'D&A', formula: 'Revenue × D&A %', pick: (y) => -y.da, format: 'currencyCompact' },
-    { label: 'EBIT', formula: 'EBITDA − D&A', pick: (y) => y.ebit, format: 'currencyCompact', emphasis: true },
-    { label: 'Taxes', formula: 'EBIT × tax rate (no benefit on losses)', pick: (y) => -y.taxes, format: 'currencyCompact' },
-    { label: 'NOPAT', formula: 'EBIT × (1 − tax rate)', pick: (y) => y.nopat, format: 'currencyCompact', emphasis: true },
-    { label: 'Plus D&A', pick: (y) => y.da, format: 'currencyCompact' },
-    { label: 'Less capex', formula: 'Revenue × capex %', pick: (y) => -y.capex, format: 'currencyCompact' },
-    { label: 'Less change in NWC', formula: 'NWC(t) − NWC(t−1)', pick: (y) => -y.nwcChange, format: 'currencyCompact' },
-    { label: 'FCFF', formula: 'EBIT × (1−T) + D&A − capex − ΔNWC', pick: (y) => y.fcff, format: 'currencyCompact', emphasis: true },
+    { label: 'EBITDA', formula: 'Revenue × EBITDA margin', pick: (y) => y.ebitda, format: 'currencyMillions', emphasis: true },
+    { label: 'D&A', formula: 'Revenue × D&A %', pick: (y) => -y.da, format: 'currencyMillions' },
+    { label: 'EBIT', formula: 'EBITDA − D&A', pick: (y) => y.ebit, format: 'currencyMillions', emphasis: true },
+    { label: 'Taxes', formula: 'EBIT × tax rate (no benefit on losses)', pick: (y) => -y.taxes, format: 'currencyMillions' },
+    { label: 'NOPAT', formula: 'EBIT × (1 − tax rate)', pick: (y) => y.nopat, format: 'currencyMillions', emphasis: true },
+    { label: 'Plus D&A', pick: (y) => y.da, format: 'currencyMillions' },
+    { label: 'Less capex', formula: 'Revenue × capex %', pick: (y) => -y.capex, format: 'currencyMillions' },
+    { label: 'Less change in NWC', formula: 'NWC(t) − NWC(t−1)', pick: (y) => -y.nwcChange, format: 'currencyMillions' },
+    { label: 'FCFF', formula: 'EBIT × (1−T) + D&A − capex − ΔNWC', pick: (y) => y.fcff, format: 'currencyMillions', emphasis: true },
     { label: 'Discount factor', formula: '1 ÷ (1 + WACC)^t', pick: (y) => y.discountFactor, format: 'ratio' },
-    { label: 'PV of FCFF', formula: 'FCFF × discount factor', pick: (y) => y.presentValue, format: 'currencyCompact', emphasis: true },
+    { label: 'PV of FCFF', formula: 'FCFF × discount factor', pick: (y) => y.presentValue, format: 'currencyMillions', emphasis: true },
   ];
 
   return (
@@ -702,13 +702,13 @@ function ModelTab({
 
         <Panel>
           <PanelHeader title="Enterprise to equity bridge" dense />
-          <StatRow label="Sum of PV(FCFF)" value={<Num value={result.sumPvFcff} format="currencyCompact" currency={currency} />} />
-          <StatRow label="Terminal value" value={<Num value={result.terminalValue} format="currencyCompact" currency={currency} />} />
-          <StatRow label="PV of terminal value" value={<Num value={result.pvTerminalValue} format="currencyCompact" currency={currency} />} />
-          <StatRow label="Enterprise value" value={<Num value={result.enterpriseValue} format="currencyCompact" currency={currency} className="font-medium" />} />
-          <StatRow label="Less net debt" value={<Num value={-result.netDebt} format="currencyCompact" currency={currency} />} />
-          <StatRow label="Less minority interest" value={<Num value={-result.minorityInterest} format="currencyCompact" currency={currency} />} />
-          <StatRow label="Equity value" value={<Num value={result.equityValue} format="currencyCompact" currency={currency} className="font-medium" />} />
+          <StatRow label="Sum of PV(FCFF)" value={<Num value={result.sumPvFcff} format="currencyMillions" currency={currency} />} />
+          <StatRow label="Terminal value" value={<Num value={result.terminalValue} format="currencyMillions" currency={currency} />} />
+          <StatRow label="PV of terminal value" value={<Num value={result.pvTerminalValue} format="currencyMillions" currency={currency} />} />
+          <StatRow label="Enterprise value" value={<Num value={result.enterpriseValue} format="currencyMillions" currency={currency} className="font-medium" />} />
+          <StatRow label="Less net debt" value={<Num value={-result.netDebt} format="currencyMillions" currency={currency} />} />
+          <StatRow label="Less minority interest" value={<Num value={-result.minorityInterest} format="currencyMillions" currency={currency} />} />
+          <StatRow label="Equity value" value={<Num value={result.equityValue} format="currencyMillions" currency={currency} className="font-medium" />} />
           <StatRow label="÷ shares outstanding" value={<Num value={result.sharesOutstanding} format="shares" />} />
           <div className="mt-1 border-t border-line pt-2">
             <StatRow label="Fair value per share" value={<Num value={result.fairValuePerShare} format="currency" currency={currency} decimals={2} className="text-md font-semibold" />} />
@@ -841,8 +841,8 @@ function SotpTab({
               {result.segments.map((s, i) => (
                 <tr key={s.id} className="border-b border-line/50 hover:bg-raised">
                   <td className="px-2.5 py-1 text-ink-2">{s.name}</td>
-                  <td className="px-2.5 py-1 text-right"><Num value={s.revenue} format="currencyCompact" currency={currency} /></td>
-                  <td className="px-2.5 py-1 text-right"><Num value={s.ebitda} format="currencyCompact" currency={currency} /></td>
+                  <td className="px-2.5 py-1 text-right"><Num value={s.revenue} format="currencyMillions" currency={currency} /></td>
+                  <td className="px-2.5 py-1 text-right"><Num value={s.ebitda} format="currencyMillions" currency={currency} /></td>
                   <td className="px-2.5 py-1 text-right"><Num value={s.margin} format="percent" /></td>
                   <td className="px-2.5 py-1 text-right">
                     {canEdit ? (
@@ -862,7 +862,7 @@ function SotpTab({
                       />
                     ) : <Num value={s.ownership ?? 1} format="percent" />}
                   </td>
-                  <td className="px-2.5 py-1 text-right"><Num value={s.attributableEv} format="currencyCompact" currency={currency} className="font-medium" /></td>
+                  <td className="px-2.5 py-1 text-right"><Num value={s.attributableEv} format="currencyMillions" currency={currency} className="font-medium" /></td>
                   <td className="px-2.5 py-1 text-right"><Num value={s.pctOfTotalEv} format="percent" /></td>
                   <td className="px-2.5 py-1 text-right"><Num value={s.evPerShare} format="currency" currency={currency} decimals={2} /></td>
                 </tr>
@@ -871,7 +871,7 @@ function SotpTab({
                 <tr className="border-b border-line/50">
                   <td className="px-2.5 py-1 text-ink-3">Unallocated corporate costs</td>
                   <td colSpan={5} />
-                  <td className="px-2.5 py-1 text-right"><Num value={result.corporateEv} format="currencyCompact" currency={currency} /></td>
+                  <td className="px-2.5 py-1 text-right"><Num value={result.corporateEv} format="currencyMillions" currency={currency} /></td>
                   <td colSpan={2} />
                 </tr>
               ) : null}
@@ -882,10 +882,10 @@ function SotpTab({
 
       <Panel>
         <PanelHeader title="Bridge to equity" dense />
-        <StatRow label="Total enterprise value" value={<Num value={result.totalEnterpriseValue} format="currencyCompact" currency={currency} className="font-medium" />} />
-        <StatRow label="Less net debt" value={<Num value={-result.netDebt} format="currencyCompact" currency={currency} />} />
-        <StatRow label="Less minority interest" value={<Num value={-result.minorityInterest} format="currencyCompact" currency={currency} />} />
-        <StatRow label="Equity value" value={<Num value={result.equityValue} format="currencyCompact" currency={currency} className="font-medium" />} />
+        <StatRow label="Total enterprise value" value={<Num value={result.totalEnterpriseValue} format="currencyMillions" currency={currency} className="font-medium" />} />
+        <StatRow label="Less net debt" value={<Num value={-result.netDebt} format="currencyMillions" currency={currency} />} />
+        <StatRow label="Less minority interest" value={<Num value={-result.minorityInterest} format="currencyMillions" currency={currency} />} />
+        <StatRow label="Equity value" value={<Num value={result.equityValue} format="currencyMillions" currency={currency} className="font-medium" />} />
         <div className="mt-1 border-t border-line pt-2">
           <StatRow label="Implied share price" value={<Num value={result.impliedSharePrice} format="currency" currency={currency} decimals={2} className="text-md font-semibold" />} />
           <StatRow label="Current price" value={<Num value={result.currentPrice} format="currency" currency={currency} decimals={2} />} />

@@ -1,4 +1,4 @@
-import { formatBps, formatCompact, formatMoney, formatMultiple, formatPercent, DASH } from '@/lib/finance/format';
+import { formatBps, formatCompact, formatMoney, formatMultiple, formatPercent, ordinal, DASH, REPORTING_UNIT_SCALE } from '@/lib/finance/format';
 import { isNum } from '@/lib/finance/core';
 import type { AiAnswer, AnswerBlock } from './types';
 import type { AiContext, CompanyContext, PortfolioContext } from './context';
@@ -14,7 +14,9 @@ import { detectIntent, type Intent } from './intent';
    ================================================================ */
 
 const fmtMoney = (v: number | null, c: CompanyContext) => formatMoney(v, c.currency, 2);
-const fmtBig = (v: number | null, c: CompanyContext) => formatCompact(v, { currency: c.currency });
+/** Statement figures are held in the company's reporting unit (millions). */
+const fmtBig = (v: number | null, c: CompanyContext) =>
+  formatCompact(v, { currency: c.currency, scale: REPORTING_UNIT_SCALE });
 
 function block(kind: AnswerBlock['kind'], text: string, sources: string[] = []): AnswerBlock {
   return { kind, text, sources };
@@ -71,7 +73,7 @@ function answerValuation(c: CompanyContext): AiAnswer {
     const gap = (hist.current as number) / (hist.median5y as number) - 1;
     blocks.push(block('CALCULATION',
       `${hist.label} of ${formatMultiple(hist.current)} sits ${formatPercent(Math.abs(gap))} ${gap < 0 ? 'below' : 'above'} its five-year median of ${formatMultiple(hist.median5y)}` +
-      (isNum(hist.percentileIn5y) ? `, in the ${Math.round((hist.percentileIn5y as number) * 100)}th percentile of its own five-year range.` : '.'),
+      (isNum(hist.percentileIn5y) ? `, in the ${ordinal((hist.percentileIn5y as number) * 100)} percentile of its own five-year range.` : '.'),
       ['PriceBar series', 'FinancialStatement history']));
   } else {
     blocks.push(block('MISSING', 'There is not enough price and statement history in the workspace to place the current multiple in its own historical range.', []));

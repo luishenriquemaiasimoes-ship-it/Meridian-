@@ -205,7 +205,7 @@ export function FinancialsWorkbench({
                     <td className={cx('px-2 py-1', label === 'Adjustments' && 'pl-5 text-ink-3')}>{label}</td>
                     {normalized.slice(-4).map((n) => (
                       <td key={n.period.label} className="px-2 py-1 text-right">
-                        <Num value={n.result[key]} format="currencyCompact" currency={currency} />
+                        <Num value={n.result[key]} format="currencyMillions" currency={currency} />
                       </td>
                     ))}
                   </tr>
@@ -234,7 +234,7 @@ export function FinancialsWorkbench({
                       <p className="mt-1 text-2xs text-ink-4">{a.author} · {formatDate(a.createdAt)}</p>
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1">
-                      <Num value={a.amount} format="currencyCompact" currency={currency} className="text-xs font-medium" />
+                      <Num value={a.amount} format="currencyMillions" currency={currency} className="text-xs font-medium" />
                       {canEdit ? (
                         <button type="button" onClick={() => removeAdjustment(a.id)} className="text-2xs text-ink-4 hover:text-neg">Remove</button>
                       ) : null}

@@ -9,7 +9,7 @@ import type { Currency } from '@/lib/finance/types';
 export interface RatioRow {
   key: string;
   label: string;
-  format: 'percent' | 'multiple' | 'days' | 'ratio' | 'currencyCompact';
+  format: 'percent' | 'multiple' | 'days' | 'ratio' | 'currencyMillions';
   values: Record<string, number | null>;
   formula?: string;
   peer?: number | null;

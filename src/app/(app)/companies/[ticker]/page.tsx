@@ -72,11 +72,11 @@ export default async function CompanyOverviewPage({ params }: { params: Promise<
   return (
     <div className="space-y-4">
       <Grid cols={6} gap={2}>
-        <MetricCard label="Revenue" value={m.revenue} format="currencyCompact" currency={currency} delta={m.revenueGrowth} sublabel={m.basisLabel} />
-        <MetricCard label="EBITDA" value={m.ebitda} format="currencyCompact" currency={currency} delta={m.ebitdaGrowth} sublabel={formatPercent(m.ebitdaMargin) + ' margin'} />
-        <MetricCard label="EBIT" value={m.ebit} format="currencyCompact" currency={currency} delta={m.ebitGrowth} sublabel={formatPercent(m.ebitMargin) + ' margin'} />
-        <MetricCard label="Net income" value={m.netIncome} format="currencyCompact" currency={currency} sublabel={formatPercent(m.netMargin) + ' margin'} />
-        <MetricCard label="Free cash flow" value={m.fcf} format="currencyCompact" currency={currency} delta={m.fcfGrowth} sublabel={formatPercent(m.fcfMargin) + ' margin'} />
+        <MetricCard label="Revenue" value={m.revenue} format="currencyMillions" currency={currency} delta={m.revenueGrowth} sublabel={m.basisLabel} />
+        <MetricCard label="EBITDA" value={m.ebitda} format="currencyMillions" currency={currency} delta={m.ebitdaGrowth} sublabel={formatPercent(m.ebitdaMargin) + ' margin'} />
+        <MetricCard label="EBIT" value={m.ebit} format="currencyMillions" currency={currency} delta={m.ebitGrowth} sublabel={formatPercent(m.ebitMargin) + ' margin'} />
+        <MetricCard label="Net income" value={m.netIncome} format="currencyMillions" currency={currency} sublabel={formatPercent(m.netMargin) + ' margin'} />
+        <MetricCard label="Free cash flow" value={m.fcf} format="currencyMillions" currency={currency} delta={m.fcfGrowth} sublabel={formatPercent(m.fcfMargin) + ' margin'} />
         <MetricCard label="EPS" value={m.eps} format="currency" currency={currency} decimals={2} delta={m.epsGrowth} sublabel="diluted" />
       </Grid>
 
@@ -89,7 +89,7 @@ export default async function CompanyOverviewPage({ params }: { params: Promise<
         />
         <MetricCard label="ROE" value={m.roe} format="percent" tooltip="Net income over average equity." />
         <MetricCard label="ROA" value={m.roa} format="percent" />
-        <MetricCard label="Net debt" value={m.netDebt} format="currencyCompact" currency={currency} sublabel={m.netDebt !== null && m.netDebt < 0 ? 'net cash position' : undefined} />
+        <MetricCard label="Net debt" value={m.netDebt} format="currencyMillions" currency={currency} sublabel={m.netDebt !== null && m.netDebt < 0 ? 'net cash position' : undefined} />
         <MetricCard label="Net debt / EBITDA" value={m.netDebtToEbitda} format="multiple" decimals={2} />
         <MetricCard label="Gross margin" value={m.grossMargin} format="percent" />
       </Grid>
@@ -118,12 +118,12 @@ export default async function CompanyOverviewPage({ params }: { params: Promise<
           <BarLineChart
             data={history}
             xKey="label"
-            bars={[{ key: 'revenue', label: 'Revenue', format: 'currencyCompact', currency }]}
-            lines={[{ key: 'ebitda', label: 'EBITDA', format: 'currencyCompact', currency }]}
+            bars={[{ key: 'revenue', label: 'Revenue', format: 'currencyMillions', currency }]}
+            lines={[{ key: 'ebitda', label: 'EBITDA', format: 'currencyMillions', currency }]}
             title="Revenue and EBITDA"
             subtitle={`Reported annual history in ${currency} millions`}
             currency={currency}
-            yFormat="currencyCompact"
+            yFormat="currencyMillions"
             height={230}
           />
 
@@ -170,7 +170,7 @@ export default async function CompanyOverviewPage({ params }: { params: Promise<
                       <div className="flex items-baseline justify-between gap-3 text-xs">
                         <span className="min-w-0 truncate text-ink-2">{s.segment}</span>
                         <span className="flex shrink-0 items-baseline gap-3">
-                          <Num value={s.revenue} format="currencyCompact" currency={currency} className="text-2xs" />
+                          <Num value={s.revenue} format="currencyMillions" currency={currency} className="text-2xs" />
                           <span className="num w-11 text-right text-2xs text-ink-3">{formatPercent(share, 0)}</span>
                           <span className="num w-14 text-right text-2xs text-ink-4">{margin === null ? '—' : `${formatPercent(margin, 0)} mg`}</span>
                         </span>
@@ -193,7 +193,7 @@ export default async function CompanyOverviewPage({ params }: { params: Promise<
               <StatRow
                 key={row.label}
                 label={row.label}
-                value={<Num value={row.value} format="currencyCompact" currency={currency} />}
+                value={<Num value={row.value} format="currencyMillions" currency={currency} />}
               />
             ))}
             <div className="mt-2 border-t border-line pt-2">
@@ -219,7 +219,7 @@ export default async function CompanyOverviewPage({ params }: { params: Promise<
                   label={g.segment}
                   value={
                     <span className="flex items-baseline gap-3">
-                      <Num value={g.revenue} format="currencyCompact" currency={currency} className="text-2xs" />
+                      <Num value={g.revenue} format="currencyMillions" currency={currency} className="text-2xs" />
                       <span className="num w-10 text-right text-2xs text-ink-3">
                         {geoTotal ? formatPercent((g.revenue ?? 0) / geoTotal, 0) : '—'}
                       </span>

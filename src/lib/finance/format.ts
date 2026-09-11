@@ -154,8 +154,16 @@ export function formatDateTime(value: string | Date | null | undefined, locale =
 }
 
 export type MetricFormat =
-  | 'currency' | 'currencyCompact' | 'percent' | 'percentSigned'
+  | 'currency' | 'currencyCompact' | 'currencyMillions' | 'percent' | 'percentSigned'
   | 'multiple' | 'number' | 'days' | 'bps' | 'shares' | 'ratio' | 'text';
+
+/**
+ * Financial statements are stored in the unit the company reports in — millions
+ * for every company in this product. `currencyMillions` renders such a value at
+ * human scale (205000 -> R$ 205,00 bi) while `currencyCompact` treats its input
+ * as absolute currency units, which is what portfolio values are.
+ */
+export const REPORTING_UNIT_SCALE = 1_000_000;
 
 export function formatMetric(
   value: number | null | undefined,
@@ -165,6 +173,7 @@ export function formatMetric(
   switch (format) {
     case 'currency': return formatMoney(value, opts.currency ?? 'BRL', opts.decimals ?? 2);
     case 'currencyCompact': return formatCompact(value, { currency: opts.currency, decimals: opts.decimals, scale: opts.scale });
+    case 'currencyMillions': return formatCompact(value, { currency: opts.currency, decimals: opts.decimals, scale: (opts.scale ?? 1) * REPORTING_UNIT_SCALE });
     case 'percent': return formatPercent(value, opts.decimals ?? 1);
     case 'percentSigned': return formatPercent(value, opts.decimals ?? 1, { signed: true });
     case 'multiple': return formatMultiple(value, opts.decimals ?? 1);
@@ -174,6 +183,19 @@ export function formatMetric(
     case 'shares': return formatShares(value);
     case 'ratio': return isNum(value) ? (value as number).toFixed(opts.decimals ?? 2) : DASH;
     default: return value === null || value === undefined ? DASH : String(value);
+  }
+}
+
+/** 1 -> 1st, 2 -> 2nd, 18 -> 18th. Used wherever a percentile is written out. */
+export function ordinal(n: number): string {
+  const v = Math.round(n);
+  const mod100 = v % 100;
+  if (mod100 >= 11 && mod100 <= 13) return `${v}th`;
+  switch (v % 10) {
+    case 1: return `${v}st`;
+    case 2: return `${v}nd`;
+    case 3: return `${v}rd`;
+    default: return `${v}th`;
   }
 }
 

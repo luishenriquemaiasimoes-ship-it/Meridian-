@@ -92,20 +92,20 @@ export default async function FundamentalsPage({ params }: { params: Promise<{ t
     { key: 'dio', label: 'Days inventory outstanding', format: 'days', pick: (s) => s.snap.dio, formula: 'Inventory ÷ COGS × 365' },
     { key: 'dpo', label: 'Days payables outstanding', format: 'days', pick: (s) => s.snap.dpo, formula: 'Payables ÷ COGS × 365' },
     { key: 'ccc', label: 'Cash conversion cycle', format: 'days', pick: (s) => s.snap.cashConversionCycle, formula: 'DSO + DIO − DPO' },
-    { key: 'nwc', label: 'Net working capital', format: 'currencyCompact', pick: (s) => s.snap.netWorkingCapital },
+    { key: 'nwc', label: 'Net working capital', format: 'currencyMillions', pick: (s) => s.snap.netWorkingCapital },
   ]);
 
   const leverageRows = rowsFrom([
-    { key: 'netDebt', label: 'Net debt', format: 'currencyCompact', pick: (s) => netDebt(s.period.balance), formula: 'Gross debt − cash' },
+    { key: 'netDebt', label: 'Net debt', format: 'currencyMillions', pick: (s) => netDebt(s.period.balance), formula: 'Gross debt − cash' },
     { key: 'netDebtToEbitda', label: 'Net debt / EBITDA', format: 'multiple', pick: (s) => s.snap.netDebtToEbitda, peerKey: 'netDebtToEbitda', sectorKey: 'medianNetDebtToEbitda' },
     { key: 'debtToEquity', label: 'Debt / equity', format: 'multiple', pick: (s) => s.snap.debtToEquity },
     { key: 'interestCoverage', label: 'Interest coverage', format: 'multiple', pick: (s) => s.snap.interestCoverage, formula: 'EBIT ÷ net financial expense' },
   ]);
 
   const cashRows = rowsFrom([
-    { key: 'cfo', label: 'Cash from operations', format: 'currencyCompact', pick: (s) => s.snap.cfo },
-    { key: 'capex', label: 'Capital expenditure', format: 'currencyCompact', pick: (s) => s.snap.capex },
-    { key: 'fcf', label: 'Free cash flow', format: 'currencyCompact', pick: (s) => s.snap.fcf, formula: 'CFO − capex' },
+    { key: 'cfo', label: 'Cash from operations', format: 'currencyMillions', pick: (s) => s.snap.cfo },
+    { key: 'capex', label: 'Capital expenditure', format: 'currencyMillions', pick: (s) => s.snap.capex },
+    { key: 'fcf', label: 'Free cash flow', format: 'currencyMillions', pick: (s) => s.snap.fcf, formula: 'CFO − capex' },
     { key: 'fcfConversion', label: 'FCF conversion', format: 'percent', pick: (s) => s.snap.fcfConversion, formula: 'Free cash flow ÷ EBITDA' },
     { key: 'capexToRevenue', label: 'Capex / revenue', format: 'percent', pick: (s) => s.snap.capexToRevenue },
   ]);
@@ -148,8 +148,8 @@ export default async function FundamentalsPage({ params }: { params: Promise<{ t
             <InlineNote tone="info">{m.roicNote}</InlineNote>
           ) : (
             <>
-              <StatRow label="NOPAT" hint="EBIT × (1 − effective tax rate)" value={<Num value={roicNow.nopat} format="currencyCompact" currency={currency} />} />
-              <StatRow label="Invested capital" hint="Net working capital + PP&E + intangibles + goodwill + other assets. Cash is excluded." value={<Num value={roicNow.investedCapital} format="currencyCompact" currency={currency} />} />
+              <StatRow label="NOPAT" hint="EBIT × (1 − effective tax rate)" value={<Num value={roicNow.nopat} format="currencyMillions" currency={currency} />} />
+              <StatRow label="Invested capital" hint="Net working capital + PP&E + intangibles + goodwill + other assets. Cash is excluded." value={<Num value={roicNow.investedCapital} format="currencyMillions" currency={currency} />} />
               <StatRow label="Tax rate used" value={<Num value={roicNow.taxRateUsed} format="percent" />} />
               <div className="my-2 border-t border-line" />
               <StatRow label="NOPAT margin" value={<Num value={roicNow.nopatMargin} format="percent" />} />
@@ -161,7 +161,7 @@ export default async function FundamentalsPage({ params }: { params: Promise<{ t
               <StatRow
                 label="Economic profit"
                 hint="Spread × invested capital — the value created above the cost of the capital employed."
-                value={<Num value={m.roicSpread !== null && roicNow.investedCapital !== null ? m.roicSpread * roicNow.investedCapital : null} format="currencyCompact" currency={currency} />}
+                value={<Num value={m.roicSpread !== null && roicNow.investedCapital !== null ? m.roicSpread * roicNow.investedCapital : null} format="currencyMillions" currency={currency} />}
               />
               <div className="mt-3 rounded border border-line bg-sunken p-2.5">
                 <p className="text-xs leading-relaxed text-ink-2">

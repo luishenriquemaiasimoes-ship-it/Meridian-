@@ -38,7 +38,9 @@ function tickFormatter(format: MetricFormat | undefined, currency?: Currency) {
     if (!isNum(v)) return '';
     if (format === 'percent' || format === 'percentSigned') return `${(v * 100).toFixed(0)}%`;
     if (format === 'multiple') return `${v.toFixed(1)}x`;
-    if (format === 'currencyCompact') return formatMetric(v, 'currencyCompact', { currency, decimals: 0 });
+    if (format === 'currencyCompact' || format === 'currencyMillions') {
+      return formatMetric(v, format, { currency, decimals: 0 });
+    }
     if (Math.abs(v) >= 1000) return formatMetric(v, 'currencyCompact', { currency, decimals: 0 });
     return String(Math.round(v * 100) / 100);
   };
