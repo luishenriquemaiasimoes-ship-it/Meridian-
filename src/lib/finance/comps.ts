@@ -110,6 +110,23 @@ export type MultipleKey = keyof Pick<
   | 'revenueGrowth' | 'ebitdaGrowth' | 'ebitdaMargin' | 'roic' | 'roe' | 'netDebtToEbitda'
 >;
 
+/** Display names for every comparable key, shared by the screens and exports. */
+export const MULTIPLE_LABELS: Record<MultipleKey, string> = {
+  evRevenue: 'EV / Revenue', evEbitda: 'EV / EBITDA', evEbit: 'EV / EBIT',
+  pe: 'P / E', pb: 'P / Book', ps: 'P / Sales',
+  fcfYield: 'FCF yield', dividendYield: 'Dividend yield',
+  revenueGrowth: 'Revenue growth', ebitdaGrowth: 'EBITDA growth', ebitdaMargin: 'EBITDA margin',
+  roic: 'ROIC', roe: 'ROE', netDebtToEbitda: 'Net debt / EBITDA',
+};
+
+/** How each comparable key should be rendered. */
+export const MULTIPLE_FORMATS: Record<MultipleKey, 'multiple' | 'percent'> = {
+  evRevenue: 'multiple', evEbitda: 'multiple', evEbit: 'multiple',
+  pe: 'multiple', pb: 'multiple', ps: 'multiple', netDebtToEbitda: 'multiple',
+  fcfYield: 'percent', dividendYield: 'percent', revenueGrowth: 'percent',
+  ebitdaGrowth: 'percent', ebitdaMargin: 'percent', roic: 'percent', roe: 'percent',
+};
+
 export function peerStats(peers: CompanyMultiples[], key: MultipleKey): StatSummary {
   return summarize(peers.map((p) => p[key] as number | null));
 }

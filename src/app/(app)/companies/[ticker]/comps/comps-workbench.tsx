@@ -12,13 +12,9 @@ import { formatMultiple, formatPercent, ordinal, DASH } from '@/lib/finance/form
 import { downloadText, toCsv } from '@/lib/import/csv';
 import type { Currency } from '@/lib/finance/types';
 import { isNum } from '@/lib/finance/core';
+import { MULTIPLE_LABELS } from '@/lib/finance/comps';
 
-const LABELS: Record<string, string> = {
-  evRevenue: 'EV / Revenue', evEbitda: 'EV / EBITDA', evEbit: 'EV / EBIT',
-  pe: 'P / E', pb: 'P / Book', ps: 'P / Sales', fcfYield: 'FCF yield', dividendYield: 'Dividend yield',
-  revenueGrowth: 'Revenue growth', ebitdaGrowth: 'EBITDA growth', ebitdaMargin: 'EBITDA margin',
-  roic: 'ROIC', roe: 'ROE', netDebtToEbitda: 'Net debt / EBITDA',
-};
+const LABELS: Record<string, string> = MULTIPLE_LABELS;
 
 const FORMATS: Record<string, 'multiple' | 'percent'> = {
   evRevenue: 'multiple', evEbitda: 'multiple', evEbit: 'multiple', pe: 'multiple', pb: 'multiple', ps: 'multiple',
