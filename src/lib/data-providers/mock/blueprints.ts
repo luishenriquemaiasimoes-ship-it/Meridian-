@@ -4528,6 +4528,1284 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       peers: ['JBSS3', 'ABEV3', 'SUZB3', 'KLBN11'],
     },
   ),
+
+  /* --------------------- COMMUNICATION SERVICES --------------------- */
+  bp(
+    {
+      ticker: 'T', name: 'AT&T', legalName: 'AT&T Inc.', exchange: 'NYSE', country: 'United States',
+      sector: 'Communication Services', industry: 'Diversified Telecommunication Services',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'AT&T is a US wireless and broadband carrier. Following the separation of its media assets it is a connectivity business again: postpaid and prepaid mobility, fibre to the home, and enterprise transport built on owned spectrum and network.',
+      businessModel:
+        'Subscribers pay a recurring monthly fee for access. The economics are those of a heavy fixed-cost network: once spectrum and fibre are in the ground, the marginal subscriber carries a very high contribution margin, so value turns on churn and on the pace of fibre passings rather than on price.',
+      competitiveAdvantages: ['Owned low-band spectrum with nationwide reach', 'Fibre footprint converging with the wireless network', 'Scale in distribution and device economics', 'Enterprise relationships with long contract lives'],
+      website: 'https://att.com', employees: 141000, foundedYear: 1983,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Dallas, Texas',
+      themes: ['infrastructure', 'technology'],
+    },
+    {
+      revenue: 122300, growthPath: [-0.02, -0.08, -0.01, 0.01, 0.02, 0.015],
+      ebitdaMarginPath: [0.33, 0.34, 0.35, 0.355, 0.36, 0.36],
+      grossMargin: 0.55, daPctRevenue: 0.145, rndPctRevenue: 0.002, taxRate: 0.24,
+      capexPctRevenue: 0.145, ppePctRevenue: 1.02, intangiblesPctRevenue: 1.20,
+      goodwillPctRevenue: 0.55, cashPctRevenue: 0.025, netDebtToEbitda: 2.8,
+      costOfDebt: 0.050, arDays: 40, invDays: 8, apDays: 75,
+      dividendPayout: 0.45, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.035,
+      shares: 7180, price: 28.0, beta: 0.60, annualVolatility: 0.22, priceDrift: 0.04,
+      averageVolume: 38_000_000, freeFloat: 0.98,
+    },
+    {
+      driver: {
+        unit: 'conexões móveis pós-pagas', volume: 90_000_000, volumeGrowth: 0.02,
+        price: 0.0006115, priceGrowth: 0.015, priceIndex: 'CPI', shareOfRevenue: 0.45,
+      },
+      segments: [
+        { name: 'Mobility', share: 0.54, margin: 0.42, growth: 0.025, marketShare: 0.29 },
+        { name: 'Consumer Wireline', share: 0.11, margin: 0.33, growth: 0.05 },
+        { name: 'Business Wireline', share: 0.14, margin: 0.19, growth: -0.07 },
+        { name: 'Latin America & Other', share: 0.21, margin: 0.14, growth: 0.03 },
+      ],
+      geographies: [{ name: 'United States', share: 0.93 }, { name: 'Mexico', share: 0.07 }],
+      management: [
+        { name: 'J. Stankey-type profile', role: 'Chief Executive Officer', since: 2020, background: 'Career operator through the network and media sides of the group.' },
+        { name: 'P. Lanzillotta-type profile', role: 'Chief Financial Officer', since: 2021, background: 'Prior CFO of a listed cable operator.' },
+        { name: 'J. McElfresh-type profile', role: 'CEO, Communications', since: 2021, background: 'Two decades in consumer wireless distribution.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.094 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.078 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.049 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.779 },
+      ],
+      peers: ['VZ', 'TMUS', 'CMCSA', 'VIVT3'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'VZ', name: 'Verizon', legalName: 'Verizon Communications Inc.', exchange: 'NYSE',
+      country: 'United States', sector: 'Communication Services',
+      industry: 'Diversified Telecommunication Services', currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Verizon operates the largest US wireless network by service revenue, alongside Fios fibre broadband in the north-east and a business segment serving enterprise and public-sector customers.',
+      businessModel:
+        'Recurring access fees on a network whose cost is overwhelmingly fixed. Verizon has historically priced at a premium to the market and accepted slower subscriber growth in exchange for higher revenue per connection; the trade-off between the two is the central judgement in the model.',
+      competitiveAdvantages: ['C-band spectrum depth in dense markets', 'Network quality reputation supporting premium pricing', 'Fios fibre in high-density north-eastern markets', 'Long-lived enterprise contracts'],
+      website: 'https://verizon.com', employees: 100000, foundedYear: 1983,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'New York, New York',
+      themes: ['infrastructure', 'technology'],
+    },
+    {
+      revenue: 134000, growthPath: [0.02, 0.04, -0.02, 0.006, 0.012, 0.015],
+      ebitdaMarginPath: [0.355, 0.345, 0.34, 0.345, 0.35, 0.355],
+      grossMargin: 0.58, daPctRevenue: 0.130, rndPctRevenue: 0.002, taxRate: 0.24,
+      capexPctRevenue: 0.128, ppePctRevenue: 0.80, intangiblesPctRevenue: 1.12,
+      goodwillPctRevenue: 0.17, cashPctRevenue: 0.030, netDebtToEbitda: 3.4,
+      costOfDebt: 0.052, arDays: 65, invDays: 6, apDays: 55,
+      dividendPayout: 0.58, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.015,
+      shares: 4210, price: 43.0, beta: 0.42, annualVolatility: 0.20, priceDrift: 0.02,
+      averageVolume: 20_000_000, freeFloat: 0.99,
+    },
+    {
+      driver: {
+        unit: 'conexões móveis de varejo', volume: 115_000_000, volumeGrowth: 0.008,
+        price: 0.000699, priceGrowth: 0.02, priceIndex: 'CPI', shareOfRevenue: 0.60,
+      },
+      segments: [
+        { name: 'Consumer', share: 0.76, margin: 0.41, growth: 0.02, marketShare: 0.31 },
+        { name: 'Business', share: 0.22, margin: 0.21, growth: -0.02 },
+        { name: 'Corporate & Other', share: 0.02, margin: 0.05, growth: 0.0 },
+      ],
+      geographies: [{ name: 'United States', share: 1.0 }],
+      management: [
+        { name: 'H. Vestberg-type profile', role: 'Chief Executive Officer', since: 2018, background: 'Prior chief executive of a network equipment vendor.' },
+        { name: 'T. Ellis-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Internal promotion from the consumer group finance function.' },
+        { name: 'S. Sampath-type profile', role: 'CEO, Consumer Group', since: 2023, background: 'Two decades in wireless consumer marketing.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.089 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.075 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.051 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.785 },
+      ],
+      peers: ['T', 'TMUS', 'CMCSA', 'VIVT3'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'TMUS', name: 'T-Mobile US', legalName: 'T-Mobile US, Inc.', exchange: 'NASDAQ',
+      country: 'United States', sector: 'Communication Services',
+      industry: 'Wireless Telecommunication Services', currency: 'USD', accountingStandard: GAAP,
+      description:
+        'T-Mobile US is a wireless carrier that emerged from the Sprint merger with a mid-band spectrum position ahead of its two competitors, and has been converting that lead into subscriber share.',
+      businessModel:
+        'Share gain on a cost base that the merger left below the industry. The model is the reverse of Verizon’s: T-Mobile prices below the market and takes connections, so the value rests on net additions and on the synergy run-rate holding rather than on revenue per user.',
+      competitiveAdvantages: ['2.5 GHz mid-band depth from the Sprint merger', 'Lowest cost per gigabyte among the three carriers', 'Growing fixed-wireless access base with no incremental build', 'Brand position with price-sensitive switchers'],
+      website: 'https://t-mobile.com', employees: 70000, foundedYear: 1994,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Bellevue, Washington',
+      themes: ['infrastructure', 'technology'],
+    },
+    {
+      revenue: 81400, growthPath: [0.05, -0.01, -0.02, 0.02, 0.035, 0.04],
+      ebitdaMarginPath: [0.29, 0.32, 0.345, 0.36, 0.375, 0.38],
+      grossMargin: 0.63, daPctRevenue: 0.145, rndPctRevenue: 0.003, taxRate: 0.24,
+      capexPctRevenue: 0.108, ppePctRevenue: 0.49, intangiblesPctRevenue: 1.23,
+      goodwillPctRevenue: 0.15, cashPctRevenue: 0.066, netDebtToEbitda: 2.9,
+      costOfDebt: 0.049, arDays: 60, invDays: 8, apDays: 75,
+      dividendPayout: 0.20, buybackPctNetIncome: 0.45, minorityPctNetIncome: 0.005,
+      shares: 1140, price: 225.0, beta: 0.55, annualVolatility: 0.23, priceDrift: 0.07,
+      averageVolume: 5_000_000, freeFloat: 0.42,
+    },
+    {
+      driver: {
+        unit: 'clientes móveis (pós e pré-pagos)', volume: 130_000_000, volumeGrowth: 0.04,
+        price: 0.000507, priceGrowth: 0.008, shareOfRevenue: 0.81,
+      },
+      segments: [
+        { name: 'Postpaid Service', share: 0.56, margin: 0.52, growth: 0.06, marketShare: 0.33 },
+        { name: 'Prepaid Service', share: 0.13, margin: 0.44, growth: 0.02 },
+        { name: 'Equipment & Other', share: 0.31, margin: 0.04, growth: 0.01 },
+      ],
+      geographies: [{ name: 'United States', share: 0.99 }, { name: 'Puerto Rico & territories', share: 0.01 }],
+      management: [
+        { name: 'M. Sievert-type profile', role: 'Chief Executive Officer', since: 2020, background: 'Prior chief operating officer through the merger integration.' },
+        { name: 'P. Osvaldik-type profile', role: 'Chief Financial Officer', since: 2020, background: 'Career in carrier finance and network economics.' },
+        { name: 'J. Freier-type profile', role: 'President, Consumer Group', since: 2022, background: 'Two decades in retail distribution.' },
+      ],
+      ownership: [
+        { holder: 'Deutsche Telekom AG', kind: 'CONTROLLING', stake: 0.573 },
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.041 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.032 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.354 },
+      ],
+      peers: ['VZ', 'T', 'VIVT3', 'TIMS3'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'CMCSA', name: 'Comcast', legalName: 'Comcast Corporation', exchange: 'NASDAQ',
+      country: 'United States', sector: 'Communication Services', industry: 'Media',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Comcast combines a US cable broadband network with NBCUniversal’s studios, networks and theme parks, and Sky in Europe. Broadband connectivity generates the cash; the media assets consume and return it in cycles.',
+      businessModel:
+        'Two businesses with opposite characteristics under one balance sheet. Residential connectivity is a high-margin annuity losing units to fixed-wireless competition but holding revenue through rate; media and parks are cyclical and capital-hungry. The valuation question is whether the second earns its cost of capital on the cash the first produces.',
+      competitiveAdvantages: ['Cable plant already passing half the US', 'Broadband margins structurally above wireless substitutes', 'Content library and theme-park assets that cannot be replicated quickly', 'Scale in advertising inventory'],
+      website: 'https://comcastcorporation.com', employees: 186000, foundedYear: 1963,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Philadelphia, Pennsylvania',
+      themes: ['infrastructure', 'consumer'],
+    },
+    {
+      revenue: 123700, growthPath: [0.12, 0.04, -0.01, 0.005, 0.015, -0.005],
+      ebitdaMarginPath: [0.305, 0.31, 0.315, 0.32, 0.32, 0.32],
+      grossMargin: 0.68, daPctRevenue: 0.117, rndPctRevenue: 0.004, taxRate: 0.25,
+      capexPctRevenue: 0.101, ppePctRevenue: 0.49, intangiblesPctRevenue: 0.24,
+      goodwillPctRevenue: 0.47, cashPctRevenue: 0.060, netDebtToEbitda: 2.4,
+      costOfDebt: 0.048, arDays: 40, invDays: 5, apDays: 45,
+      dividendPayout: 0.30, buybackPctNetIncome: 0.45, minorityPctNetIncome: 0.02,
+      shares: 3700, price: 34.0, beta: 0.95, annualVolatility: 0.26, priceDrift: 0.02,
+      averageVolume: 22_000_000, freeFloat: 0.99,
+    },
+    {
+      driver: {
+        unit: 'relacionamentos de banda larga residencial', volume: 31_800_000, volumeGrowth: -0.005,
+        price: 0.001361, priceGrowth: 0.035, shareOfRevenue: 0.35,
+      },
+      segments: [
+        { name: 'Residential Connectivity & Platforms', share: 0.51, margin: 0.41, growth: 0.01, marketShare: 0.30 },
+        { name: 'Business Services', share: 0.08, margin: 0.57, growth: 0.04 },
+        { name: 'Media & Studios', share: 0.26, margin: 0.14, growth: -0.03 },
+        { name: 'Theme Parks', share: 0.07, margin: 0.29, growth: 0.05 },
+        { name: 'Sky', share: 0.08, margin: 0.13, growth: -0.02 },
+      ],
+      geographies: [{ name: 'United States', share: 0.85 }, { name: 'United Kingdom & Europe', share: 0.12 }, { name: 'Other', share: 0.03 }],
+      management: [
+        { name: 'B. Roberts-type profile', role: 'Chief Executive Officer', since: 2002, background: 'Founding family; career inside the cable operation.' },
+        { name: 'J. Cavanagh-type profile', role: 'President', since: 2022, background: 'Prior chief financial officer of a large US bank.' },
+        { name: 'M. Cavanagh-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Internal promotion from the media segment.' },
+      ],
+      ownership: [
+        { holder: 'Roberts family (Class B)', kind: 'CONTROLLING', stake: 0.013 },
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.091 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.071 },
+        { holder: 'Treasury', kind: 'TREASURY', stake: 0.024 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.801 },
+      ],
+      peers: ['DIS', 'NFLX', 'T', 'VZ'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'TIMS3', name: 'TIM Brasil', legalName: 'TIM S.A.', exchange: 'B3', country: 'Brazil',
+      sector: 'Communication Services', industry: 'Wireless Telecommunication Services',
+      currency: 'BRL',
+      description:
+        'TIM Brasil is one of three national mobile operators in Brazil. The 2022 division of Oi’s mobile assets between the three incumbents left it with a larger spectrum position and a materially larger postpaid base.',
+      businessModel:
+        'Prepaid-to-postpaid migration on a network whose cost is already sunk. Brazilian mobile pricing has moved with inflation since the market consolidated to three players, so revenue growth comes from mix — moving customers up the plan ladder — rather than from adding connections to a near-saturated market.',
+      competitiveAdvantages: ['Spectrum acquired in the Oi division at replacement cost well below build', 'Three-player market structure supporting inflation-linked pricing', 'Infrastructure sharing agreements lowering the cost per site', 'Distribution reach across low-income segments'],
+      website: 'https://tim.com.br', employees: 9500, foundedYear: 1998,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Rio de Janeiro, Brazil',
+      themes: ['infrastructure', 'technology'],
+    },
+    {
+      revenue: 25700, growthPath: [0.07, 0.24, 0.18, 0.07, 0.065, 0.06],
+      ebitdaMarginPath: [0.435, 0.42, 0.44, 0.465, 0.48, 0.485],
+      grossMargin: 0.62, daPctRevenue: 0.260, rndPctRevenue: 0.002, taxRate: 0.24,
+      capexPctRevenue: 0.179, ppePctRevenue: 0.56, intangiblesPctRevenue: 0.78,
+      goodwillPctRevenue: 0.086, cashPctRevenue: 0.117, netDebtToEbitda: 1.1,
+      costOfDebt: 0.128, arDays: 45, invDays: 12, apDays: 70,
+      dividendPayout: 0.75, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.0,
+      shares: 2420, price: 19.0, beta: 0.72, annualVolatility: 0.27, priceDrift: 0.05,
+      averageVolume: 12_000_000, freeFloat: 0.33,
+    },
+    {
+      driver: {
+        unit: 'acessos móveis', volume: 63_000_000, volumeGrowth: 0.01,
+        price: 0.000379, priceGrowth: 0.05, priceIndex: 'IPCA', shareOfRevenue: 0.93,
+      },
+      segments: [
+        { name: 'Serviço móvel pós-pago', share: 0.63, margin: 0.52, growth: 0.09, marketShare: 0.24 },
+        { name: 'Serviço móvel pré-pago', share: 0.30, margin: 0.45, growth: -0.02 },
+        { name: 'Ultrafibra e outros', share: 0.07, margin: 0.30, growth: 0.12 },
+      ],
+      geographies: [{ name: 'Sudeste', share: 0.48 }, { name: 'Nordeste', share: 0.21 }, { name: 'Sul', share: 0.17 }, { name: 'Centro-Oeste e Norte', share: 0.14 }],
+      management: [
+        { name: 'A. Griselli-type profile', role: 'Chief Executive Officer', since: 2022, background: 'Prior chief revenue officer of the same operation.' },
+        { name: 'A. Medeiros-type profile', role: 'Chief Financial Officer', since: 2022, background: 'Career in telecom finance and capital markets.' },
+        { name: 'L. Minoru-type profile', role: 'Chief Technology Officer', since: 2021, background: 'Two decades in radio network planning.' },
+      ],
+      ownership: [
+        { holder: 'TIM S.p.A. (Telecom Italia)', kind: 'CONTROLLING', stake: 0.670 },
+        { holder: 'Gestoras estrangeiras', kind: 'INSTITUTIONAL', stake: 0.152 },
+        { holder: 'Fundos locais', kind: 'INSTITUTIONAL', stake: 0.084 },
+        { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.094 },
+      ],
+      peers: ['VIVT3', 'VZ', 'TMUS', 'T'],
+    },
+  ),
+
+  /* --------------------- CONSUMER DISCRETIONARY --------------------- */
+  bp(
+    {
+      ticker: 'NKE', name: 'Nike', legalName: 'NIKE, Inc.', exchange: 'NYSE',
+      country: 'United States', sector: 'Consumer Discretionary', industry: 'Textiles, Apparel & Luxury Goods',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Nike designs and markets athletic footwear and apparel, manufactured by contract suppliers in Asia and sold through wholesale partners and its own direct channels.',
+      businessModel:
+        'The company owns the brand and the design, not the factories. Gross margin is set by where product is sold — direct sells at full retail, wholesale at roughly half — so the mix between the two channels moves the P&L more than unit volume does. The recent margin compression is a channel and inventory story, not a demand collapse, and the model has to say which it assumes.',
+      competitiveAdvantages: ['Brand equity built over decades of athlete endorsement', 'Scale in contract manufacturing procurement', 'Direct channel with first-party demand data', 'Shelf position with every major sporting goods retailer'],
+      website: 'https://nike.com', employees: 79400, foundedYear: 1964,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Beaverton, Oregon',
+      themes: ['consumer'],
+    },
+    {
+      revenue: 48000, growthPath: [0.05, 0.16, 0.05, 0.01, -0.10, -0.06],
+      ebitdaMarginPath: [0.165, 0.175, 0.155, 0.150, 0.130, 0.130],
+      grossMargin: 0.435, daPctRevenue: 0.018, rndPctRevenue: 0.008, taxRate: 0.20,
+      capexPctRevenue: 0.017, ppePctRevenue: 0.10, intangiblesPctRevenue: 0.005,
+      goodwillPctRevenue: 0.005, cashPctRevenue: 0.190, netDebtToEbitda: -0.1,
+      costOfDebt: 0.047, arDays: 45, invDays: 105, apDays: 40,
+      dividendPayout: 0.45, buybackPctNetIncome: 0.55, minorityPctNetIncome: 0.0,
+      shares: 1480, price: 72.0, beta: 1.05, annualVolatility: 0.30, priceDrift: 0.01,
+      averageVolume: 14_000_000, freeFloat: 0.88,
+    },
+    {
+      driver: {
+        unit: 'pares de calçado vendidos', volume: 780_000_000, volumeGrowth: 0.01,
+        price: 0.0000418, priceGrowth: 0.03, shareOfRevenue: 0.68,
+      },
+      segments: [
+        { name: 'Footwear', share: 0.68, margin: 0.15, growth: -0.05, marketShare: 0.27 },
+        { name: 'Apparel', share: 0.27, margin: 0.12, growth: -0.04 },
+        { name: 'Equipment & Converse', share: 0.05, margin: 0.08, growth: -0.10 },
+      ],
+      geographies: [{ name: 'North America', share: 0.43 }, { name: 'EMEA', share: 0.28 }, { name: 'Greater China', share: 0.15 }, { name: 'Asia Pacific & Latin America', share: 0.14 }],
+      management: [
+        { name: 'E. Hill-type profile', role: 'Chief Executive Officer', since: 2024, background: 'Thirty-year company veteran recalled from retirement.' },
+        { name: 'M. Friend-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Prior CFO of a listed footwear retailer.' },
+        { name: 'H. Hoffmann-type profile', role: 'President, Consumer & Marketplace', since: 2024, background: 'Career in European wholesale distribution.' },
+      ],
+      ownership: [
+        { holder: 'Knight family (Class A)', kind: 'CONTROLLING', stake: 0.155 },
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.070 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.058 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.717 },
+      ],
+      peers: ['LREN3', 'HD', 'MCD', 'AZZA3'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'SBUX', name: 'Starbucks', legalName: 'Starbucks Corporation', exchange: 'NASDAQ',
+      country: 'United States', sector: 'Consumer Discretionary', industry: 'Hotels, Restaurants & Leisure',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Starbucks operates and licenses coffee stores worldwide, roughly half company-operated and half licensed, with a packaged coffee business sold through a partnership in grocery.',
+      businessModel:
+        'Two quite different unit economics inside one revenue line. A company-operated store puts the full ticket through the P&L against rent and labour; a licensed store contributes only a royalty and product sales at a fraction of the revenue but almost no cost. Store count alone therefore says little — the mix between the two, and same-store transactions, are what the build-up has to separate.',
+      competitiveAdvantages: ['Density in prime urban real estate', 'Loyalty programme holding a large stored-value float', 'Supply chain scale in green coffee procurement', 'Licensed model allowing share gain without capital'],
+      website: 'https://starbucks.com', employees: 361000, foundedYear: 1971,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Seattle, Washington',
+      themes: ['consumer'],
+    },
+    {
+      revenue: 36200, growthPath: [0.24, 0.11, 0.12, 0.004, 0.01, 0.015],
+      ebitdaMarginPath: [0.200, 0.205, 0.210, 0.190, 0.175, 0.175],
+      grossMargin: 0.27, daPctRevenue: 0.045, rndPctRevenue: 0.002, taxRate: 0.24,
+      capexPctRevenue: 0.075, ppePctRevenue: 0.29, intangiblesPctRevenue: 0.02,
+      goodwillPctRevenue: 0.09, cashPctRevenue: 0.090, netDebtToEbitda: 3.3,
+      costOfDebt: 0.049, arDays: 12, invDays: 30, apDays: 25,
+      dividendPayout: 0.85, buybackPctNetIncome: 0.10, minorityPctNetIncome: 0.005,
+      shares: 1135, price: 85.0, beta: 0.95, annualVolatility: 0.27, priceDrift: 0.02,
+      averageVolume: 11_000_000, freeFloat: 0.96,
+    },
+    {
+      driver: {
+        unit: 'lojas em operação (próprias e licenciadas)', volume: 41_000, volumeGrowth: 0.04,
+        price: 0.883, priceGrowth: 0.02, shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'North America', share: 0.74, margin: 0.19, growth: 0.01, marketShare: 0.40 },
+        { name: 'International', share: 0.21, margin: 0.16, growth: 0.03 },
+        { name: 'Channel Development', share: 0.05, margin: 0.48, growth: 0.02 },
+      ],
+      geographies: [{ name: 'United States', share: 0.74 }, { name: 'China', share: 0.09 }, { name: 'Japan & Asia Pacific', share: 0.10 }, { name: 'EMEA & Other', share: 0.07 }],
+      management: [
+        { name: 'B. Niccol-type profile', role: 'Chief Executive Officer', since: 2024, background: 'Prior chief executive of a large US quick-service chain.' },
+        { name: 'R. Ruggeri-type profile', role: 'Chief Financial Officer', since: 2024, background: 'Career in consumer finance across two continents.' },
+        { name: 'S. Hsu-type profile', role: 'CEO, China', since: 2022, background: 'Two decades in Chinese consumer retail.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.089 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.069 },
+        { holder: 'Magellan / long-only funds', kind: 'INSTITUTIONAL', stake: 0.031 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.811 },
+      ],
+      peers: ['MCD', 'NKE', 'HD', 'KO'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'BKNG', name: 'Booking Holdings', legalName: 'Booking Holdings Inc.', exchange: 'NASDAQ',
+      country: 'United States', sector: 'Consumer Discretionary', industry: 'Hotels, Restaurants & Leisure',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Booking Holdings operates online travel agencies — Booking.com, Priceline, Agoda, Kayak and OpenTable — that connect travellers with accommodation, flights and restaurants and take a commission on what is booked.',
+      businessModel:
+        'A marketplace that owns no inventory. Revenue is a take rate on gross bookings, so the two things to forecast are room nights and the commission on them; costs are overwhelmingly marketing, which is discretionary and therefore the real margin lever. Free cash flow is structurally above net income because the working capital cycle is negative — travellers pay before hotels are settled.',
+      competitiveAdvantages: ['Supply density in European independent hotels', 'Negative working capital funding growth', 'Brand direct traffic reducing paid acquisition cost', 'Scale in performance-marketing bidding'],
+      website: 'https://bookingholdings.com', employees: 23600, foundedYear: 1996,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Norwalk, Connecticut',
+      themes: ['consumer', 'technology'],
+    },
+    {
+      revenue: 24000, growthPath: [-0.55, 0.61, 0.56, 0.25, 0.11, 0.09],
+      ebitdaMarginPath: [-0.05, 0.24, 0.31, 0.33, 0.345, 0.35],
+      grossMargin: 0.98, daPctRevenue: 0.030, rndPctRevenue: 0.0, taxRate: 0.22,
+      capexPctRevenue: 0.015, ppePctRevenue: 0.04, intangiblesPctRevenue: 0.07,
+      goodwillPctRevenue: 0.12, cashPctRevenue: 0.700, netDebtToEbitda: 0.5,
+      costOfDebt: 0.048, arDays: 45, invDays: 0, apDays: 35,
+      dividendPayout: 0.05, buybackPctNetIncome: 0.90, minorityPctNetIncome: 0.0,
+      shares: 32.5, price: 5000.0, beta: 1.25, annualVolatility: 0.29, priceDrift: 0.09,
+      averageVolume: 320_000, freeFloat: 0.97,
+    },
+    {
+      driver: {
+        unit: 'room nights reservadas', volume: 1_200_000_000, volumeGrowth: 0.07,
+        price: 0.00002, priceGrowth: 0.02, shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Merchant revenue', share: 0.57, margin: 0.33, growth: 0.14 },
+        { name: 'Agency revenue', share: 0.36, margin: 0.41, growth: 0.02 },
+        { name: 'Advertising & Other', share: 0.07, margin: 0.28, growth: 0.06 },
+      ],
+      geographies: [{ name: 'Europe', share: 0.52 }, { name: 'Asia Pacific', share: 0.22 }, { name: 'North America', share: 0.19 }, { name: 'Rest of World', share: 0.07 }],
+      management: [
+        { name: 'G. Fogel-type profile', role: 'Chief Executive Officer', since: 2016, background: 'Prior chief executive of the group’s largest brand.' },
+        { name: 'E. Bassichis-type profile', role: 'Chief Financial Officer', since: 2024, background: 'Internal promotion from corporate development.' },
+        { name: 'P. Vernooij-type profile', role: 'CEO, Booking.com', since: 2024, background: 'Career inside the accommodation marketplace.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.083 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.068 },
+        { holder: 'Capital Group', kind: 'INSTITUTIONAL', stake: 0.041 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.808 },
+      ],
+      peers: ['AMZN', 'MCD', 'NKE', 'SBUX'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'VIVA3', name: 'Vivara', legalName: 'Vivara Participações S.A.', exchange: 'B3',
+      country: 'Brazil', sector: 'Consumer Discretionary', industry: 'Specialty Retail',
+      currency: 'BRL',
+      description:
+        'Vivara is the largest jewellery retailer in Brazil, manufacturing most of what it sells at its own plant in Manaus and distributing through a network of Vivara and Life stores plus e-commerce.',
+      businessModel:
+        'Vertical integration is the whole argument. Owning the factory earns the industrial margin as well as the retail margin, and the Manaus location carries a tax incentive that is a real and durable part of the return. The cost is inventory: precious metal and stones sit on the balance sheet for most of a year, so the model must fund the working capital before it credits the margin.',
+      competitiveAdvantages: ['Owned manufacturing in the Manaus free-trade zone', 'Brand leadership in a fragmented category', 'Life brand addressing a lower price point without cannibalising', 'Store network in dominant shopping centres'],
+      website: 'https://vivara.com.br', employees: 6800, foundedYear: 1962,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'São Paulo, Brazil',
+      themes: ['consumer'],
+    },
+    {
+      revenue: 2700, growthPath: [-0.09, 0.55, 0.22, 0.16, 0.13, 0.10],
+      ebitdaMarginPath: [0.155, 0.275, 0.285, 0.265, 0.255, 0.260],
+      grossMargin: 0.68, daPctRevenue: 0.075, rndPctRevenue: 0.003, taxRate: 0.10,
+      capexPctRevenue: 0.070, ppePctRevenue: 0.35, intangiblesPctRevenue: 0.06,
+      goodwillPctRevenue: 0.0, cashPctRevenue: 0.130, netDebtToEbitda: 0.9,
+      costOfDebt: 0.135, arDays: 95, invDays: 210, apDays: 45,
+      dividendPayout: 0.30, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.0,
+      shares: 234, price: 26.0, beta: 1.15, annualVolatility: 0.38, priceDrift: 0.05,
+      averageVolume: 2_400_000, freeFloat: 0.36,
+    },
+    {
+      driver: {
+        unit: 'peças vendidas', volume: 7_500_000, volumeGrowth: 0.07,
+        price: 0.00036, priceGrowth: 0.05, priceIndex: 'IPCA', shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Vivara (joalheria)', share: 0.62, margin: 0.29, growth: 0.08, marketShare: 0.16 },
+        { name: 'Life (acessórios)', share: 0.30, margin: 0.24, growth: 0.15 },
+        { name: 'Relógios e outros', share: 0.08, margin: 0.18, growth: 0.04 },
+      ],
+      geographies: [{ name: 'Sudeste', share: 0.55 }, { name: 'Sul', share: 0.15 }, { name: 'Nordeste', share: 0.16 }, { name: 'Centro-Oeste e Norte', share: 0.14 }],
+      management: [
+      { name: 'P. Kruglensky-type profile', role: 'Chief Executive Officer', since: 2024, background: 'Prior executive in Brazilian specialty retail.' },
+        { name: 'O. Kaufmann-type profile', role: 'Chairman', since: 2019, background: 'Controlling family; led the company through the listing.' },
+        { name: 'M. Corrêa-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Career in retail finance and investor relations.' },
+      ],
+      ownership: [
+        { holder: 'Família Kaufman', kind: 'CONTROLLING', stake: 0.640 },
+        { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.171 },
+        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.092 },
+        { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.097 },
+      ],
+      peers: ['LREN3', 'AZZA3', 'MGLU3', 'RADL3'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'AZZA3', name: 'Azzas 2154', legalName: 'Azzas 2154 S.A.', exchange: 'B3',
+      country: 'Brazil', sector: 'Consumer Discretionary', industry: 'Textiles, Apparel & Luxury Goods',
+      currency: 'BRL',
+      description:
+        'Azzas 2154 is the fashion group formed by the combination of Arezzo&Co and Grupo Soma, holding footwear brands such as Arezzo and Schutz alongside apparel brands including Farm, Animale and Hering.',
+      businessModel:
+        'A house of brands sharing sourcing, logistics and franchise infrastructure. Each brand has its own price architecture and its own consumer, which is what allows the group to hold gross margin across cycles; the synergy case rests on back office and supply chain rather than on cross-selling. The merger left a large goodwill balance, so the return on the transaction — not just on operations — is part of the question.',
+      competitiveAdvantages: ['Portfolio of brands spanning price points', 'Asset-light franchise network', 'Shared sourcing across footwear and apparel', 'Design capability with fast reaction to season'],
+      website: 'https://azzas2154.com.br', employees: 16000, foundedYear: 1972,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Belo Horizonte, Brazil',
+      themes: ['consumer'],
+    },
+    {
+      revenue: 12000, growthPath: [-0.12, 0.62, 0.38, 0.15, 0.62, 0.05],
+      ebitdaMarginPath: [0.110, 0.175, 0.180, 0.165, 0.150, 0.155],
+      grossMargin: 0.55, daPctRevenue: 0.055, rndPctRevenue: 0.004, taxRate: 0.20,
+      capexPctRevenue: 0.035, ppePctRevenue: 0.22, intangiblesPctRevenue: 0.18,
+      goodwillPctRevenue: 0.35, cashPctRevenue: 0.120, netDebtToEbitda: 1.8,
+      costOfDebt: 0.142, arDays: 85, invDays: 120, apDays: 70,
+      dividendPayout: 0.25, buybackPctNetIncome: 0.02, minorityPctNetIncome: 0.01,
+      shares: 137, price: 36.0, beta: 1.30, annualVolatility: 0.42, priceDrift: 0.03,
+      averageVolume: 1_800_000, freeFloat: 0.55,
+    },
+    {
+      driver: {
+        unit: 'pares e peças vendidos', volume: 95_000_000, volumeGrowth: 0.05,
+        price: 0.0001263, priceGrowth: 0.045, priceIndex: 'IPCA', shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Calçados e bolsas (Arezzo, Schutz)', share: 0.44, margin: 0.17, growth: 0.04, marketShare: 0.09 },
+        { name: 'Vestuário premium (Farm, Animale)', share: 0.33, margin: 0.19, growth: 0.08 },
+        { name: 'Vestuário de massa (Hering)', share: 0.23, margin: 0.09, growth: 0.02 },
+      ],
+      geographies: [{ name: 'Sudeste', share: 0.54 }, { name: 'Sul', share: 0.16 }, { name: 'Nordeste', share: 0.15 }, { name: 'Centro-Oeste e Norte', share: 0.09 }, { name: 'Exterior', share: 0.06 }],
+      management: [
+        { name: 'A. Birman-type profile', role: 'Chief Executive Officer', since: 2024, background: 'Controlling family of the footwear business; led the merger.' },
+        { name: 'R. Waisberg-type profile', role: 'Co-founder, Soma', since: 2024, background: 'Built the apparel group acquired in the combination.' },
+        { name: 'G. Araújo-type profile', role: 'Chief Financial Officer', since: 2024, background: 'Career in consumer M&A and integration.' },
+      ],
+      ownership: [
+        { holder: 'Família Birman', kind: 'CONTROLLING', stake: 0.245 },
+        { holder: 'Fundadores Soma', kind: 'CONTROLLING', stake: 0.201 },
+        { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.196 },
+        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.118 },
+        { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.240 },
+      ],
+      peers: ['LREN3', 'VIVA3', 'MGLU3', 'NKE'],
+    },
+  ),
+
+  /* ------------------------------ ENERGY ------------------------------ */
+  bp(
+    {
+      ticker: 'SLB', name: 'SLB', legalName: 'Schlumberger Limited', exchange: 'NYSE',
+      country: 'United States', sector: 'Energy', industry: 'Energy Equipment & Services',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'SLB is the largest oilfield services company, supplying reservoir characterisation, drilling, well construction and production technology to national and international oil companies.',
+      businessModel:
+        'SLB sells the capability to develop a barrel rather than the barrel itself, which places it one derivative away from the oil price: revenue follows customer capital budgets, and those follow the price with a lag of roughly a year. International and offshore work, where SLB is strongest, is contracted on multi-year terms and is therefore less volatile than North American land.',
+      competitiveAdvantages: ['Technology position in reservoir measurement', 'International and offshore weighting with long contracts', 'Installed base of proprietary equipment', 'Relationships with national oil companies'],
+      website: 'https://slb.com', employees: 111000, foundedYear: 1926,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Houston, Texas',
+      themes: ['commodities', 'energy-transition'],
+    },
+    {
+      revenue: 36300, growthPath: [-0.28, 0.03, 0.23, 0.18, 0.10, 0.02],
+      ebitdaMarginPath: [0.175, 0.200, 0.215, 0.230, 0.240, 0.245],
+      grossMargin: 0.30, daPctRevenue: 0.075, rndPctRevenue: 0.019, taxRate: 0.20,
+      capexPctRevenue: 0.065, ppePctRevenue: 0.25, intangiblesPctRevenue: 0.09,
+      goodwillPctRevenue: 0.42, cashPctRevenue: 0.130, netDebtToEbitda: 0.9,
+      costOfDebt: 0.051, arDays: 85, invDays: 65, apDays: 70,
+      dividendPayout: 0.40, buybackPctNetIncome: 0.25, minorityPctNetIncome: 0.03,
+      shares: 1400, price: 40.0, beta: 1.35, annualVolatility: 0.35, priceDrift: 0.04,
+      averageVolume: 13_000_000, freeFloat: 0.99,
+    },
+    {
+      segments: [
+        { name: 'Well Construction', share: 0.36, margin: 0.27, growth: 0.0, marketShare: 0.21 },
+        { name: 'Reservoir Performance', share: 0.20, margin: 0.26, growth: 0.05 },
+        { name: 'Production Systems', share: 0.31, margin: 0.20, growth: 0.06 },
+        { name: 'Digital & Integration', share: 0.13, margin: 0.35, growth: 0.08 },
+      ],
+      geographies: [{ name: 'Middle East & Asia', share: 0.39 }, { name: 'Latin America', share: 0.18 }, { name: 'Europe & Africa', share: 0.24 }, { name: 'North America', share: 0.19 }],
+      management: [
+        { name: 'O. Le Peuch-type profile', role: 'Chief Executive Officer', since: 2019, background: 'Career field engineer through to reservoir technology leadership.' },
+        { name: 'S. Biguet-type profile', role: 'Chief Financial Officer', since: 2020, background: 'Two decades in the group’s regional finance organisation.' },
+        { name: 'A. Ayat-type profile', role: 'EVP, Core Services', since: 2022, background: 'Operations leadership across the Middle East.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.091 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.074 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.044 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.791 },
+      ],
+      peers: ['XOM', 'CVX', 'PRIO3', 'COP'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'TTE', name: 'TotalEnergies', legalName: 'TotalEnergies SE', exchange: 'NYSE',
+      country: 'France', sector: 'Energy', industry: 'Oil, Gas & Consumable Fuels',
+      currency: 'USD',
+      description:
+        'TotalEnergies is an integrated energy company with upstream oil and gas production, a large LNG trading book, refining and marketing, and a growing renewable power generation business.',
+      businessModel:
+        'Barrels and molecules produced upstream are monetised through owned refining, marketing and — increasingly — electricity. The LNG book is the distinguishing asset: contracted volumes plus trading optionality give a cash flow that is correlated with, but not identical to, Brent. Renewables consume capital today against returns regulated or contracted for two decades.',
+      competitiveAdvantages: ['Largest LNG portfolio among the majors', 'Low-cost upstream positions in the Middle East and West Africa', 'Integrated refining and marketing footprint in Europe and Africa', 'Balance sheet capacity to fund the power transition'],
+      website: 'https://totalenergies.com', employees: 102000, foundedYear: 1924,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Courbevoie, France',
+      themes: ['commodities', 'energy-transition'],
+    },
+    {
+      revenue: 195000, growthPath: [-0.29, 0.58, 0.28, -0.17, -0.02, 0.01],
+      ebitdaMarginPath: [0.135, 0.180, 0.215, 0.200, 0.195, 0.200],
+      grossMargin: 0.24, daPctRevenue: 0.075, rndPctRevenue: 0.005, taxRate: 0.42,
+      capexPctRevenue: 0.090, ppePctRevenue: 0.60, intangiblesPctRevenue: 0.05,
+      goodwillPctRevenue: 0.03, cashPctRevenue: 0.140, netDebtToEbitda: 0.7,
+      costOfDebt: 0.046, arDays: 45, invDays: 40, apDays: 55,
+      dividendPayout: 0.45, buybackPctNetIncome: 0.25, minorityPctNetIncome: 0.02,
+      shares: 2270, price: 62.0, beta: 0.85, annualVolatility: 0.26, priceDrift: 0.03,
+      averageVolume: 3_800_000, freeFloat: 0.97,
+    },
+    {
+      driver: {
+        unit: 'barris de óleo equivalente produzidos', volume: 894_250_000, volumeGrowth: 0.02,
+        price: 0.0000654, priceGrowth: 0.01, priceIndex: 'Brent', shareOfRevenue: 0.30,
+      },
+      segments: [
+        { name: 'Exploration & Production', share: 0.18, margin: 0.52, growth: 0.02, marketShare: 0.03 },
+        { name: 'Integrated LNG', share: 0.12, margin: 0.34, growth: 0.05 },
+        { name: 'Refining & Chemicals', share: 0.38, margin: 0.06, growth: -0.01 },
+        { name: 'Marketing & Services', share: 0.26, margin: 0.05, growth: 0.0 },
+        { name: 'Integrated Power', share: 0.06, margin: 0.13, growth: 0.18 },
+      ],
+      geographies: [{ name: 'Europe', share: 0.44 }, { name: 'Africa', share: 0.17 }, { name: 'Americas', share: 0.21 }, { name: 'Asia & Middle East', share: 0.18 }],
+      management: [
+        { name: 'P. Pouyanné-type profile', role: 'Chief Executive Officer', since: 2014, background: 'Career in refining and chemicals before leading the group.' },
+        { name: 'J. Pleynet-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Internal promotion from the treasury function.' },
+        { name: 'N. Terraz-type profile', role: 'President, Exploration & Production', since: 2023, background: 'Two decades in upstream project delivery.' },
+      ],
+      ownership: [
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.062 },
+        { holder: 'Employee shareholding', kind: 'INSIDER', stake: 0.075 },
+        { holder: 'Norges Bank', kind: 'INSTITUTIONAL', stake: 0.029 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.834 },
+      ],
+      peers: ['SHEL', 'XOM', 'CVX', 'PETR4'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'VBBR3', name: 'Vibra Energia', legalName: 'Vibra Energia S.A.', exchange: 'B3',
+      country: 'Brazil', sector: 'Energy', industry: 'Oil, Gas & Consumable Fuels', currency: 'BRL',
+      description:
+        'Vibra is the largest fuel distributor in Brazil, operating the BR Petrobras-branded service station network, an aviation fuel business and a growing position in ethanol and electricity trading.',
+      businessModel:
+        'Distribution is a logistics margin per cubic metre, not a commodity bet: Vibra buys refined product and sells it through a branded network, earning a spread of a few hundred reais per cubic metre. Volume and margin per cubic metre are therefore the only two lines that matter, and both are hostage to the informal market — irregular competitors who evade tax can undercut the entire regulated chain.',
+      competitiveAdvantages: ['Largest branded station network in the country', 'Logistics base and terminal infrastructure near every major port', 'Aviation fuel position at the main airports', 'Brand licence with the incumbent refiner'],
+      website: 'https://vibraenergia.com.br', employees: 4200, foundedYear: 1971,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Rio de Janeiro, Brazil',
+      themes: ['commodities', 'infrastructure'],
+    },
+    {
+      revenue: 145000, growthPath: [-0.20, 0.55, 0.31, -0.06, 0.02, 0.03],
+      ebitdaMarginPath: [0.030, 0.028, 0.022, 0.034, 0.036, 0.036],
+      grossMargin: 0.060, daPctRevenue: 0.012, rndPctRevenue: 0.0005, taxRate: 0.30,
+      capexPctRevenue: 0.011, ppePctRevenue: 0.070, intangiblesPctRevenue: 0.030,
+      goodwillPctRevenue: 0.020, cashPctRevenue: 0.050, netDebtToEbitda: 1.1,
+      costOfDebt: 0.137, arDays: 22, invDays: 20, apDays: 25,
+      dividendPayout: 0.30, buybackPctNetIncome: 0.10, minorityPctNetIncome: 0.01,
+      shares: 1130, price: 20.0, beta: 1.10, annualVolatility: 0.34, priceDrift: 0.04,
+      averageVolume: 14_000_000, freeFloat: 0.93,
+    },
+    {
+      driver: {
+        unit: 'metros cúbicos de combustível vendidos', volume: 34_000_000, volumeGrowth: 0.02,
+        price: 0.0042647, priceGrowth: 0.03, priceIndex: 'IPCA', shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Rede de postos', share: 0.68, margin: 0.030, growth: 0.02, marketShare: 0.26 },
+        { name: 'Grandes consumidores', share: 0.21, margin: 0.028, growth: 0.03 },
+        { name: 'Aviação', share: 0.08, margin: 0.055, growth: 0.06 },
+        { name: 'Energia e outros', share: 0.03, margin: 0.090, growth: 0.10 },
+      ],
+      geographies: [{ name: 'Sudeste', share: 0.46 }, { name: 'Nordeste', share: 0.18 }, { name: 'Sul', share: 0.17 }, { name: 'Centro-Oeste', share: 0.12 }, { name: 'Norte', share: 0.07 }],
+      management: [
+        { name: 'E. Ubaldo-type profile', role: 'Chief Executive Officer', since: 2024, background: 'Career in fuel logistics and distribution operations.' },
+        { name: 'A. Frizzo-type profile', role: 'Chief Financial Officer', since: 2022, background: 'Prior finance leadership in energy trading.' },
+        { name: 'M. Lira-type profile', role: 'Diretor de Rede', since: 2021, background: 'Two decades in franchised retail networks.' },
+      ],
+      ownership: [
+        { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.283 },
+        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.241 },
+        { holder: 'Previ (pension fund)', kind: 'INSTITUTIONAL', stake: 0.061 },
+        { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.415 },
+      ],
+      peers: ['UGPA3', 'PETR4', 'PRIO3', 'COP'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'UGPA3', name: 'Ultrapar', legalName: 'Ultrapar Participações S.A.', exchange: 'B3',
+      country: 'Brazil', sector: 'Energy', industry: 'Oil, Gas & Consumable Fuels', currency: 'BRL',
+      description:
+        'Ultrapar is a holding company whose principal asset is Ipiranga, the second-largest fuel distributor in Brazil, alongside Ultragaz in bottled and bulk LPG and Ultracargo in liquid bulk storage terminals.',
+      businessModel:
+        'Three businesses with different return profiles held together by a holding structure. Ipiranga earns a distribution spread on volume; Ultragaz sells a household staple with pricing that follows the refinery gate; Ultracargo rents tank capacity under take-or-pay contracts and is the highest-return asset of the three. A sum-of-the-parts is the honest way to value it, because a single multiple on consolidated EBITDA averages away exactly what distinguishes them.',
+      competitiveAdvantages: ['Second-largest branded station network', 'Ultracargo terminal capacity at constrained ports', 'Ultragaz distribution reach into low-income households', 'Holding structure allowing capital reallocation between the three'],
+      website: 'https://ultra.com.br', employees: 11500, foundedYear: 1937,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'São Paulo, Brazil',
+      themes: ['commodities', 'infrastructure'],
+    },
+    {
+      revenue: 135000, growthPath: [-0.14, 0.49, 0.27, -0.08, 0.01, 0.02],
+      ebitdaMarginPath: [0.026, 0.024, 0.028, 0.033, 0.035, 0.035],
+      grossMargin: 0.058, daPctRevenue: 0.013, rndPctRevenue: 0.0005, taxRate: 0.28,
+      capexPctRevenue: 0.013, ppePctRevenue: 0.075, intangiblesPctRevenue: 0.035,
+      goodwillPctRevenue: 0.025, cashPctRevenue: 0.055, netDebtToEbitda: 1.3,
+      costOfDebt: 0.134, arDays: 20, invDays: 18, apDays: 24,
+      dividendPayout: 0.35, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.02,
+      shares: 1110, price: 21.0, beta: 1.00, annualVolatility: 0.32, priceDrift: 0.03,
+      averageVolume: 9_000_000, freeFloat: 0.68,
+    },
+    {
+      driver: {
+        unit: 'metros cúbicos de combustível vendidos', volume: 30_000_000, volumeGrowth: 0.015,
+        price: 0.0045, priceGrowth: 0.03, priceIndex: 'IPCA', shareOfRevenue: 0.90,
+      },
+      segments: [
+        { name: 'Ipiranga (distribuição de combustíveis)', share: 0.90, margin: 0.028, growth: 0.02, marketShare: 0.18 },
+        { name: 'Ultragaz (GLP)', share: 0.08, margin: 0.090, growth: 0.04 },
+        { name: 'Ultracargo (terminais)', share: 0.02, margin: 0.560, growth: 0.09 },
+      ],
+      geographies: [{ name: 'Sudeste', share: 0.49 }, { name: 'Sul', share: 0.18 }, { name: 'Nordeste', share: 0.16 }, { name: 'Centro-Oeste', share: 0.11 }, { name: 'Norte', share: 0.06 }],
+      management: [
+        { name: 'M. Tiraboschi-type profile', role: 'Chief Executive Officer', since: 2021, background: 'Prior chief executive of a listed logistics operator.' },
+        { name: 'R. Araújo-type profile', role: 'Chief Financial Officer', since: 2021, background: 'Career in corporate finance and capital allocation.' },
+        { name: 'L. Ribeiro-type profile', role: 'CEO, Ipiranga', since: 2022, background: 'Two decades in fuel distribution operations.' },
+      ],
+      ownership: [
+        { holder: 'Ultra S.A. (família Igel)', kind: 'CONTROLLING', stake: 0.212 },
+        { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.224 },
+        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.187 },
+        { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.377 },
+      ],
+      peers: ['VBBR3', 'PETR4', 'ABEV3', 'PRIO3'],
+    },
+  ),
+
+  /* ---------------------------- HEALTH CARE ---------------------------- */
+  bp(
+    {
+      ticker: 'MRK', name: 'Merck & Co.', legalName: 'Merck & Co., Inc.', exchange: 'NYSE',
+      country: 'United States', sector: 'Health Care', industry: 'Pharmaceuticals',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Merck develops and sells prescription medicines and vaccines, with an oncology franchise led by Keytruda, a vaccines business built around Gardasil, and an animal health division.',
+      businessModel:
+        'A patent is a time-limited monopoly, and the model has to respect the clock. Keytruda is close to half of revenue and loses exclusivity toward the end of the decade; everything the company earns until then is being spent building what replaces it. A valuation that extends today’s margin into perpetuity is not optimistic, it is wrong — the terminal value has to assume the cliff.',
+      competitiveAdvantages: ['Oncology franchise with broad label breadth', 'Vaccine manufacturing capacity that is slow to replicate', 'Animal health business uncorrelated with the drug cycle', 'Cash flow to fund external innovation ahead of the patent cliff'],
+      website: 'https://merck.com', employees: 73000, foundedYear: 1891,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Rahway, New Jersey',
+      themes: ['healthcare'],
+    },
+    {
+      revenue: 64200, growthPath: [0.17, 0.22, 0.01, 0.07, 0.05, 0.02],
+      ebitdaMarginPath: [0.395, 0.420, 0.290, 0.400, 0.415, 0.420],
+      grossMargin: 0.76, daPctRevenue: 0.090, rndPctRevenue: 0.200, taxRate: 0.17,
+      capexPctRevenue: 0.060, ppePctRevenue: 0.55, intangiblesPctRevenue: 0.30,
+      goodwillPctRevenue: 0.35, cashPctRevenue: 0.210, netDebtToEbitda: 0.6,
+      costOfDebt: 0.048, arDays: 70, invDays: 130, apDays: 60,
+      dividendPayout: 0.42, buybackPctNetIncome: 0.15, minorityPctNetIncome: 0.01,
+      shares: 2510, price: 85.0, beta: 0.42, annualVolatility: 0.22, priceDrift: 0.03,
+      averageVolume: 11_000_000, freeFloat: 0.99,
+    },
+    {
+      segments: [
+        { name: 'Oncology', share: 0.46, margin: 0.55, growth: 0.08, marketShare: 0.18 },
+        { name: 'Vaccines', share: 0.16, margin: 0.48, growth: -0.06 },
+        { name: 'Hospital & Specialty', share: 0.18, margin: 0.35, growth: 0.05 },
+        { name: 'Animal Health', share: 0.09, margin: 0.31, growth: 0.04 },
+        { name: 'Other', share: 0.11, margin: 0.22, growth: -0.02 },
+      ],
+      geographies: [{ name: 'United States', share: 0.50 }, { name: 'Europe', share: 0.21 }, { name: 'China', share: 0.09 }, { name: 'Japan & Asia Pacific', share: 0.12 }, { name: 'Rest of World', share: 0.08 }],
+      management: [
+        { name: 'R. Davis-type profile', role: 'Chief Executive Officer', since: 2021, background: 'Prior chief financial officer of the same company.' },
+        { name: 'C. Caruso-type profile', role: 'Chief Financial Officer', since: 2021, background: 'Career in pharmaceutical finance and business development.' },
+        { name: 'D. Weinreich-type profile', role: 'President, Research Laboratories', since: 2024, background: 'Two decades leading clinical development.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.093 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.077 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.051 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.779 },
+      ],
+      peers: ['PFE', 'LLY', 'ABBV', 'JNJ'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'PFE', name: 'Pfizer', legalName: 'Pfizer Inc.', exchange: 'NYSE',
+      country: 'United States', sector: 'Health Care', industry: 'Pharmaceuticals',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Pfizer discovers, manufactures and sells prescription medicines and vaccines across oncology, internal medicine, inflammation and immunology, having redeployed its pandemic windfall into a large oncology acquisition.',
+      businessModel:
+        'The pandemic revenue was a one-off and the company spent it buying pipeline. What is left on the balance sheet is a very large intangible and goodwill balance that amortises for years, so reported earnings understate cash earnings by a wide margin — and the debt taken on to buy those assets is real whether or not they work. Both sides of that trade belong in the model.',
+      competitiveAdvantages: ['Global manufacturing and regulatory footprint', 'Commercial reach in primary care few competitors can match', 'Oncology portfolio acquired at scale', 'Balance sheet capacity for further external innovation'],
+      website: 'https://pfizer.com', employees: 88000, foundedYear: 1849,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'New York, New York',
+      themes: ['healthcare'],
+    },
+    {
+      revenue: 63600, growthPath: [0.95, 0.23, -0.42, 0.09, 0.05, 0.01],
+      ebitdaMarginPath: [0.440, 0.430, 0.120, 0.300, 0.325, 0.330],
+      grossMargin: 0.72, daPctRevenue: 0.115, rndPctRevenue: 0.170, taxRate: 0.13,
+      capexPctRevenue: 0.050, ppePctRevenue: 0.40, intangiblesPctRevenue: 0.95,
+      goodwillPctRevenue: 0.78, cashPctRevenue: 0.200, netDebtToEbitda: 2.4,
+      costOfDebt: 0.049, arDays: 80, invDays: 180, apDays: 70,
+      dividendPayout: 0.90, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.005,
+      shares: 5680, price: 25.0, beta: 0.55, annualVolatility: 0.25, priceDrift: 0.01,
+      averageVolume: 40_000_000, freeFloat: 0.99,
+    },
+    {
+      segments: [
+        { name: 'Oncology', share: 0.28, margin: 0.38, growth: 0.09, marketShare: 0.11 },
+        { name: 'Internal Medicine', share: 0.24, margin: 0.35, growth: 0.02 },
+        { name: 'Inflammation & Immunology', share: 0.09, margin: 0.40, growth: 0.06 },
+        { name: 'Vaccines & Anti-infectives', share: 0.28, margin: 0.29, growth: -0.05 },
+        { name: 'Hospital & Other', share: 0.11, margin: 0.24, growth: 0.03 },
+      ],
+      geographies: [{ name: 'United States', share: 0.53 }, { name: 'Europe', share: 0.22 }, { name: 'Japan & Asia', share: 0.14 }, { name: 'Rest of World', share: 0.11 }],
+      management: [
+        { name: 'A. Bourla-type profile', role: 'Chief Executive Officer', since: 2019, background: 'Career veterinarian turned commercial leader of the group.' },
+        { name: 'D. Denton-type profile', role: 'Chief Financial Officer', since: 2021, background: 'Prior chief financial officer of a listed pharmacy chain.' },
+        { name: 'C. Boshoff-type profile', role: 'Chief Scientific Officer', since: 2024, background: 'Two decades in oncology research leadership.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.095 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.079 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.053 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.773 },
+      ],
+      peers: ['MRK', 'JNJ', 'ABBV', 'LLY'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'HYPE3', name: 'Hypera', legalName: 'Hypera S.A.', exchange: 'B3', country: 'Brazil',
+      sector: 'Health Care', industry: 'Pharmaceuticals', currency: 'BRL',
+      description:
+        'Hypera is the largest Brazilian-owned pharmaceutical company, selling branded consumer health products, prescription medicines and generics through a portfolio of acquired and internally developed brands.',
+      businessModel:
+        'The company buys brands rather than molecules. Consumer health products in Brazil are bought on the name at the pharmacy counter, so the asset being acquired is shelf recall, and it does not expire the way a patent does. The cost of that model is a balance sheet heavy in intangibles and a working capital cycle stretched by the long credit terms the distribution chain demands.',
+      competitiveAdvantages: ['Brand recall in over-the-counter categories', 'Distribution reach across 70,000 pharmacy points', 'Manufacturing scale in Goiás with fiscal incentives', 'Track record of integrating acquired portfolios'],
+      website: 'https://hypera.com.br', employees: 7200, foundedYear: 2001,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'São Paulo, Brazil',
+      themes: ['healthcare', 'consumer'],
+    },
+    {
+      revenue: 7400, growthPath: [0.14, 0.27, 0.22, 0.10, -0.04, 0.03],
+      ebitdaMarginPath: [0.330, 0.325, 0.320, 0.310, 0.310, 0.320],
+      grossMargin: 0.68, daPctRevenue: 0.075, rndPctRevenue: 0.030, taxRate: 0.14,
+      capexPctRevenue: 0.050, ppePctRevenue: 0.30, intangiblesPctRevenue: 0.95,
+      goodwillPctRevenue: 0.35, cashPctRevenue: 0.100, netDebtToEbitda: 2.2,
+      costOfDebt: 0.139, arDays: 145, invDays: 190, apDays: 80,
+      dividendPayout: 0.25, buybackPctNetIncome: 0.05, minorityPctNetIncome: 0.0,
+      shares: 633, price: 22.0, beta: 0.85, annualVolatility: 0.31, priceDrift: 0.02,
+      averageVolume: 4_500_000, freeFloat: 0.72,
+    },
+    {
+      driver: {
+        unit: 'unidades vendidas', volume: 500_000_000, volumeGrowth: 0.03,
+        price: 0.0000148, priceGrowth: 0.05, priceIndex: 'CMED/IPCA', shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Consumer Health', share: 0.55, margin: 0.34, growth: 0.05, marketShare: 0.13 },
+        { name: 'Prescrição', share: 0.30, margin: 0.28, growth: 0.02 },
+        { name: 'Similares e genéricos', share: 0.15, margin: 0.21, growth: 0.01 },
+      ],
+      geographies: [{ name: 'Sudeste', share: 0.47 }, { name: 'Nordeste', share: 0.21 }, { name: 'Sul', share: 0.16 }, { name: 'Centro-Oeste e Norte', share: 0.16 }],
+      management: [
+        { name: 'B. Fioravanti-type profile', role: 'Chief Executive Officer', since: 2024, background: 'Internal promotion from the commercial organisation.' },
+        { name: 'A. Meirelles-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Career in consumer and healthcare finance.' },
+        { name: 'C. Bonetti-type profile', role: 'Diretor de Inovação', since: 2020, background: 'Two decades in pharmaceutical product development.' },
+      ],
+      ownership: [
+        { holder: 'Igarapava (família Bonfim)', kind: 'CONTROLLING', stake: 0.281 },
+        { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.229 },
+        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.185 },
+        { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.305 },
+      ],
+      peers: ['RADL3', 'FLRY3', 'RDOR3', 'PFE'],
+    },
+  ),
+
+  /* ----------------------------- UTILITIES ----------------------------- */
+  bp(
+    {
+      ticker: 'NEE', name: 'NextEra Energy', legalName: 'NextEra Energy, Inc.', exchange: 'NYSE',
+      country: 'United States', sector: 'Utilities', industry: 'Electric Utilities',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'NextEra owns Florida Power & Light, the largest regulated electric utility in the United States by customer count, and NextEra Energy Resources, the largest owner of wind and solar generation in North America.',
+      businessModel:
+        'Both halves earn on capital deployed rather than on volume sold. The regulated utility earns an authorised return on its rate base; the renewables arm signs twenty-year offtake contracts before it builds. This is why free cash flow is deeply negative and the company is nonetheless creating value: every dollar of capex is a dollar added to an earning base at a spread above its cost of capital. A DCF that stops at free cash flow without modelling the rate base will value this business at close to nothing, and be wrong.',
+      competitiveAdvantages: ['Florida service territory with sustained population growth', 'Largest renewable development pipeline in North America', 'Cost of capital advantage from scale and credit rating', 'Tax equity structures unavailable to smaller developers'],
+      website: 'https://nexteraenergy.com', employees: 16800, foundedYear: 1925,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Juno Beach, Florida',
+      themes: ['energy-transition', 'infrastructure'],
+    },
+    {
+      revenue: 24800, growthPath: [-0.05, 0.23, 0.34, -0.12, 0.01, 0.03],
+      ebitdaMarginPath: [0.720, 0.700, 0.480, 0.740, 0.770, 0.780],
+      grossMargin: 0.84, daPctRevenue: 0.279, rndPctRevenue: 0.002, taxRate: 0.12,
+      capexPctRevenue: 0.930, ppePctRevenue: 5.25, intangiblesPctRevenue: 0.05,
+      goodwillPctRevenue: 0.24, cashPctRevenue: 0.060, netDebtToEbitda: 4.25,
+      costOfDebt: 0.052, arDays: 55, invDays: 45, apDays: 60,
+      dividendPayout: 0.60, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.02,
+      shares: 2060, price: 75.0, beta: 0.60, annualVolatility: 0.24, priceDrift: 0.06,
+      averageVolume: 13_000_000, freeFloat: 0.98,
+    },
+    {
+      driver: {
+        unit: 'MWh vendidos e gerados', volume: 180_000_000, volumeGrowth: 0.03,
+        price: 0.0001378, priceGrowth: 0.02, shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Florida Power & Light', share: 0.71, margin: 0.80, growth: 0.05, marketShare: 0.55 },
+        { name: 'NextEra Energy Resources', share: 0.26, margin: 0.78, growth: 0.09 },
+        { name: 'Corporate & Other', share: 0.03, margin: 0.10, growth: 0.0 },
+      ],
+      geographies: [{ name: 'Florida', share: 0.71 }, { name: 'Rest of United States', share: 0.27 }, { name: 'Canada & Spain', share: 0.02 }],
+      management: [
+        { name: 'J. Ketchum-type profile', role: 'Chief Executive Officer', since: 2022, background: 'Prior chief executive of the competitive renewables arm.' },
+        { name: 'M. Dunne-type profile', role: 'Chief Financial Officer', since: 2024, background: 'Career in utility finance and project structuring.' },
+        { name: 'A. Silagy-type profile', role: 'CEO, Florida Power & Light', since: 2021, background: 'Two decades inside the regulated utility.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.092 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.075 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.048 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.785 },
+      ],
+      peers: ['DUK', 'EGIE3', 'ELET3', 'ENGI11'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'DUK', name: 'Duke Energy', legalName: 'Duke Energy Corporation', exchange: 'NYSE',
+      country: 'United States', sector: 'Utilities', industry: 'Electric Utilities',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Duke Energy is a regulated electric and gas utility serving the Carolinas, Florida, the Midwest and Indiana, with a capital programme directed at generation replacement and grid hardening.',
+      businessModel:
+        'A pure regulated return. Duke earns an allowed rate of return on rate base set by state commissions; growth comes from investing capital those commissions approve, and the risk is regulatory rather than commercial. Forecasting it means forecasting rate case outcomes and the pace of the capital plan, not electricity demand — demand barely moves.',
+      competitiveAdvantages: ['Constructive regulatory relationships across six states', 'Service territories with above-average population growth', 'Scale in grid and generation procurement', 'Investment-grade access to long-dated capital'],
+      website: 'https://duke-energy.com', employees: 27600, foundedYear: 1904,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Charlotte, North Carolina',
+      themes: ['infrastructure', 'energy-transition'],
+    },
+    {
+      revenue: 30400, growthPath: [-0.03, 0.16, 0.06, -0.01, 0.05, 0.04],
+      ebitdaMarginPath: [0.480, 0.450, 0.460, 0.490, 0.495, 0.500],
+      grossMargin: 0.58, daPctRevenue: 0.185, rndPctRevenue: 0.001, taxRate: 0.10,
+      capexPctRevenue: 0.420, ppePctRevenue: 4.30, intangiblesPctRevenue: 0.06,
+      goodwillPctRevenue: 0.63, cashPctRevenue: 0.010, netDebtToEbitda: 5.6,
+      costOfDebt: 0.051, arDays: 45, invDays: 55, apDays: 55,
+      dividendPayout: 0.70, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.04,
+      shares: 775, price: 118.0, beta: 0.48, annualVolatility: 0.19, priceDrift: 0.04,
+      averageVolume: 3_400_000, freeFloat: 0.99,
+    },
+    {
+      driver: {
+        unit: 'MWh entregues a clientes finais', volume: 220_000_000, volumeGrowth: 0.015,
+        price: 0.0001175, priceGrowth: 0.03, shareOfRevenue: 0.85,
+      },
+      segments: [
+        { name: 'Electric Utilities & Infrastructure', share: 0.91, margin: 0.51, growth: 0.05, marketShare: 0.07 },
+        { name: 'Gas Utilities & Infrastructure', share: 0.07, margin: 0.46, growth: 0.03 },
+        { name: 'Other', share: 0.02, margin: 0.10, growth: 0.0 },
+      ],
+      geographies: [{ name: 'Carolinas', share: 0.45 }, { name: 'Florida', share: 0.24 }, { name: 'Midwest', share: 0.20 }, { name: 'Indiana', share: 0.11 }],
+      management: [
+        { name: 'H. Good-type profile', role: 'Chief Executive Officer', since: 2013, background: 'Career in utility finance before leading the group.' },
+        { name: 'B. Savoy-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Internal promotion from the regulated segment.' },
+        { name: 'H. Sideris-type profile', role: 'President', since: 2023, background: 'Two decades in state regulatory affairs.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.098 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.081 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.056 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.765 },
+      ],
+      peers: ['NEE', 'ELET3', 'CPLE6', 'EGIE3'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'CMIG4', name: 'Cemig', legalName: 'Companhia Energética de Minas Gerais', exchange: 'B3',
+      country: 'Brazil', sector: 'Utilities', industry: 'Electric Utilities', currency: 'BRL',
+      description:
+        'Cemig is the integrated electricity company of the state of Minas Gerais, combining the state’s largest distribution concession with generation and transmission assets and a gas distribution stake.',
+      businessModel:
+        'Distribution is the bulk of it: Cemig buys energy, delivers it over its own network and earns a tariff that the regulator resets every four years, with annual inflation pass-through in between. The regulator allows a return on the regulatory asset base and reimburses prudent costs, so the operating question is losses and delinquency — the two places where a distributor can fail to collect what the tariff assumed.',
+      competitiveAdvantages: ['Distribution concession covering nearly all of Minas Gerais', 'Hydro generation with long concession terms', 'Transmission revenue indexed and contracted', 'Regulated asset base growing with mandated investment'],
+      website: 'https://cemig.com.br', employees: 5100, foundedYear: 1952,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Belo Horizonte, Brazil',
+      themes: ['infrastructure', 'energy-transition'],
+    },
+    {
+      revenue: 38000, growthPath: [0.08, 0.32, 0.11, -0.03, 0.06, 0.05],
+      ebitdaMarginPath: [0.190, 0.205, 0.220, 0.230, 0.235, 0.240],
+      grossMargin: 0.30, daPctRevenue: 0.045, rndPctRevenue: 0.004, taxRate: 0.28,
+      capexPctRevenue: 0.100, ppePctRevenue: 0.75, intangiblesPctRevenue: 0.55,
+      goodwillPctRevenue: 0.0, cashPctRevenue: 0.090, netDebtToEbitda: 1.0,
+      costOfDebt: 0.133, arDays: 55, invDays: 15, apDays: 50,
+      dividendPayout: 0.50, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.02,
+      shares: 2880, price: 11.5, beta: 0.75, annualVolatility: 0.29, priceDrift: 0.04,
+      averageVolume: 16_000_000, freeFloat: 0.49,
+    },
+    {
+      driver: {
+        unit: 'MWh distribuídos', volume: 32_000_000, volumeGrowth: 0.02,
+        price: 0.00095, priceGrowth: 0.045, priceIndex: 'IPCA', shareOfRevenue: 0.80,
+      },
+      segments: [
+        { name: 'Distribuição', share: 0.80, margin: 0.16, growth: 0.05, marketShare: 0.11 },
+        { name: 'Geração e comercialização', share: 0.15, margin: 0.52, growth: 0.04 },
+        { name: 'Transmissão e gás', share: 0.05, margin: 0.61, growth: 0.06 },
+      ],
+      geographies: [{ name: 'Minas Gerais', share: 0.88 }, { name: 'Mercado livre nacional', share: 0.12 }],
+      management: [
+        { name: 'R. Vilela-type profile', role: 'Chief Executive Officer', since: 2023, background: 'Career in the electricity sector across regulation and operations.' },
+        { name: 'L. Barbosa-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Prior finance leadership at a listed generator.' },
+        { name: 'M. Fonseca-type profile', role: 'Diretora de Distribuição', since: 2022, background: 'Two decades in network operations.' },
+      ],
+      ownership: [
+        { holder: 'Estado de Minas Gerais', kind: 'CONTROLLING', stake: 0.507 },
+        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.184 },
+        { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.132 },
+        { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.177 },
+      ],
+      peers: ['CPLE6', 'EQTL3', 'ELET3', 'ENGI11'],
+    },
+  ),
+
+  /* ---------------------------- REAL ESTATE ---------------------------- */
+  bp(
+    {
+      ticker: 'EQIX', name: 'Equinix', legalName: 'Equinix, Inc.', exchange: 'NASDAQ',
+      country: 'United States', sector: 'Real Estate', industry: 'Specialized REITs',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Equinix operates carrier-neutral data centres in more than seventy metropolitan areas, selling space, power and — critically — interconnection between the networks and clouds that meet inside them.',
+      businessModel:
+        'The building is not the asset; the density of networks inside it is. A customer who has cross-connected to fifty counterparties in an Equinix facility cannot leave without rebuilding those relationships elsewhere, which is why churn is low and why interconnection revenue carries a far higher margin than the cabinet does. Revenue per cabinet, not cabinet count, is where the operating leverage shows up.',
+      competitiveAdvantages: ['Network density that compounds with each new tenant', 'Interconnection revenue with no incremental capital', 'Sites in supply-constrained metropolitan markets', 'Contracts denominated in recurring monthly revenue'],
+      website: 'https://equinix.com', employees: 13000, foundedYear: 1998,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Redwood City, California',
+      themes: ['infrastructure', 'technology', 'ai'],
+    },
+    {
+      revenue: 8900, growthPath: [0.08, 0.09, 0.10, 0.13, 0.07, 0.07],
+      ebitdaMarginPath: [0.430, 0.435, 0.440, 0.450, 0.455, 0.460],
+      grossMargin: 0.52, daPctRevenue: 0.240, rndPctRevenue: 0.003, taxRate: 0.15,
+      capexPctRevenue: 0.350, ppePctRevenue: 2.20, intangiblesPctRevenue: 0.20,
+      goodwillPctRevenue: 0.62, cashPctRevenue: 0.350, netDebtToEbitda: 3.6,
+      costOfDebt: 0.047, arDays: 40, invDays: 0, apDays: 30,
+      dividendPayout: 0.85, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.0,
+      shares: 97, price: 800.0, beta: 0.80, annualVolatility: 0.26, priceDrift: 0.05,
+      averageVolume: 620_000, freeFloat: 0.99,
+    },
+    {
+      driver: {
+        unit: 'cabinets faturados', volume: 280_000, volumeGrowth: 0.04,
+        price: 0.031786, priceGrowth: 0.03, shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Colocation', share: 0.72, margin: 0.46, growth: 0.06, marketShare: 0.12 },
+        { name: 'Interconnection', share: 0.18, margin: 0.62, growth: 0.09 },
+        { name: 'Managed infrastructure & Other', share: 0.10, margin: 0.24, growth: 0.05 },
+      ],
+      geographies: [{ name: 'Americas', share: 0.45 }, { name: 'EMEA', share: 0.34 }, { name: 'Asia Pacific', share: 0.21 }],
+      management: [
+        { name: 'A. Olsen-type profile', role: 'Chief Executive Officer', since: 2024, background: 'Prior chief financial officer of a hyperscale infrastructure operator.' },
+        { name: 'K. Taylor-type profile', role: 'Chief Financial Officer', since: 2024, background: 'Career in REIT finance and capital markets.' },
+        { name: 'M. Rook-type profile', role: 'Chief Revenue Officer', since: 2023, background: 'Two decades in enterprise infrastructure sales.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.104 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.086 },
+        { holder: 'T. Rowe Price', kind: 'INSTITUTIONAL', stake: 0.042 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.768 },
+      ],
+      peers: ['PLD', 'AMT', 'SPG', 'O'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'O', name: 'Realty Income', legalName: 'Realty Income Corporation', exchange: 'NYSE',
+      country: 'United States', sector: 'Real Estate', industry: 'Retail REITs',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Realty Income owns more than fifteen thousand freestanding commercial properties leased to single tenants under long-term net leases, principally to retail operators in the United States and Europe.',
+      businessModel:
+        'A net lease transfers tax, insurance and maintenance to the tenant, so the landlord collects rent with almost no operating cost — which is why the EBITDA margin sits above eighty per cent. Growth comes from acquiring more properties at a yield above the cost of the capital raised to buy them. That spread, not the rent roll, is the business, and it narrows when rates rise.',
+      competitiveAdvantages: ['Cost of capital among the lowest in the REIT sector', 'Tenant base weighted to non-discretionary retail', 'Lease terms averaging close to a decade with contractual escalators', 'Scale allowing sale-leaseback transactions competitors cannot fund'],
+      website: 'https://realtyincome.com', employees: 470, foundedYear: 1969,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'San Diego, California',
+      themes: ['infrastructure', 'consumer'],
+    },
+    {
+      revenue: 5300, growthPath: [0.10, 0.26, 0.30, 0.22, 0.29, 0.06],
+      ebitdaMarginPath: [0.800, 0.805, 0.810, 0.815, 0.820, 0.820],
+      grossMargin: 0.92, daPctRevenue: 0.430, rndPctRevenue: 0.0, taxRate: 0.01,
+      capexPctRevenue: 0.400, ppePctRevenue: 9.50, intangiblesPctRevenue: 0.90,
+      goodwillPctRevenue: 0.07, cashPctRevenue: 0.080, netDebtToEbitda: 5.5,
+      costOfDebt: 0.047, arDays: 40, invDays: 0, apDays: 25,
+      dividendPayout: 0.95, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.01,
+      shares: 900, price: 57.0, beta: 0.75, annualVolatility: 0.20, priceDrift: 0.02,
+      averageVolume: 5_500_000, freeFloat: 0.99,
+    },
+    {
+      driver: {
+        unit: 'imóveis na carteira', volume: 15_600, volumeGrowth: 0.04,
+        price: 0.339744, priceGrowth: 0.015, priceIndex: 'CPI', shareOfRevenue: 1.0,
+      },
+      segments: [
+        { name: 'Retail net lease', share: 0.79, margin: 0.83, growth: 0.05, marketShare: 0.06 },
+        { name: 'Industrial & Distribution', share: 0.15, margin: 0.84, growth: 0.08 },
+        { name: 'Gaming & Other', share: 0.06, margin: 0.86, growth: 0.03 },
+      ],
+      geographies: [{ name: 'United States', share: 0.88 }, { name: 'United Kingdom', share: 0.09 }, { name: 'Rest of Europe', share: 0.03 }],
+      management: [
+        { name: 'S. Roberts-type profile', role: 'Chief Executive Officer', since: 2022, background: 'Career in net lease acquisitions and portfolio management.' },
+        { name: 'J. Mehlman-type profile', role: 'Chief Financial Officer', since: 2023, background: 'Prior treasurer of the same company.' },
+        { name: 'N. Hodges-type profile', role: 'Chief Investment Officer', since: 2022, background: 'Two decades in European sale-leaseback markets.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.132 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.094 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.051 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.723 },
+      ],
+      peers: ['SPG', 'PLD', 'AMT', 'EQIX'],
+    },
+  ),
+
+  /* ---------------------------- INDUSTRIALS ---------------------------- */
+  bp(
+    {
+      ticker: 'DE', name: 'Deere & Company', legalName: 'Deere & Company', exchange: 'NYSE',
+      country: 'United States', sector: 'Industrials', industry: 'Machinery',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Deere manufactures agricultural, construction and forestry machinery, sold through an independent dealer network and financed by a captive finance arm that carries most of the group’s debt.',
+      businessModel:
+        'Equipment demand follows farm income, which follows crop prices, which makes this a cyclical business that reports through a balance sheet dominated by its finance company. The captive arm is a bank in all but name — it funds dealer inventory and customer purchases — so consolidated leverage looks alarming until it is separated from the industrial operation. Precision agriculture technology is the attempt to convert a cyclical machine sale into a recurring subscription, and whether that works is the central long-run question.',
+      competitiveAdvantages: ['Dealer network with entrenched service relationships', 'Precision agriculture technology installed on the existing fleet', 'Captive finance supporting sales through the cycle', 'Brand pricing power in large agricultural equipment'],
+      website: 'https://deere.com', employees: 75800, foundedYear: 1837,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Moline, Illinois',
+      themes: ['commodities', 'technology'],
+    },
+    {
+      revenue: 51700, growthPath: [0.24, 0.19, 0.16, -0.16, -0.14, 0.03],
+      ebitdaMarginPath: [0.215, 0.230, 0.275, 0.250, 0.225, 0.230],
+      grossMargin: 0.32, daPctRevenue: 0.048, rndPctRevenue: 0.045, taxRate: 0.23,
+      capexPctRevenue: 0.045, ppePctRevenue: 0.17, intangiblesPctRevenue: 0.02,
+      goodwillPctRevenue: 0.07, cashPctRevenue: 0.150, netDebtToEbitda: 2.8,
+      costOfDebt: 0.048, arDays: 60, invDays: 130, apDays: 55,
+      dividendPayout: 0.25, buybackPctNetIncome: 0.55, minorityPctNetIncome: 0.005,
+      shares: 272, price: 470.0, beta: 1.05, annualVolatility: 0.27, priceDrift: 0.05,
+      averageVolume: 1_700_000, freeFloat: 0.97,
+    },
+    {
+      driver: {
+        unit: 'máquinas agrícolas e de construção vendidas', volume: 350_000, volumeGrowth: -0.02,
+        price: 0.110786, priceGrowth: 0.03, shareOfRevenue: 0.75,
+      },
+      segments: [
+        { name: 'Production & Precision Agriculture', share: 0.39, margin: 0.24, growth: -0.06, marketShare: 0.51 },
+        { name: 'Small Agriculture & Turf', share: 0.21, margin: 0.18, growth: -0.04 },
+        { name: 'Construction & Forestry', share: 0.25, margin: 0.17, growth: -0.05 },
+        { name: 'Financial Services', share: 0.15, margin: 0.38, growth: 0.06 },
+      ],
+      geographies: [{ name: 'United States & Canada', share: 0.62 }, { name: 'Europe', share: 0.16 }, { name: 'Latin America', share: 0.14 }, { name: 'Asia & Other', share: 0.08 }],
+      management: [
+        { name: 'J. May-type profile', role: 'Chief Executive Officer', since: 2019, background: 'Career in the group’s international operations.' },
+        { name: 'J. Allison-type profile', role: 'Chief Financial Officer', since: 2022, background: 'Internal promotion from the finance arm.' },
+        { name: 'C. Hindman-type profile', role: 'President, Precision Ag', since: 2023, background: 'Two decades in agricultural technology.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.088 },
+        { holder: 'Cascade Investment', kind: 'INSTITUTIONAL', stake: 0.101 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.066 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.745 },
+      ],
+      peers: ['CAT', 'HON', 'WEGE3', 'POMO4'],
+    },
+  ),
+
+  /* ------------------------ INFORMATION TECHNOLOGY ------------------------ */
+  bp(
+    {
+      ticker: 'ADBE', name: 'Adobe', legalName: 'Adobe Inc.', exchange: 'NASDAQ',
+      country: 'United States', sector: 'Information Technology', industry: 'Software',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Adobe sells creative, document and marketing software by subscription — Creative Cloud, Document Cloud and Experience Cloud — to individuals, agencies and enterprises.',
+      businessModel:
+        'Subscription software with almost no marginal cost: gross margin near ninety per cent, and the only real expenses are the people who build and sell it. Revenue is therefore a function of subscriptions times price, and the entire bear case is that generative tools collapse the price of what Adobe sells. A model that assumes today’s ARPU forever is taking a side in that argument whether or not it says so.',
+      competitiveAdvantages: ['File formats that are industry standards', 'Workflow entrenchment across creative teams', 'Enterprise agreements bundling three clouds', 'Training and skills base built over decades'],
+      website: 'https://adobe.com', employees: 30000, foundedYear: 1982,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'San Jose, California',
+      themes: ['technology', 'ai'],
+    },
+    {
+      revenue: 21500, growthPath: [0.15, 0.23, 0.12, 0.10, 0.11, 0.09],
+      ebitdaMarginPath: [0.420, 0.425, 0.395, 0.400, 0.405, 0.410],
+      grossMargin: 0.89, daPctRevenue: 0.050, rndPctRevenue: 0.180, taxRate: 0.20,
+      capexPctRevenue: 0.020, ppePctRevenue: 0.12, intangiblesPctRevenue: 0.08,
+      goodwillPctRevenue: 0.60, cashPctRevenue: 0.350, netDebtToEbitda: 0.3,
+      costOfDebt: 0.048, arDays: 45, invDays: 0, apDays: 20,
+      dividendPayout: 0.0, buybackPctNetIncome: 0.85, minorityPctNetIncome: 0.0,
+      shares: 425, price: 360.0, beta: 1.30, annualVolatility: 0.32, priceDrift: 0.02,
+      averageVolume: 3_600_000, freeFloat: 0.99,
+    },
+    {
+      driver: {
+        unit: 'assinaturas Creative Cloud', volume: 35_000_000, volumeGrowth: 0.09,
+        price: 0.000369, priceGrowth: 0.03, shareOfRevenue: 0.60,
+      },
+      segments: [
+        { name: 'Digital Media', share: 0.74, margin: 0.46, growth: 0.10, marketShare: 0.62 },
+        { name: 'Digital Experience', share: 0.25, margin: 0.28, growth: 0.09 },
+        { name: 'Publishing & Advertising', share: 0.01, margin: 0.20, growth: -0.04 },
+      ],
+      geographies: [{ name: 'Americas', share: 0.58 }, { name: 'EMEA', share: 0.27 }, { name: 'Asia Pacific', share: 0.15 }],
+      management: [
+        { name: 'S. Narayen-type profile', role: 'Chief Executive Officer', since: 2007, background: 'Led the transition from licences to subscription.' },
+        { name: 'D. Durn-type profile', role: 'Chief Financial Officer', since: 2021, background: 'Prior chief financial officer of a listed REIT.' },
+        { name: 'A. Rao-type profile', role: 'President, Digital Media', since: 2021, background: 'Two decades in creative product management.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.090 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.072 },
+        { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.044 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.794 },
+      ],
+      peers: ['CRM', 'MSFT', 'ORCL', 'TOTS3'],
+    },
+  ),
+
+  bp(
+    {
+      ticker: 'INTC', name: 'Intel', legalName: 'Intel Corporation', exchange: 'NASDAQ',
+      country: 'United States', sector: 'Information Technology', industry: 'Semiconductors',
+      currency: 'USD', accountingStandard: GAAP,
+      description:
+        'Intel designs and manufactures microprocessors for personal computers and servers, and is building a foundry business to manufacture chips designed by others.',
+      businessModel:
+        'Intel is attempting the hardest thing in the industry: to fund a foundry build out of a product business that is losing share while it does so. Capital spending runs at more than twice depreciation and will for years, so free cash flow is negative by construction and the value depends entirely on whether the process roadmap lands. This is the case where a DCF is least informative and the balance sheet is most: the question is solvency and execution, not the discount rate.',
+      competitiveAdvantages: ['x86 instruction set installed base', 'Manufacturing footprint inside the United States and Europe', 'Government support for domestic capacity', 'Enterprise and government customer relationships'],
+      website: 'https://intel.com', employees: 99500, foundedYear: 1968,
+      ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Santa Clara, California',
+      themes: ['technology', 'ai'],
+    },
+    {
+      revenue: 53100, growthPath: [0.08, -0.20, -0.14, 0.02, -0.02, -0.01],
+      ebitdaMarginPath: [0.420, 0.300, 0.215, 0.230, 0.205, 0.210],
+      grossMargin: 0.34, daPctRevenue: 0.200, rndPctRevenue: 0.300, taxRate: 0.12,
+      capexPctRevenue: 0.450, ppePctRevenue: 2.10, intangiblesPctRevenue: 0.12,
+      goodwillPctRevenue: 0.55, cashPctRevenue: 0.420, netDebtToEbitda: 4.0,
+      costOfDebt: 0.052, arDays: 30, invDays: 130, apDays: 60,
+      dividendPayout: 0.0, buybackPctNetIncome: 0.0, minorityPctNetIncome: 0.06,
+      shares: 4350, price: 23.0, beta: 1.35, annualVolatility: 0.44, priceDrift: 0.0,
+      averageVolume: 75_000_000, freeFloat: 0.97,
+    },
+    {
+      segments: [
+        { name: 'Client Computing', share: 0.55, margin: 0.32, growth: -0.02, marketShare: 0.63 },
+        { name: 'Data Center & AI', share: 0.24, margin: 0.13, growth: -0.01 },
+        { name: 'Network & Edge', share: 0.10, margin: 0.05, growth: 0.02 },
+        { name: 'Foundry & Other', share: 0.11, margin: -0.35, growth: 0.08 },
+      ],
+      geographies: [{ name: 'China & Taiwan', share: 0.47 }, { name: 'United States', share: 0.26 }, { name: 'Singapore & Asia', share: 0.16 }, { name: 'Europe & Other', share: 0.11 }],
+      management: [
+        { name: 'L. Tan-type profile', role: 'Chief Executive Officer', since: 2025, background: 'Prior chief executive of an electronic design automation vendor.' },
+        { name: 'D. Zinsner-type profile', role: 'Chief Financial Officer', since: 2022, background: 'Prior chief financial officer of a listed analogue semiconductor company.' },
+        { name: 'M. Holthaus-type profile', role: 'CEO, Intel Products', since: 2024, background: 'Two decades in client platform sales.' },
+      ],
+      ownership: [
+        { holder: 'Vanguard funds', kind: 'INSTITUTIONAL', stake: 0.093 },
+        { holder: 'BlackRock funds', kind: 'INSTITUTIONAL', stake: 0.078 },
+        { holder: 'United States government', kind: 'INSTITUTIONAL', stake: 0.098 },
+        { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.731 },
+      ],
+      peers: ['AMD', 'NVDA', 'TSM', 'AVGO'],
+    },
+  ),
 ];
 
 export const TICKERS = BLUEPRINTS.map((b) => b.profile.ticker);

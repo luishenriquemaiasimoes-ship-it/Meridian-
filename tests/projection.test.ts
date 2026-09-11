@@ -484,6 +484,28 @@ describe('the balance tolerance', () => {
     expect(r.balance[0].balanceGap).toBeCloseTo(100, 6);
   });
 
+  it('tolerates rounding arriving on every line at once, not just on one', () => {
+    const m = concession();
+    // Rounding does not land on a single figure. Every line of a reported
+    // balance sheet is stated to the cent, so each one is already up to half a
+    // cent out, and reading a dozen of them accumulates that drift in one
+    // direction. Pushing every asset line the same way is the worst case.
+    const assetLines = ['cash', 'shortTermInvestments', 'receivables', 'inventory',
+      'otherCurrentAssets', 'tangibleAssets', 'intangibleAssets', 'otherNonCurrentAssets'] as const;
+    const opening = { ...m.opening } as Record<string, number>;
+    for (const k of assetLines) if (typeof opening[k] === 'number') opening[k] += 0.005;
+    m.opening = opening as typeof m.opening;
+    expect(project(m).balance.every((b) => b.balances)).toBe(true);
+  });
+
+  it('is still far below a single real line, however many lines were read', () => {
+    const m = concession();
+    // The allowance grows with the line count; it must never grow into the range
+    // where an actual modelling error would pass as rounding.
+    m.opening = { ...m.opening, cash: m.opening.cash + 1 };
+    expect(project(m).balance.every((b) => b.balances)).toBe(false);
+  });
+
   it('scales with the balance sheet, so a large company is not held to a cent', () => {
     const big = concession();
     const scale = 1000;

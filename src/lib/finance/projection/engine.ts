@@ -347,26 +347,39 @@ export interface ProjectionResult {
 
 
 /**
+ * The largest error a single line of the opening balance can carry. Reported
+ * statements are stated to the cent, so a figure read from one is already up to
+ * half a cent away from the number the company actually had.
+ */
+const ROUNDING_PER_SOURCE_LINE = 0.005;
+
+/**
  * How far off the balance sheet may be before it counts as not closing.
  *
  * Two things are being tolerated, and only two. Floating-point accumulation
  * over a long horizon, which is parts per quadrillion. And the rounding in the
  * reported statements the opening balance is read from: those are stated to the
- * cent, so the cent arrives in the model through no fault of the model. A real
+ * cent, so the cent arrives in the model through no fault of the model.
+ *
+ * The rounding term scales with how many lines were read, because that is how
+ * the error actually accumulates — seventeen lines each rounded to the cent can
+ * land eight and a half cents from the truth, and a fixed allowance calibrated
+ * on a shorter balance sheet will call that a failure. It is not one. A real
  * modelling error — a line that moves on the balance sheet without moving
  * through the cash flow — is the size of that line, which is orders of
- * magnitude above either.
+ * magnitude above either term here.
  */
-const ROUNDING_IN_SOURCE = 0.02;
-
-function balanceTolerance(totalAssets: number): number {
-  return Math.max(ROUNDING_IN_SOURCE, Math.abs(totalAssets) * 1e-6);
+function balanceTolerance(totalAssets: number, openingLines: number): number {
+  return Math.max(openingLines * ROUNDING_PER_SOURCE_LINE, Math.abs(totalAssets) * 1e-6);
 }
 
 export function project(input: ProjectionInput): ProjectionResult {
   const warnings: string[] = [];
   const n = input.years;
   const opening = input.opening;
+  // How many figures were read off the reported balance sheet, and so how much
+  // of the cent-level rounding in it the projection inherits.
+  const openingLineCount = Object.keys(opening).length;
 
   // Base-year revenue anchors any driver stated as a share of revenue.
   const baseNetRevenue = isNum(input.baseNetRevenue)
@@ -559,7 +572,7 @@ export function project(input: ProjectionInput): ProjectionResult {
       minorityInterest: opening.minorityInterest ?? 0, equity,
       totalLiabilitiesAndEquity,
       balanceGap: gap,
-      balances: Math.abs(gap) <= balanceTolerance(totalAssets),
+      balances: Math.abs(gap) <= balanceTolerance(totalAssets, openingLineCount),
     });
   }
 
