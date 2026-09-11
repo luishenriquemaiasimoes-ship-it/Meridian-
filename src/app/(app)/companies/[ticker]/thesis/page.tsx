@@ -5,6 +5,7 @@ import { getCompanyDossier } from '@/server/services/company';
 import { evaluateThesisHealth } from '@/server/services/alerts';
 import { defaultAssumptionsFor } from '@/server/services/valuation';
 import { getFactorProfile } from '@/server/services/screener';
+import { getThesisConsolidation } from '@/server/services/thesisConsolidation';
 import { prisma, parseJson } from '@/lib/db';
 import { calculateDcf } from '@/lib/finance/dcf';
 import { deriveScenarioSet, runScenarios } from '@/lib/finance/scenarios';
@@ -24,7 +25,7 @@ export default async function ThesisPage({ params }: { params: Promise<{ ticker:
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 
-  const [thesis, health, targetHistory, model] = await Promise.all([
+  const [thesis, health, targetHistory, model, consolidation] = await Promise.all([
     prisma.investmentThesis.findFirst({
       where: { workspaceId: ctx.workspaceId, companyId: dossier.company.id },
       include: { catalysts: { orderBy: { expectedDate: 'asc' } }, risks: true },
@@ -38,6 +39,7 @@ export default async function ThesisPage({ params }: { params: Promise<{ ticker:
       where: { workspaceId: ctx.workspaceId, companyId: dossier.company.id, kind: 'DCF' },
       orderBy: { updatedAt: 'desc' },
     }),
+    getThesisConsolidation(ctx.workspaceId, dossier.company.ticker),
   ]);
 
   const thesisHealth = health.find((h) => h.ticker === dossier.company.ticker) ?? null;
@@ -69,6 +71,7 @@ export default async function ThesisPage({ params }: { params: Promise<{ ticker:
       currentPrice={dossier.metrics.price}
       modelFairValue={baseResult?.fairValuePerShare ?? null}
       canEdit={ctx.can('thesis:write')}
+      consolidation={consolidation}
       thesis={thesis ? {
         id: thesis.id,
         recommendation: thesis.recommendation,

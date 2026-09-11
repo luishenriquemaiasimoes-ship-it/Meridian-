@@ -11,6 +11,8 @@ import {
 } from '@/lib/finance/extensions';
 import { normalizeAssumptions } from '@/lib/finance/dcf';
 import { requiredDcfInputs, verifyInputs } from '@/lib/finance/provenance';
+import { buildDefaultDcfAssumptions } from '@/lib/finance/modelDefaults';
+import { makePeriod } from './fixtures';
 
 describe('terminal value reconciliation', () => {
   it('derives the multiple a perpetuity implies', () => {
@@ -491,5 +493,90 @@ describe('sum of the parts debt allocation', () => {
     const agg = aggregateUnits([unit('a', 100, null), unit('b', 60, null)], 'CONSOLIDATED', ctx);
     expect(agg.warnings.some((w) => /debt/.test(w))).toBe(false);
     expect(agg.equityValue).toBeCloseTo((agg.enterpriseValue as number) - 10_000, 6);
+  });
+});
+
+describe('cash-burning forecasts', () => {
+  // A fleet-style business: high capex against a middling margin.
+  const burning = {
+    baseYear: 2025, baseRevenue: 40_000,
+    revenueGrowth: [0.05, 0.04, 0.04], ebitdaMargin: [0.32, 0.32, 0.32],
+    daPctRevenue: [0.13], capexPctRevenue: [0.30], nwcPctRevenue: [0.06],
+    taxRate: 0.30, wacc: 0.12, terminalMethod: 'GORDON' as const,
+    terminalGrowth: 0.03, exitMultiple: 7,
+    netDebt: 33_000, sharesOutstanding: 1_000, currentPrice: 33,
+  };
+
+  it('says so when every forecast year burns cash', () => {
+    const r = calculateDcf(burning);
+    expect(r.years.every((y) => y.fcff < 0)).toBe(true);
+    expect(r.warnings.some((w) => /negative in all 3 forecast years/.test(w))).toBe(true);
+  });
+
+  it('points at the capex figure rather than leaving the reader to find it', () => {
+    const w = calculateDcf(burning).warnings.find((x) => /negative in all/.test(x));
+    expect(w).toContain('30.0% of revenue');
+    expect(w).toMatch(/gross of disposals/);
+  });
+
+  it('says the per-share figure is not a price when equity value is negative', () => {
+    const r = calculateDcf(burning);
+    expect(r.equityValue).toBeLessThan(0);
+    expect(r.warnings.some((x) => /Equity value is negative/.test(x))).toBe(true);
+  });
+
+  it('counts the burning years when only some of them burn', () => {
+    const r = calculateDcf({ ...burning, capexPctRevenue: [0.30, 0.10, 0.10] });
+    const w = r.warnings.find((x) => /forecast years/.test(x));
+    expect(w).toMatch(/negative in 1 of 3/);
+  });
+
+  it('stays quiet on a forecast that generates cash and covers its debt', () => {
+    const r = calculateDcf({ ...burning, capexPctRevenue: [0.08], netDebt: 5_000 });
+    expect(r.warnings.filter((x) => /negative/i.test(x))).toEqual([]);
+    expect(r.equityValue).toBeGreaterThan(0);
+  });
+});
+
+describe('default model capex path', () => {
+  const heavy = (year: number, capex: number) => makePeriod({
+    label: `FY${year}`, fiscalYear: year, endDate: `${year}-12-31`,
+    income: { revenue: 1000, cogs: 500, sga: 150, da: 80, financialResult: -40, taxes: 60, dilutedShares: 100 },
+    balance: {
+      cash: 100, accountsReceivable: 120, inventory: 90, ppe: 700, otherAssets: 50,
+      accountsPayable: 80, shortTermDebt: 100, longTermDebt: 400, totalEquity: 480,
+    },
+    cashFlow: { capex: -capex, da: 80, netIncome: 120 },
+  });
+
+  const market = { price: 25, sharesOutstanding: 100, beta: 1.1 };
+  const rates = { riskFreeRate: 0.12, equityRiskPremium: 0.055, statutoryTaxRate: 0.34 };
+
+  it('fades an investment cycle down toward maintenance instead of holding it forever', () => {
+    const a = buildDefaultDcfAssumptions([heavy(2023, 250), heavy(2024, 250), heavy(2025, 250)], market, rates, 5);
+    expect(a.capexPctRevenue).toHaveLength(5);
+    expect(a.capexPctRevenue[0]).toBeGreaterThan(a.capexPctRevenue[4]);
+    // Maintenance is depreciation indexed to terminal growth: 8% x 1.03.
+    expect(a.capexPctRevenue[4]).toBeCloseTo(0.0824, 4);
+  });
+
+  it('fades an underinvesting company up toward maintenance too', () => {
+    const a = buildDefaultDcfAssumptions([heavy(2023, 30), heavy(2024, 30), heavy(2025, 30)], market, rates, 5);
+    expect(a.capexPctRevenue[0]).toBeLessThan(a.capexPctRevenue[4]);
+    expect(a.capexPctRevenue[4]).toBeCloseTo(0.0824, 4);
+  });
+
+  it('leaves a company already at maintenance flat', () => {
+    const a = buildDefaultDcfAssumptions([heavy(2023, 82.4), heavy(2024, 82.4), heavy(2025, 82.4)], market, rates, 5);
+    const spread = Math.max(...a.capexPctRevenue) - Math.min(...a.capexPctRevenue);
+    expect(spread).toBeLessThan(0.001);
+  });
+
+  it('leaves the terminal year with a defined, non-negative free cash flow', () => {
+    const a = buildDefaultDcfAssumptions([heavy(2023, 250), heavy(2024, 250), heavy(2025, 250)], market, rates, 5);
+    const r = calculateDcf(a);
+    const last = r.years[r.years.length - 1];
+    expect(last.fcff).toBeGreaterThan(0);
+    expect(r.terminalValue).toBeGreaterThan(0);
   });
 });

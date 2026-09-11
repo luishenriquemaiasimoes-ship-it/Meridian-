@@ -65,6 +65,18 @@ export function buildDefaultDcfAssumptions(
     ratio(isNum(p.cashFlow.capex) ? Math.abs(p.cashFlow.capex as number) : null, p.income.revenue),
   );
   const capexPct = clampRate(mean(capexHistory) ?? daPct, 0.002, 0.5);
+  /**
+   * Capex fades from what the company currently spends toward what it has to
+   * spend to stand still. Holding an investment cycle flat into the perpetuity
+   * is arithmetically impossible: capex permanently above depreciation grows
+   * the asset base without bound relative to revenue, and a terminal value
+   * computed on that cash flow is a statement about a company that cannot
+   * exist. Maintenance is depreciation indexed to the terminal growth rate.
+   */
+  const maintenanceCapexPct = round4(clampRate(daPct * (1 + terminalGrowth), 0.002, 0.5));
+  const capexPath = Array.from({ length: forecastYears }, (_, i) =>
+    round4(capexPct + (maintenanceCapexPct - capexPct) * ((i + 1) / forecastYears)),
+  );
   const nwcPct = clampRate(ratio(netWorkingCapital(base?.balance ?? latest.balance), baseRevenue) ?? 0.1, -0.3, 0.6);
 
   const observedTax = effectiveTaxRate(base?.income ?? latest.income);
@@ -100,7 +112,7 @@ export function buildDefaultDcfAssumptions(
     revenueGrowth,
     ebitdaMargin,
     daPctRevenue: [round4(daPct)],
-    capexPctRevenue: [round4(capexPct)],
+    capexPctRevenue: capexPath,
     nwcPctRevenue: [round4(nwcPct)],
     taxRate,
     wacc: round4(wacc.wacc ?? rates.riskFreeRate + market.beta * rates.equityRiskPremium),

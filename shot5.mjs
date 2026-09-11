@@ -1,0 +1,18 @@
+import { chromium } from 'playwright';
+const b = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const p = await b.newPage({ viewport: { width: 1500, height: 1400 } });
+const errors = [];
+p.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+p.on('pageerror', (e) => errors.push(String(e)));
+await p.goto('http://localhost:3000/login');
+await p.fill('input[type=email]', 'analyst@meridian.app');
+await p.fill('input[type=password]', 'meridian2026');
+await p.click('button[type=submit]');
+await p.waitForURL('**/home', { timeout: 20000 });
+await p.goto('http://localhost:3000/companies/VALE3/thesis');
+await p.waitForTimeout(1500);
+await p.locator('button:has-text("Consolidated")').first().click();
+await p.waitForTimeout(1200);
+await p.screenshot({ path: process.argv[2] + '/thesis-consolidated.png', fullPage: true });
+console.log('ERRORS', JSON.stringify(errors, null, 1));
+await b.close();

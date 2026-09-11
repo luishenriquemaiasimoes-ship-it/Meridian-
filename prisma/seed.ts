@@ -26,7 +26,9 @@ async function reset() {
     'rebalanceTargetRecord', 'portfolioValuationPoint', 'portfolioTransaction',
     'portfolioPosition', 'portfolio', 'watchlistItem', 'watchlist',
     'earningsReview', 'document', 'investmentMemo', 'researchNoteVersion', 'researchNote',
-    'normalizationAdjustment', 'peerGroup', 'valuationModel', 'targetPriceRecord',
+    'normalizationAdjustment', 'peerGroup', 'inputSource', 'consensusTarget',
+    'qaItem', 'qualitativeDeck', 'peerComparisonTemplate', 'sectorAnalysis',
+    'valuationModel', 'targetPriceRecord',
     'riskItem', 'catalyst', 'investmentThesis', 'dataSource',
     'peerLink', 'earningsEvent', 'newsItem', 'estimate', 'ownershipRecord',
     'managementRecord', 'segmentDatum', 'financialStatement', 'priceBar', 'security',
@@ -610,6 +612,245 @@ async function seedWorkspaceContent(ctx: Ctx) {
         authorName: ctx.names.analyst, createdAt: daysAgo(26),
       },
     ],
+  });
+
+  /* ----------------------- Qualitative decks and Q&A ----------------------- */
+  // Three decks across three sectors, of deliberately different shapes: a
+  // high-conviction long, a short whose stress test already broke, and a
+  // hold where the core point has no falsifier written for it yet.
+  const DECKS: {
+    ticker: string;
+    status: string;
+    summary: string;
+    theses: { title: string; weight: string; rationale: string; requires: string[]; breaks: string[]; conviction: string }[];
+    risks: { title: string; category: string; probability: number; impact: number; detail: string; mitigation: string }[];
+    stress: { kind: string; title: string; trigger: string; consequence: string; verdict: string; response: string }[];
+  }[] = [
+    {
+      ticker: 'VALE3',
+      status: 'PUBLISHED',
+      summary: 'A low-cost producer trading below replacement value, where the case rests on cost position rather than on a price forecast.',
+      theses: [
+        {
+          title: 'Cost position survives a lower price deck',
+          weight: 'CORE',
+          rationale: 'Cash costs sit in the first quartile of the global curve. At prices that push half the curve into loss, this producer still generates cash, which is what makes the equity a claim on a cycle rather than a bet on one.',
+          requires: ['Unit costs stay inside the first quartile', 'No step change in royalty or levy'],
+          breaks: ['Costs rise above the second quartile for two consecutive years', 'A regulatory levy lands that the curve cannot absorb'],
+          conviction: 'HIGH',
+        },
+        {
+          title: 'Capital returns are policy, not discretion',
+          weight: 'SUPPORTING',
+          rationale: 'Distribution is formula-linked rather than decided each year, which narrows the range of outcomes for a minority holder.',
+          requires: ['The policy survives a board change'],
+          breaks: ['A large acquisition is funded from the distribution'],
+          conviction: 'MEDIUM',
+        },
+        {
+          title: 'The transition-metals division is optionality, not value',
+          weight: 'OPTIONAL',
+          rationale: 'It is modelled at its current economics. Anything better is upside nobody is paying for; the thesis does not need it.',
+          requires: [],
+          breaks: ['The division consumes capital at a rate the core cannot fund'],
+          conviction: 'LOW',
+        },
+      ],
+      risks: [
+        { title: 'Demand from the largest importing economy slows structurally', category: 'DEMAND', probability: 0.55, impact: 0.7, detail: 'A structural rather than cyclical slowdown would reset the price deck the whole curve is drawn against.', mitigation: 'Volume and price tracked against the model premise each quarter.' },
+        { title: 'Licence or levy change in the operating jurisdiction', category: 'REGULATORY', probability: 0.3, impact: 0.8, detail: 'A levy applies to revenue rather than profit, so it lands on the cost position directly.', mitigation: 'Legislative calendar monitored; the stress test below sizes it.' },
+        { title: 'Logistics disruption at the export terminals', category: 'OPERATIONAL', probability: 0.6, impact: 0.25, detail: 'Recurring but small: shipments move between quarters rather than disappearing.', mitigation: 'Treated as timing in the quarterly premise check.' },
+      ],
+      stress: [
+        { kind: 'COMPETITIVE', title: 'A new low-cost entrant adds supply at the bottom of the curve', trigger: 'A greenfield project reaches nameplate two years early and adds volume at costs below the first quartile.', consequence: 'The price the marginal tonne clears at falls; this producer stays cash-generative but the spread narrows.', verdict: 'WEAKENED', response: 'Re-cut the curve with the new entrant included before changing the target.' },
+        { kind: 'REGULATORY', title: 'Revenue levy raised by 300 basis points', trigger: 'The operating jurisdiction raises the levy on gross revenue rather than on profit.', consequence: 'Cash cost rises by roughly the levy on revenue; the first-quartile position holds but the margin of safety thins.', verdict: 'SURVIVES', response: 'Sized in the bear case; no change to the recommendation.' },
+      ],
+    },
+    {
+      ticker: 'RENT3',
+      status: 'PUBLISHED',
+      summary: 'A leveraged balance sheet meeting a higher cost of debt, where the refinancing window matters more than the operating story.',
+      theses: [
+        {
+          title: 'The refinancing window is the thesis',
+          weight: 'CORE',
+          rationale: 'Debt raised in a low-rate period comes due into a materially higher curve. Rolling it at current spreads absorbs a large share of operating cash flow before anything reaches equity.',
+          requires: ['Cost of debt on refinanced tranches stays below the operating margin'],
+          breaks: ['A tranche is refinanced at a spread that turns interest coverage below two times'],
+          conviction: 'HIGH',
+        },
+        {
+          title: 'Residual values are a second-order exposure',
+          weight: 'SUPPORTING',
+          rationale: 'The used-asset market sets the exit value of the fleet. A soft residual market compounds the financing problem rather than offsetting it.',
+          requires: ['Used prices stay within the depreciation schedule'],
+          breaks: ['Two consecutive quarters of losses on asset disposals'],
+          conviction: 'MEDIUM',
+        },
+      ],
+      risks: [
+        { title: 'Refinancing at a spread the operating margin cannot carry', category: 'FINANCIAL', probability: 0.65, impact: 0.85, detail: 'The largest tranche matures inside the thesis horizon.', mitigation: 'No mitigation available to a minority holder; it is the reason for the recommendation.' },
+        { title: 'Residual values fall faster than the depreciation schedule', category: 'OPERATIONAL', probability: 0.5, impact: 0.6, detail: 'Disposal losses would hit the income statement and the collateral value at once.', mitigation: 'Disposal gains tracked quarterly.' },
+      ],
+      stress: [
+        { kind: 'FINANCING', title: 'Cost of debt rises 300 basis points at refinancing', trigger: 'The maturing tranche is rolled at 300 basis points above the rate it carried.', consequence: 'Interest coverage falls below two times and the equity value in the base case goes to a fraction of the current price.', verdict: 'BROKEN', response: 'This is the case. The recommendation follows from it rather than despite it.' },
+        { kind: 'OPERATIONAL', title: 'Used-asset prices fall 15%', trigger: 'A soft secondary market pushes realised disposal prices 15% below the carrying schedule.', consequence: 'Disposal losses and a lower collateral value at the same moment as the refinancing.', verdict: 'BROKEN', response: 'Compounds the financing case; no offset.' },
+      ],
+    },
+    {
+      ticker: 'MSFT',
+      status: 'DRAFT',
+      summary: 'Recurring revenue and pricing power against a capital cycle nobody has seen the end of.',
+      theses: [
+        {
+          title: 'Enterprise agreements carry pricing power through the cycle',
+          weight: 'CORE',
+          rationale: 'Contracted, multi-year and renewed at a rate that has not moved through two downturns. Price rises land inside the agreement rather than being negotiated each year.',
+          requires: [],
+          breaks: [],
+          conviction: 'HIGH',
+        },
+        {
+          title: 'Capital intensity is temporary, not structural',
+          weight: 'SUPPORTING',
+          rationale: 'The current build is a step function rather than a new run rate. If it is a new run rate, returns on incremental capital fall and the multiple is wrong.',
+          requires: ['Capex as a share of revenue falls back inside three years'],
+          breaks: ['Capex stays above the current share for three consecutive years with no matching revenue'],
+          conviction: 'MEDIUM',
+        },
+      ],
+      risks: [
+        { title: 'Returns on the capital cycle disappoint', category: 'FINANCIAL', probability: 0.5, impact: 0.7, detail: 'The capital is being deployed ahead of the revenue it is meant to serve.', mitigation: 'ROIC tracked against the thesis assumption each quarter.' },
+        { title: 'Competitive pressure in cloud infrastructure', category: 'COMPETITIVE', probability: 0.35, impact: 0.5, detail: 'Segment growth compared against peers each quarter.', mitigation: 'Segment disclosure read at every result.' },
+      ],
+      stress: [
+        { kind: 'COMPETITIVE', title: 'A competitor prices infrastructure 20% below', trigger: 'A peer with a different economic model prices to fill capacity.', consequence: 'Gross margin on the infrastructure line compresses; the agreement business is unaffected.', verdict: 'WEAKENED', response: 'Split the segment in the model before revising the target.' },
+        { kind: 'OTHER', title: 'Capital cycle extends a further three years', trigger: 'Capex stays at the current share of revenue through the forecast horizon.', consequence: 'Free cash flow grows materially slower than earnings for the whole horizon.', verdict: 'UNTESTED', response: '' },
+      ],
+    },
+  ];
+
+  for (const deck of DECKS) {
+    const companyId = ctx.companyIds[deck.ticker];
+    if (!companyId) continue;
+    await prisma.qualitativeDeck.create({
+      data: {
+        workspaceId: ctx.workspaceId, companyId,
+        status: deck.status, summary: deck.summary,
+        theses: j(deck.theses.map((t, i) => ({
+          id: `thesis-${deck.ticker.toLowerCase()}-${i + 1}`,
+          order: i + 1, title: t.title, weight: t.weight, rationale: t.rationale,
+          requires: t.requires, breaks: t.breaks, drivers: [], conviction: t.conviction,
+        }))),
+        risks: j(deck.risks.map((r, i) => ({
+          id: `risk-${deck.ticker.toLowerCase()}-${i + 1}`,
+          title: r.title, category: r.category, probability: r.probability, impact: r.impact,
+          detail: r.detail, mitigation: r.mitigation,
+        }))),
+        stressTests: j(deck.stress.map((t, i) => ({
+          id: `stress-${deck.ticker.toLowerCase()}-${i + 1}`,
+          kind: t.kind, title: t.title, trigger: t.trigger, consequence: t.consequence,
+          verdict: t.verdict, response: t.response || null,
+        }))),
+        authorName: ctx.names.analyst,
+        createdAt: daysAgo(40), updatedAt: daysAgo(7),
+      },
+    });
+  }
+
+  // A prepared committee pack on the published deck, and one question nobody
+  // has closed — which is what the consolidation screen is meant to surface.
+  await prisma.qaItem.createMany({
+    data: [
+      {
+        workspaceId: ctx.workspaceId, companyId: ctx.companyIds.VALE3, theme: 'VALUATION',
+        question: 'What exit multiple does your perpetuity growth assumption imply, and is the market paying it today?',
+        draftAnswer: 'The reconciliation screen shows both terminal methods side by side and the multiple the growth assumption implies at the final-year EBITDA, against the peer median on the comparables screen.',
+        citations: j(['Terminal value reconciliation — Valuation tab', 'Peer median EV/EBITDA — Comparables tab']),
+        hasGap: false, status: 'PREPARED', createdBy: ctx.names.analyst,
+      },
+      {
+        workspaceId: ctx.workspaceId, companyId: ctx.companyIds.VALE3, theme: 'CAPITAL_STRUCTURE',
+        question: 'How much refinancing does the company face, and what happens to the thesis if the cost of debt rises 300 basis points?',
+        draftAnswer: 'Net debt and the cost of debt are on the model. The maturity profile is not in the workspace.',
+        citations: j(['Net debt — Financials tab', 'Cost of debt — WACC build']),
+        hasGap: true, status: 'NEEDS_WORK',
+        notes: 'No debt maturity schedule is loaded. A refinancing question needs one; the rest can be answered from the statements.',
+        createdBy: ctx.names.analyst,
+      },
+      {
+        workspaceId: ctx.workspaceId, companyId: ctx.companyIds.VALE3, theme: 'COMPETITION',
+        question: 'Why does this company earn its returns rather than the competitor next to it, and how durable is that?',
+        draftAnswer: 'ROIC against the peer set is on the comparables screen, and the cost-position argument is the core point of the deck.',
+        citations: j(['ROIC vs peers — Comparables tab', 'Core thesis — Deck & Q&A']),
+        hasGap: false, status: 'PREPARED', createdBy: ctx.names.analyst,
+      },
+    ],
+  });
+
+  /* --------------------------- Sector analysis ---------------------------- */
+  // One worked example and the row set it produced, saved as a template. The
+  // rows are the ones an analyst chose for these companies, not a default the
+  // product ships: a different analyst covering the same names would keep a
+  // different table, and the product has no opinion about which is right.
+  const MINING_ROWS = [
+    { key: 'ebitdaMargin', label: 'EBITDA margin', kind: 'METRIC', metric: 'ebitdaMargin', format: 'percent', inverse: false },
+    { key: 'roic', label: 'ROIC', kind: 'METRIC', metric: 'roic', format: 'percent', inverse: false },
+    { key: 'netDebtToEbitda', label: 'Net debt / EBITDA', kind: 'METRIC', metric: 'netDebtToEbitda', format: 'multiple', inverse: true },
+    { key: 'capexToRevenue', label: 'Capex % of revenue', kind: 'METRIC', metric: 'capexToRevenue', format: 'percent', inverse: true },
+    { key: 'evEbitda', label: 'EV / EBITDA', kind: 'METRIC', metric: 'evEbitda', format: 'multiple', inverse: true },
+    { key: 'fcfYield', label: 'FCF yield', kind: 'METRIC', metric: 'fcfYield', format: 'percent', inverse: false },
+    { key: 'position', label: 'Position on the cost curve', kind: 'MANUAL', format: 'text', inverse: false },
+    { key: 'jurisdictions', label: 'Principal jurisdictions', kind: 'MANUAL', format: 'text', inverse: false },
+  ];
+
+  await prisma.sectorAnalysis.create({
+    data: {
+      workspaceId: ctx.workspaceId,
+      sector: 'Diversified mining',
+      title: 'Diversified mining — cost position and capital discipline',
+      status: 'PUBLISHED',
+      sections: j([
+        {
+          key: 'structure',
+          title: 'Industry structure',
+          body: 'Four producers account for most of the seaborne supply, and the marginal tonne is set by a long tail of higher-cost operations. Where a producer sits on that curve decides how much of the cycle reaches its equity, which is why the comparison below leads with margin and cost rather than with multiples.',
+        },
+        {
+          key: 'capital',
+          title: 'Capital discipline',
+          body: 'The last cycle was lost to capital allocation rather than to prices. Capex as a share of revenue and net debt against EBITDA are here for that reason: they are the two measures that separated the producers that compounded from the ones that survived.',
+        },
+        {
+          key: 'conclusion',
+          title: 'What this means for coverage',
+          body: 'Coverage is anchored on cost position rather than on a price forecast. The manual rows carry what no metric can: where each producer sits on the curve, and which jurisdictions it depends on.',
+        },
+      ]),
+      tickers: j(['VALE3', 'RIO', 'BHP', 'FCX', 'SUZB3']),
+      rows: j(MINING_ROWS.map((r) => (r.kind === 'MANUAL'
+        ? { ...r, values: {
+            VALE3: r.key === 'position' ? 'First quartile' : 'Brazil, Indonesia',
+            RIO: r.key === 'position' ? 'First quartile' : 'Australia, Canada, Mongolia',
+            BHP: r.key === 'position' ? 'First quartile' : 'Australia, Chile',
+            FCX: r.key === 'position' ? 'Second quartile' : 'Indonesia, United States, Peru',
+            SUZB3: r.key === 'position' ? 'First quartile' : 'Brazil',
+          } }
+        : r))),
+      authorName: ctx.names.analyst,
+      createdAt: daysAgo(35), updatedAt: daysAgo(11),
+    },
+  });
+
+  await prisma.peerComparisonTemplate.create({
+    data: {
+      workspaceId: ctx.workspaceId,
+      name: 'Cost-curve producers',
+      sector: 'Diversified mining',
+      rows: j(MINING_ROWS),
+      authorName: ctx.names.analyst,
+      createdAt: daysAgo(35), updatedAt: daysAgo(35),
+    },
   });
 
   /* ------------------------------ Peer groups ------------------------------ */
@@ -1288,6 +1529,9 @@ async function main() {
     theses: await prisma.investmentThesis.count(),
     models: await prisma.valuationModel.count(),
     positions: await prisma.portfolioPosition.count(),
+    decks: await prisma.qualitativeDeck.count(),
+    committeeQuestions: await prisma.qaItem.count(),
+    sectorAnalyses: await prisma.sectorAnalysis.count(),
   };
   console.log('MERIDIAN — seed complete', counts);
   console.log(`\n  Sign in with any of: ${people.map((p) => p.email).join(', ')}`);

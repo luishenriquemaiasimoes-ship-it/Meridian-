@@ -83,6 +83,23 @@ export function ValuationWorkbench(props: {
     });
     setDirty(true);
   };
+  /**
+   * Capex is a path, not a level: a company in an investment cycle spends more
+   * than it depreciates now and cannot do so forever. Editing either end
+   * rebuilds the fade between them rather than flattening it.
+   */
+  const patchCapexFade = (first: number | null, last: number | null) => {
+    setAssumptions((a) => {
+      const n = Math.max(a.revenueGrowth.length, 1);
+      const start = first ?? a.capexPctRevenue[0] ?? 0;
+      const end = last ?? a.capexPctRevenue[a.capexPctRevenue.length - 1] ?? start;
+      const path = Array.from({ length: n }, (_, i) =>
+        Math.round((start + (end - start) * ((i + 1) / n)) * 10000) / 10000);
+      return normalizeAssumptions({ ...a, capexPctRevenue: path });
+    });
+    setDirty(true);
+  };
+
   const patchSingle = (key: 'daPctRevenue' | 'capexPctRevenue' | 'nwcPctRevenue', value: number) => {
     setAssumptions((a) => normalizeAssumptions({ ...a, [key]: [value] }));
     setDirty(true);
@@ -315,7 +332,7 @@ export function ValuationWorkbench(props: {
         <ModelTab
           assumptions={assumptions} result={result} currency={currency}
           canEdit={props.canEdit}
-          patch={patch} patchArray={patchArray} patchSingle={patchSingle}
+          patch={patch} patchArray={patchArray} patchSingle={patchSingle} patchCapexFade={patchCapexFade}
           addYear={addYear} removeYear={removeYear}
           peerMedianEvEbitda={props.peerMedianEvEbitda}
         />
@@ -632,7 +649,7 @@ export function ValuationWorkbench(props: {
 /* ============================ Model tab ============================ */
 
 function ModelTab({
-  assumptions, result, currency, canEdit, patch, patchArray, patchSingle, addYear, removeYear, peerMedianEvEbitda,
+  assumptions, result, currency, canEdit, patch, patchArray, patchSingle, patchCapexFade, addYear, removeYear, peerMedianEvEbitda,
 }: {
   assumptions: DcfAssumptions;
   result: ReturnType<typeof calculateDcf>;
@@ -641,6 +658,7 @@ function ModelTab({
   patch: (next: Partial<DcfAssumptions>) => void;
   patchArray: (key: 'revenueGrowth' | 'ebitdaMargin', index: number, value: number) => void;
   patchSingle: (key: 'daPctRevenue' | 'capexPctRevenue' | 'nwcPctRevenue', value: number) => void;
+  patchCapexFade: (first: number | null, last: number | null) => void;
   addYear: () => void;
   removeYear: () => void;
   peerMedianEvEbitda: number | null;
@@ -700,10 +718,25 @@ function ModelTab({
               <PercentInput value={assumptions.daPctRevenue[0]} step={0.5} decimals={1} disabled={!canEdit}
                 onValueChange={(v) => patchSingle('daPctRevenue', v)} />
             </Field>
-            <Field label="Capex % of revenue">
-              <PercentInput value={assumptions.capexPctRevenue[0]} step={0.5} decimals={1} disabled={!canEdit}
-                onValueChange={(v) => patchSingle('capexPctRevenue', v)} />
-            </Field>
+            <div className="grid grid-cols-2 gap-2">
+              <Field label="Capex, year 1" hint="% of revenue">
+                <PercentInput value={assumptions.capexPctRevenue[0]} step={0.5} decimals={1} disabled={!canEdit}
+                  onValueChange={(v) => patchCapexFade(v, null)} />
+              </Field>
+              <Field
+                label="Capex, terminal"
+                hint={
+                  assumptions.capexPctRevenue[assumptions.capexPctRevenue.length - 1] > assumptions.daPctRevenue[0] * 1.25
+                    ? 'Above depreciation forever grows the asset base without bound.'
+                    : '% of revenue'
+                }
+              >
+                <PercentInput
+                  value={assumptions.capexPctRevenue[assumptions.capexPctRevenue.length - 1]}
+                  step={0.5} decimals={1} disabled={!canEdit}
+                  onValueChange={(v) => patchCapexFade(null, v)} />
+              </Field>
+            </div>
             <Field label="NWC % of revenue" hint="Change in this level drives the working-capital cash flow.">
               <PercentInput value={assumptions.nwcPctRevenue[0]} step={0.5} decimals={1} disabled={!canEdit}
                 onValueChange={(v) => patchSingle('nwcPctRevenue', v)} />

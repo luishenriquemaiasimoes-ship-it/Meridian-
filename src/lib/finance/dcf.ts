@@ -225,6 +225,27 @@ export function calculateDcf(input: Partial<DcfAssumptions>): DcfResult {
     impliedPerpetuityGrowth = a.terminalGrowth;
   }
 
+  // A business that consumes cash in every forecast year is a real thing, and
+  // the engine will not hide it. But the reader has to be told, because a
+  // negative equity value on a company with a positive market price is a
+  // statement about the premises rather than about the company.
+  const negativeYears = years.filter((y) => y.fcff < 0).length;
+  if (negativeYears === years.length && years.length > 0) {
+    warnings.push(
+      `Free cash flow is negative in all ${years.length} forecast years. Capex of ${(at(a.capexPctRevenue, 0, 0) * 100).toFixed(1)}% of revenue against a ${(at(a.ebitdaMargin, 0, 0) * 100).toFixed(1)}% EBITDA margin leaves nothing for the discount rate to work on — check whether the capex figure is gross of disposals.`,
+    );
+  } else if (negativeYears > 0) {
+    warnings.push(
+      `Free cash flow is negative in ${negativeYears} of ${years.length} forecast years. The value depends on the years that are not.`,
+    );
+  }
+
+  if (isNum(equityValue) && (equityValue as number) < 0) {
+    warnings.push(
+      'Equity value is negative: the discounted cash flows do not cover net debt. Treat the per-share figure as a signal about the premises, not as a price.',
+    );
+  }
+
   if (isNum(enterpriseValue) && isNum(pvTerminalValue) && enterpriseValue !== 0) {
     const share = pvTerminalValue / enterpriseValue;
     // Above three quarters of the value sitting past the forecast horizon means

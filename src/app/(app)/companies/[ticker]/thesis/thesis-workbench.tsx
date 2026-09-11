@@ -4,13 +4,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Badge, Button, cx, EmptyState, Field, InlineNote, Modal, NumberInput, PercentInput, Panel,
-  PanelHeader, Segmented, Select, Textarea, Input, useToast,
+  PanelHeader, Segmented, Select, Tabs, Textarea, Input, useToast,
 } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
 import { Bps, ConvictionBadge, MetricCard, Num, RecommendationBadge, StatRow, SeverityBadge, ThesisVerdictBadge } from '@/components/ui/values';
 import { BarSeriesChart } from '@/components/charts';
 import { formatDate, formatPercent } from '@/lib/finance/format';
 import type { Currency } from '@/lib/finance/types';
+import type { ThesisConsolidation } from '@/server/services/thesisConsolidation';
+import { ConsolidationPanel } from './consolidation';
 import type { ThesisHealth } from '@/server/services/alerts';
 import { isNum } from '@/lib/finance/core';
 
@@ -70,6 +72,7 @@ export function ThesisWorkbench(props: {
   currency: Currency;
   currentPrice: number | null;
   modelFairValue: number | null;
+  consolidation: ThesisConsolidation | null;
   canEdit: boolean;
   thesis: ThesisData | null;
   catalysts: { id: string; title: string; kind: string; expectedDate: string | null; expectedImpact: string; direction: string; probability: number; status: string; notes: string | null }[];
@@ -81,6 +84,7 @@ export function ThesisWorkbench(props: {
 }) {
   const router = useRouter();
   const toast = useToast();
+  const [view, setView] = useState<'thesis' | 'consolidated'>('thesis');
   const [editing, setEditing] = useState(false);
   const [catalystModal, setCatalystModal] = useState(false);
   const [riskModal, setRiskModal] = useState(false);
@@ -356,7 +360,22 @@ export function ThesisWorkbench(props: {
         </Panel>
       ) : null}
 
-      {!editing && props.thesis ? (
+      {!editing && props.thesis && props.consolidation ? (
+        <Tabs
+          value={view}
+          onChange={(v) => setView(v as 'thesis' | 'consolidated')}
+          tabs={[
+            { value: 'thesis', label: 'Thesis' },
+            { value: 'consolidated', label: 'Consolidated', count: props.consolidation.openItems.length || null },
+          ]}
+        />
+      ) : null}
+
+      {!editing && props.thesis && view === 'consolidated' && props.consolidation ? (
+        <ConsolidationPanel data={props.consolidation} currency={props.currency} />
+      ) : null}
+
+      {!editing && props.thesis && view === 'thesis' ? (
         <>
           <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
             <MetricCard label="Target price" value={props.thesis.targetPrice} format="currency" currency={props.currency} decimals={2} delta={upside} accent />
