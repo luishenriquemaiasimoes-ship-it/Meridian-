@@ -9,6 +9,7 @@ import {
 import { Icon } from '@/components/ui/icons';
 import { WaccBuilder } from './wacc-builder';
 import { ReconciliationPanel } from './reconciliation-panel';
+import { UnitModel } from './unit-model';
 import { HeatmapTable } from '@/components/ui/table';
 import { Bps, MetricCard, Num, StatRow } from '@/components/ui/values';
 import { BarSeriesChart, WaterfallChart } from '@/components/charts';
@@ -24,7 +25,7 @@ import { downloadText, toCsv } from '@/lib/import/csv';
 import type { Currency } from '@/lib/finance/types';
 import { isNum } from '@/lib/finance/core';
 
-type Tab = 'model' | 'wacc' | 'reconcile' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
+type Tab = 'model' | 'wacc' | 'units' | 'reconcile' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
 
 const AXIS_LABELS: Record<SensitivityAxis, string> = {
   WACC: 'WACC', TERMINAL_GROWTH: 'Terminal growth', EXIT_MULTIPLE: 'Exit multiple',
@@ -237,11 +238,12 @@ export function ValuationWorkbench(props: {
   const tabs: { value: Tab; label: string }[] = [
     { value: 'model', label: 'Model' },
     { value: 'wacc', label: 'WACC build' },
+    { value: 'units', label: 'Unit model' },
     { value: 'reconcile', label: 'Reconciliation' },
     { value: 'sensitivity', label: 'Sensitivity' },
     { value: 'reverse', label: 'Reverse DCF' },
     { value: 'scenarios', label: 'Bull / base / bear' },
-    { value: 'sotp', label: 'Sum of the parts' },
+    { value: 'sotp', label: 'SOTP by multiples' },
     { value: 'bridge', label: 'Expected return' },
   ];
 
@@ -549,6 +551,17 @@ export function ValuationWorkbench(props: {
           canEdit={props.canEdit}
           currentModelWacc={assumptions.wacc}
           onApply={(wacc) => { patch({ wacc }); setTab('model'); }}
+        />
+      ) : null}
+
+      {tab === 'units' ? (
+        <UnitModel
+          ticker={props.ticker}
+          modelId={props.modelId}
+          currency={currency}
+          canEdit={props.canEdit}
+          assumptions={assumptions}
+          singleStreamValue={result.fairValuePerShare}
         />
       ) : null}
 

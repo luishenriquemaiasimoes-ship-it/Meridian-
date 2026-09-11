@@ -112,10 +112,20 @@ export function aggregateUnits(
     equityValue = withEquity.length
       ? withEquity.reduce((s, v) => s + (v.equityValue as number), 0) - ctx.minorityInterest
       : null;
-    const unitDebt = units.reduce((s, u) => s + (isNum(u.netDebt) ? (u.netDebt as number) : 0), 0);
+    const unitDebt = units.reduce(
+      (s, u) => s + (isNum(u.netDebt) ? (u.netDebt as number) * (isNum(u.ownership) ? (u.ownership as number) : 1) : 0),
+      0,
+    );
     if (unitDebt === 0 && ctx.netDebt !== 0) {
       warnings.push(
         'No debt is recorded at unit level while the group carries net debt. Under a sum of the parts the group figure is not deducted, so the equity value is overstated until the debt is allocated.',
+      );
+    } else if (ctx.netDebt !== 0 && Math.abs(unitDebt - ctx.netDebt) > Math.abs(ctx.netDebt) * 0.05) {
+      // Allocating some of the debt is not the same as allocating it. The gap
+      // lands straight in the equity value, so it is said out loud.
+      const gap = ctx.netDebt - unitDebt;
+      warnings.push(
+        `Units carry ${unitDebt.toFixed(0)} of net debt against ${ctx.netDebt.toFixed(0)} at the group — ${Math.abs(gap).toFixed(0)} ${gap > 0 ? 'is allocated nowhere and therefore never deducted' : 'more than the group reports, so something is deducted twice'}.`,
       );
     }
   } else {

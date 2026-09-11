@@ -446,3 +446,50 @@ describe('source verification', () => {
     expect(withOptionalMissing.score).toBeGreaterThan(withCriticalMissing.score);
   });
 });
+
+describe('sum of the parts debt allocation', () => {
+  const unit = (id: string, fcff: number, netDebt: number | null, ownership = 1): CashFlowUnit => ({
+    id, name: id, kind: 'Segment', startYear: 2026, endYear: null, ownership,
+    cashFlows: [2026, 2027, 2028].map((year) => ({ year, revenue: fcff * 5, ebitda: fcff * 2, capex: fcff, fcff })),
+    wacc: null, netDebt, source: null,
+  });
+
+  const ctx = {
+    wacc: 0.11, netDebt: 10_000, minorityInterest: 0, sharesOutstanding: 1_000,
+    currentPrice: 50, baseYear: 2025, terminalGrowth: 0.03,
+  };
+
+  it('says so when no debt is allocated to any unit', () => {
+    const agg = aggregateUnits([unit('a', 100, null), unit('b', 60, null)], 'SOTP', ctx);
+    expect(agg.warnings.some((w) => /No debt is recorded at unit level/.test(w))).toBe(true);
+  });
+
+  it('says so when only part of the group debt reaches the units', () => {
+    const agg = aggregateUnits([unit('a', 100, 3_000), unit('b', 60, null)], 'SOTP', ctx);
+    const w = agg.warnings.find((x) => /allocated nowhere/.test(x));
+    expect(w).toBeDefined();
+    expect(w).toContain('7000');
+  });
+
+  it('says so when the units carry more debt than the group reports', () => {
+    const agg = aggregateUnits([unit('a', 100, 9_000), unit('b', 60, 6_000)], 'SOTP', ctx);
+    expect(agg.warnings.some((x) => /deducted twice/.test(x))).toBe(true);
+  });
+
+  it('stays quiet when the allocation matches the group', () => {
+    const agg = aggregateUnits([unit('a', 100, 6_000), unit('b', 60, 4_000)], 'SOTP', ctx);
+    expect(agg.warnings.filter((x) => /net debt|debt is recorded/.test(x))).toEqual([]);
+  });
+
+  it('weights a partially owned unit’s debt by the stake, as it weights its value', () => {
+    // 20,000 at a 50% stake is 10,000 attributable: exactly the group figure.
+    const agg = aggregateUnits([unit('a', 100, 20_000, 0.5)], 'SOTP', ctx);
+    expect(agg.warnings.filter((x) => /net debt|debt is recorded/.test(x))).toEqual([]);
+  });
+
+  it('deducts the group debt once under a consolidated aggregation instead', () => {
+    const agg = aggregateUnits([unit('a', 100, null), unit('b', 60, null)], 'CONSOLIDATED', ctx);
+    expect(agg.warnings.some((w) => /debt/.test(w))).toBe(false);
+    expect(agg.equityValue).toBeCloseTo((agg.enterpriseValue as number) - 10_000, 6);
+  });
+});
