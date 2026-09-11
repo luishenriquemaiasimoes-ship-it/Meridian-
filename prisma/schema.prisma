@@ -119,6 +119,7 @@ model Workspace {
   committeeItems  CommitteeItem[]
   earningsReviews EarningsReview[]
   dataSources     DataSource[]
+  inputSources    InputSource[]
 
   @@unique([organizationId, slug])
 }
@@ -470,24 +471,68 @@ model TargetPriceRecord {
 }
 
 model ValuationModel {
-  id          String   @id @default(cuid())
-  workspaceId String
-  companyId   String
-  name        String
-  kind        String   @default("DCF") // DCF | SOTP | COMPS | REVERSE_DCF
-  status      String   @default("DRAFT") // DRAFT | ACTIVE | ARCHIVED
-  assumptions String // JSON DcfAssumptions or SotpInput
-  scenarios   String? // JSON ScenarioDefinition[]
-  outputs     String? // JSON cached DcfResult summary
-  notes       String?
-  authorName  String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id            String   @id @default(cuid())
+  workspaceId   String
+  companyId     String
+  name          String
+  kind          String   @default("DCF") // DCF | SOTP | COMPS | REVERSE_DCF
+  status        String   @default("DRAFT") // DRAFT | ACTIVE | ARCHIVED
+  assumptions   String // JSON DcfAssumptions or SotpInput
+  scenarios     String? // JSON ScenarioDefinition[]
+  outputs       String? // JSON cached DcfResult summary
+  /// JSON WaccBuildInput. The discount rate is built, not typed: every
+  /// component carries its instrument, its source and its observation date.
+  waccBuild     String?
+  /// JSON { extensionId, method, units[], extra{} } when the model values the
+  /// company as a set of cash-flow units rather than one stream.
+  unitModel     String?
+  /// JSON { chosen, rationale } recording where the target sits against the
+  /// sell-side range and why, when the analyst has said.
+  consensusNote String?
+  notes         String?
+  authorName    String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  workspace Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  sources   InputSource[]
 
   @@index([workspaceId, companyId])
+}
+
+/// Where one number in a model came from. A figure without one of these rows
+/// is unverified, and the Source Verification Panel lists it as such.
+model InputSource {
+  id          String    @id @default(cuid())
+  workspaceId String
+  /// The model the input belongs to, when it belongs to one.
+  modelId     String?
+  /// Dotted path to the input, e.g. "wacc.riskFree" or "revenueGrowth.0".
+  path        String
+  label       String
+  /// FILING | RELEASE | PRESENTATION | RESEARCH | MANUAL | MOCK | DERIVED
+  kind        String    @default("MANUAL")
+  /// Free text naming the instrument, document or vendor.
+  reference   String
+  /// Link or document id, when there is one to point at.
+  documentId  String?
+  url         String?
+  /// When the figure was observed or published.
+  asOf        DateTime?
+  /// The value as recorded, for the audit of what was verified.
+  value       Float?
+  note        String?
+  verifiedBy  String?
+  verifiedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  workspace Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  model     ValuationModel? @relation(fields: [modelId], references: [id], onDelete: Cascade)
+
+  @@unique([modelId, path])
+  @@index([workspaceId, kind])
 }
 
 model PeerGroup {
@@ -672,17 +717,17 @@ model PortfolioTransaction {
 }
 
 model PortfolioValuationPoint {
-  id          String @id @default(cuid())
+  id          String    @id @default(cuid())
   portfolioId String
   date        DateTime
   /// Total net asset value of the book on this date, in the base currency.
   value       Float
   /// Units outstanding. Subscriptions and redemptions create or cancel units at
   /// the prevailing unit value, so a flow changes `value` but never `unitValue`.
-  units       Float  @default(1)
+  units       Float     @default(1)
   /// Time-weighted unit value, rebased to 100 at inception. Performance and risk
   /// are measured on this series so that cash flows do not read as returns.
-  unitValue   Float  @default(100)
+  unitValue   Float     @default(100)
   /// The benchmark index rebased to the same starting unit value.
   benchmark   Float
   portfolio   Portfolio @relation(fields: [portfolioId], references: [id], onDelete: Cascade)

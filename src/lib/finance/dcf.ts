@@ -227,9 +227,11 @@ export function calculateDcf(input: Partial<DcfAssumptions>): DcfResult {
 
   if (isNum(enterpriseValue) && isNum(pvTerminalValue) && enterpriseValue !== 0) {
     const share = pvTerminalValue / enterpriseValue;
-    if (share > 0.85) {
+    // Above three quarters of the value sitting past the forecast horizon means
+    // the explicit years are decoration: the answer is the terminal assumption.
+    if (share > 0.75) {
       warnings.push(
-        `Terminal value is ${(share * 100).toFixed(0)}% of enterprise value — the valuation rests almost entirely on perpetuity assumptions.`,
+        `Terminal value is ${(share * 100).toFixed(0)}% of enterprise value — the valuation rests mostly on perpetuity assumptions rather than on the explicit forecast.`,
       );
     }
   }
