@@ -193,9 +193,12 @@ async function seedUniverse() {
     });
   }
 
-  // Peer links, once every company exists.
+  // Peer links, once every company exists. A company is not its own peer and
+  // a peer named twice is one link, so the list is cleaned rather than trusted:
+  // the unique constraint would otherwise fail the whole seed over a typo.
   for (const bp of BLUEPRINTS) {
-    const peers = bp.peers.filter((p) => ids[p]);
+    const peers = Array.from(new Set(bp.peers))
+      .filter((p) => ids[p] && p !== bp.profile.ticker);
     await prisma.peerLink.createMany({
       data: peers.map((p, i) => ({ companyId: ids[bp.profile.ticker], peerId: ids[p], rank: i })),
     });
