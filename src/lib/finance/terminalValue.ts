@@ -1,4 +1,5 @@
 import { isNum } from './core';
+import { formatNumber } from './format';
 import { exitMultipleTerminalValue, gordonTerminalValue } from './dcf';
 
 /* ==================================================================
@@ -100,7 +101,7 @@ export function reconcileTerminalValue(i: TerminalReconciliationInput): Terminal
       findings.push({
         severity: 'WARNING',
         title: 'The two terminal methods disagree materially',
-        detail: `Gordon growth gives ${(gordonValue as number).toFixed(0)} and the exit multiple ${(exitValue as number).toFixed(0)} — a gap of ${((divergence as number) * 100).toFixed(0)}%. One of the two assumptions does not describe the same company.`,
+        detail: `Gordon growth gives ${formatNumber(gordonValue, 0)} and the exit multiple ${formatNumber(exitValue, 0)}, in the company's reporting unit — a gap of ${((divergence as number) * 100).toFixed(0)}%. One of the two assumptions does not describe the same company.`,
       });
     }
   }

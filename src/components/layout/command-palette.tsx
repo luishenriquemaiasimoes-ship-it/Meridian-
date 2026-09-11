@@ -56,6 +56,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
     { id: 'cmd-alert', label: 'Create alert', group: 'Create', action: () => go('/monitoring?new=alert') },
     { id: 'cmd-screen', label: 'Run a screen', group: 'Analyse', action: () => go('/screener') },
     { id: 'cmd-ai', label: 'Ask the AI analyst', group: 'Analyse', action: () => go('/ai') },
+    { id: 'cmd-agents', label: 'Run an AI agent', group: 'Analyse', action: () => go('/ai/agents') },
     { id: 'cmd-portfolio', label: 'Open portfolio', group: 'Analyse', action: () => go('/portfolio') },
     { id: 'cmd-rebalance', label: 'Open rebalancing plan', group: 'Analyse', action: () => go('/portfolio?tab=rebalance') },
   ], [go]);

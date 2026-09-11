@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import {
   Badge, Button, cx, InlineNote, Panel, PanelHeader, Textarea, Tooltip, useToast,
 } from '@/components/ui/primitives';
@@ -75,6 +76,19 @@ export function ReconciliationPanel(props: {
 
   return (
     <div className="space-y-4">
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded border border-line bg-sunken/40 px-3 py-2">
+        <p className="text-2xs leading-relaxed text-ink-3">
+          Everything below checks the model against something outside it. The audit agent runs the
+          same checks plus the discount rate build and grades the result.
+        </p>
+        <Link
+          href={`/ai/agents?agent=MODEL_AUDIT&ticker=${props.ticker}`}
+          className="shrink-0 text-2xs font-medium text-accent hover:underline focus-ring rounded"
+        >
+          Run the model audit agent
+        </Link>
+      </div>
+
       {/* ------------------------------ Consensus ----------------------------- */}
       <Panel>
         <PanelHeader

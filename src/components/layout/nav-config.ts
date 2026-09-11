@@ -44,6 +44,7 @@ export const PRIMARY_NAV: { group: string; items: NavItem[] }[] = [
       { href: '/committee', label: 'Committee', icon: 'Vote', purpose: 'What is up for decision?' },
       { href: '/library', label: 'Research library', icon: 'Library', purpose: 'Where is that document?' },
       { href: '/ai', label: 'AI Analyst', icon: 'Ai', purpose: 'Ask the workspace a question.' },
+      { href: '/ai/agents', label: 'AI agents', icon: 'Sparkle', purpose: 'Run a procedure over the workspace: build, audit, prep, monitor.' },
       { href: '/workspaces', label: 'Workspaces', icon: 'Workspace', purpose: 'Which book am I working in?' },
     ],
   },

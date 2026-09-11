@@ -1,6 +1,7 @@
 'use client';
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
   Badge, Button, cx, EmptyState, Field, InlineNote, Input, Panel, PanelHeader,
@@ -489,11 +490,19 @@ export function DeckWorkbench(props: {
               figures this workspace holds, with the screen they came from named. Where the data cannot support an
               answer, the question is marked as a gap rather than filled with a plausible sentence.
             </p>
-            {props.canGenerate ? (
-              <Button variant="primary" icon={<Icon.Sparkle size={13} />} onClick={generate} loading={busy}>
-                Generate questions
-              </Button>
-            ) : null}
+            <div className="flex shrink-0 items-center gap-2">
+              <Link
+                href={`/ai/agents?agent=QA_PREP&ticker=${props.ticker}`}
+                className="text-2xs font-medium text-accent hover:underline focus-ring rounded"
+              >
+                Readiness report
+              </Link>
+              {props.canGenerate ? (
+                <Button variant="primary" icon={<Icon.Sparkle size={13} />} onClick={generate} loading={busy}>
+                  Generate questions
+                </Button>
+              ) : null}
+            </div>
           </div>
 
           {!props.qa?.saved.length ? (
