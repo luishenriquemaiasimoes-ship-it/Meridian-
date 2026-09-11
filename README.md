@@ -20,14 +20,15 @@ AI analyst that is not allowed to invent a number.
 6. [Environment variables](#environment-variables)
 7. [Database](#database)
 8. [The financial engine](#the-financial-engine)
-9. [Data providers](#data-providers)
-10. [The AI layer](#the-ai-layer)
-11. [API](#api)
-12. [Authentication and permissions](#authentication-and-permissions)
-13. [Design system](#design-system)
-14. [Tests](#tests)
-15. [Deployment](#deployment)
-16. [What this is not](#what-this-is-not)
+9. [The research workflow](#the-research-workflow)
+10. [Data providers](#data-providers)
+11. [The AI layer](#the-ai-layer)
+12. [API](#api)
+13. [Authentication and permissions](#authentication-and-permissions)
+14. [Design system](#design-system)
+15. [Tests](#tests)
+16. [Deployment](#deployment)
+17. [What this is not](#what-this-is-not)
 
 ---
 
@@ -51,13 +52,17 @@ AI analyst that is not allowed to invent a number.
 | `/committee` | What is up for decision? |
 | `/library` · `/library/[id]` | Where is that document? |
 | `/ai` | Ask the workspace a question. |
+| `/ai/agents` | Run a procedure over the workspace: build, audit, prep, monitor. |
 | `/workspaces` | Which book am I working in? |
 | `/settings/data-sources` | Where is the data coming from? |
 | `/settings/data-quality` | How much can I trust the inputs? |
 | `/audit` | Who changed what, and when? |
 
-A company page carries thirteen tabs: overview, financials, fundamentals, valuation,
-comps, earnings, segments, ownership, thesis, research, news, charts and AI analysis.
+A company page carries fourteen tabs: overview, financials, fundamentals, valuation,
+comps, earnings, segments, ownership, thesis, deck & Q&A, research, news, charts and
+AI analysis. The valuation tab itself carries nine: model, WACC build, unit model,
+reconciliation, sensitivity, reverse DCF, bull/base/bear, SOTP by multiples and
+expected return.
 
 ---
 
@@ -65,7 +70,7 @@ comps, earnings, segments, ownership, thesis, research, news, charts and AI anal
 
 **A number that does not exist is never replaced by one that does.**
 
-This is not a slogan; it is enforced structurally at four levels.
+This is not a slogan; it is enforced structurally at five levels.
 
 1. **The engine returns `null`.** Every function in `src/lib/finance` returns
    `number | null`. A missing input propagates as `null` — it is never coerced to zero,
@@ -80,12 +85,20 @@ This is not a slogan; it is enforced structurally at four levels.
 4. **The AI says "data unavailable".** Every statement it makes is typed as observed,
    calculated, interpreted, opinion, or missing — and it is given only the workspace's own
    data to work from.
+5. **An agent finding cannot be built without a source.** `finding()` in
+   `src/lib/ai/agents.ts` throws on an empty source list, so "never state a number without
+   saying where it came from" is a property of the type rather than a rule someone has to
+   remember when they write the next agent.
 
 The corollaries the code holds to:
 
 - No calculation lives inside a React component. Pages import from `@/lib/finance/*`.
 - No figure reaches the screen without a source. Simulated data is labelled simulated
   everywhere it appears, including after it has been aggregated into an LTM.
+- A rule blocks only on mathematical impossibility or a data-integrity failure — `g ≥ WACC`,
+  a number with no traceable source. Methodological choices are never blocked: which beta,
+  a sum of the parts or one stream, how many capex phases, Gordon or an exit multiple. The
+  product says what a reviewer would ask and records the answer; the analyst decides.
 - Nothing routes, places or executes an order. The rebalancer produces recommendations;
   a position changes only when someone records the trade.
 
@@ -219,7 +232,7 @@ No secret is read in a client component. The AI key is used only inside
 
 ## Database
 
-49 Prisma models. The shape worth knowing:
+55 Prisma models. The shape worth knowing:
 
 **Identity** — `User`, `Session`, `Organization`, `Membership`, `Workspace`.
 An organisation has many workspaces; a workspace is a book with its own benchmark,
@@ -235,7 +248,8 @@ risk-free rate, equity risk premium and statutory tax rate.
 `Portfolio`, `PortfolioPosition`, `PortfolioTransaction`, `PortfolioValuationPoint`,
 `RebalanceTargetRecord`, `Watchlist`, `WatchlistItem`, `SavedScreen`, `Alert`,
 `AlertEvent`, `Notification`, `AuditLog`, `DataSource`, `AiConversation`, `AiMessage`,
-`CommitteeItem`, `CommitteeVote`, `CommitteeComment`.
+`CommitteeItem`, `CommitteeVote`, `CommitteeComment`, `SectorAnalysis`,
+`PeerComparisonTemplate`, `QualitativeDeck`, `QaItem`, `InputSource`, `ConsensusTarget`.
 
 ### Two conventions worth calling out
 
@@ -278,6 +292,11 @@ what makes it testable and what keeps arithmetic out of the interface.
 | `risk.ts` | Volatility, beta, alpha, Sharpe, Sortino, drawdown, VaR, CVaR, correlation matrix, risk contribution, scenario shocks |
 | `factors.ts` | Cross-sectional factor scoring and the composite investment score |
 | `expectedReturn.ts` | Expected return decomposition |
+| `waccBuilder.ts` | The discount rate assembled component by component: Fisher conversion, observed and bottom-up beta side by side, and eighteen checks a reviewer would raise |
+| `terminalValue.ts` | Both terminal methods against each other, the multiple a growth rate implies and the growth a multiple implies |
+| `consensus.ts` | Reconciling a target against contributed targets, and model premises against what was reported |
+| `provenance.ts` | What every DCF input must trace to, and the verification score when it does not |
+| `extensions/` | Cash-flow units, the two aggregations, the segment-unit builder and a registry that ships empty |
 | `format.ts` | Every display format in one place, including `currencyMillions` and `ordinal` |
 
 ### Decisions the engine makes, and why
@@ -285,8 +304,23 @@ what makes it testable and what keeps arithmetic out of the interface.
 - **FCFF** = EBIT × (1 − t) + D&A − Capex − ΔNWC. A loss year receives no tax benefit,
   because assuming one manufactures cash flow that does not exist.
 - **Terminal value** is `null` when WACC ≤ g, rather than a negative or infinite number.
-  A DCF whose terminal value exceeds 85% of enterprise value carries a warning, because at
-  that point the model is a statement about perpetuity, not about the business.
+  A DCF whose terminal value exceeds 75% of enterprise value carries a warning, because at
+  that point the model is a statement about perpetuity, not about the business. Both
+  methods are always computed, and a divergence above 25% is a finding rather than a
+  detail: one of the two assumptions does not describe the same company.
+- **Capex fades toward depreciation** in the default model, indexed to terminal growth.
+  Capex permanently above depreciation grows the asset base without bound relative to
+  revenue, so a terminal value computed on that cash flow describes a company that
+  cannot exist. An analyst can hold the cycle flat; the default will not do it for them.
+- **A cash-flow unit with an end year gets no terminal value.** A contract that expires is
+  worth its remaining flows and nothing more, and flows projected past the expiry are
+  dropped with a warning rather than discounted.
+- **The discount rate is assembled, not typed.** The WACC builder converts a real yield to
+  nominal by Fisher rather than adding inflation, shows the observed and bottom-up betas
+  side by side and asks which one is being used, takes the median of unlevered peers
+  rather than the mean, weights on market rather than book values, and flags a missing
+  country premium in a developing-market currency. Every check is advisory: the rules
+  that block are mathematical impossibility and nothing else.
 - **ROIC** uses average invested capital and excludes cash, so it measures the return on
   capital actually employed in operations.
 - **Growth** divides by `|previous|`, so a move from a loss to a profit reads positive.
@@ -297,6 +331,80 @@ what makes it testable and what keeps arithmetic out of the interface.
   RC_i = w_i × MCR_i, and the contributions sum to σ_p.
 - **Bank-like companies** (`isBankLike`) suppress enterprise-value multiples and ROIC and
   fall back to P/E, P/B and ROE, with the reason shown rather than the measure hidden.
+
+---
+
+## The research workflow
+
+Four surfaces, in the order the work actually happens.
+
+**Sector analysis** (`/sectors`, the sector analysis tab). An analysis is one sector as
+the desk defines it — not as a classification standard defines it — the names in it, and
+the rows the analyst decided matter. The peer comparison starts empty. The catalogue
+offers all 32 measures the platform computes, grouped by what they describe rather than
+by industry, and the analyst picks; rows the platform cannot compute at all are free rows
+they fill by hand. A row set worth reusing is saved as a template, editable everywhere it
+is used. Nothing ships pre-loaded, because a table that arrives pre-filled teaches an
+analyst to accept rows they did not choose. A measure that does not describe a company is
+left empty and marked, and the row's median is taken over the companies it applies to.
+
+**Qualitative deck** (`/companies/[ticker]/deck`). Several theses of unequal weight, each
+with what must be true and what would break it; risks placed on a probability-by-impact
+grid; and stress tests whose trigger the analyst defines per case — competitive,
+financing, operational, regulatory — available on any company rather than reserved for a
+type.
+
+**Committee Q&A** (same screen). The generator reads the deck, the model, the comparables
+and the holdings and drafts the questions a committee would ask. Each answer is built only
+from figures the workspace holds and cites where it read them; where the workspace has
+nothing, the draft says what is missing instead of reaching for a plausible number.
+Regenerating replaces only the questions nobody has worked on.
+
+**The consolidated thesis** (`/companies/[ticker]/thesis`, consolidated tab). The case
+assembled from the work that produced it rather than retyped: scenarios from the model,
+multiples from the comparables, points and stress tests from the deck, and open items from
+unanswered questions, drifted premises and figures with no source. Every line links back to
+where it is maintained.
+
+### Unit-level valuation
+
+The valuation tab's unit model breaks a company into cash-flow units from its own segment
+disclosure, projected on the model's premises and overridable per unit — growth, margin,
+capex, discount rate, ownership, net debt and a final year. How the units come back
+together is the analyst's decision rather than a property of the industry: consolidating
+sums the streams and applies the group balance sheet once; a sum of the parts values each
+unit on its own terms and nets its own debt, and says so when the allocation leaves part of
+the group's debt deducted nowhere.
+
+`extensions/registry.ts` ships empty, and that is the design. An extension built in for one
+industry would make that industry a first-class citizen and everything else an
+afterthought. The segment split needs no extension at all; the interface
+(`appliesWhen`, `buildCashFlowUnits`, `aggregate`, `extraAssumptions`, `extraRisks`) is
+there for the cases it does not reach.
+
+### Source verification
+
+Every load-bearing DCF input is expected to trace to something: a filing, a release, a
+presentation, a research note, an explicit manual entry, or data explicitly marked as
+simulated. `provenance.ts` scores a model on what it can trace and what it cannot, the
+source verification panel in `/settings/data-quality` lists what is unsourced across the
+workspace, and the model audit agent grades an untraceable load-bearing input as a failure
+rather than a note.
+
+### The four agents
+
+`/ai/agents`. An agent is not a chat window with a different prompt; it is a procedure over
+workspace records that produces a report a reviewer can check line by line. A finding is
+built through one constructor that refuses a finding with no source, so the rule is
+enforced by the type rather than remembered. A figure the workspace does not hold has
+exactly one representation — a `MISSING` statement naming what is absent.
+
+| Agent | What it does |
+| --- | --- |
+| DCF Build | Walks the layers in the order the engine evaluates them, asking for each premise before it is used and showing what the workspace can offer with its source. Outside a demo workspace it writes nothing into the model. |
+| Model Audit | The Model Health report: arithmetic, the discount rate build, both terminal methods, premises against what was reported, provenance, and the contributed range the target disagrees with — graded Pass, Warning or Fail, worst first. |
+| Q&A Prep | Reads what the generator produced and reports how ready the case is, counting questions the workspace cannot answer as gaps rather than letting them pass. |
+| Thesis Monitor | Checks live theses against the conditions their authors wrote down, then into the premises of the models beneath them, which is where a thesis starts breaking first. |
 
 ---
 
@@ -381,7 +489,7 @@ datum. Fabricate news or consensus. Place an order.
 
 ## API
 
-44 route handlers. Every one resolves through `route()` in `src/server/http.ts`, which
+52 route handlers. Every one resolves through `route()` in `src/server/http.ts`, which
 authenticates, checks the permission, and maps errors — Zod failures become 422 with
 per-field messages; a thrown error carrying `status` becomes that status; anything else is
 a 500 that logs server-side and says nothing revealing to the client.
@@ -397,7 +505,8 @@ a 500 that logs server-side and says nothing revealing to the client.
 | Memos | `POST /api/memos` · `PATCH/DELETE /api/memos/[id]` |
 | Committee | `POST /api/committee` · `PATCH /api/committee/[id]` (vote, comment, decide) |
 | Thesis | `POST /api/thesis`, `/api/thesis/catalysts`, `/api/thesis/risks` |
-| Valuation | `GET/POST /api/valuation/models` |
+| Valuation | `GET/POST /api/valuation/models` · `GET/POST /api/valuation/wacc` · `GET/POST /api/valuation/reconcile` · `GET/POST /api/valuation/units` |
+| Research workflow | `POST/DELETE /api/sector` · `POST/DELETE /api/sector/template` · `POST /api/deck` · `GET/POST/PATCH/DELETE /api/qa` |
 | Comparables | `GET/POST /api/peer-groups` · `PATCH/DELETE /api/peer-groups/[id]` |
 | Screener | `POST /api/screener/run` · `GET/POST /api/screener/screens` |
 | Watchlists | `GET/POST /api/watchlists` · `PATCH/DELETE /api/watchlists/[id]` |
@@ -407,7 +516,7 @@ a 500 that logs server-side and says nothing revealing to the client.
 | Documents | `GET/POST /api/documents` · `DELETE /api/documents/[id]` |
 | Earnings | `POST /api/earnings/review` |
 | Export | `GET /api/export/financials`, `/api/export/dcf`, `/api/export/portfolio` — Excel workbooks carrying live formulas, not values |
-| AI | `POST /api/ai/ask` |
+| AI | `POST /api/ai/ask` · `POST /api/agents` |
 | Onboarding | `POST /api/onboarding` |
 
 Every mutation writes an `AuditLog` row on the same request that performed it, so a change
@@ -469,7 +578,7 @@ charts share one axis — a second y-axis invites a comparison the data does not
 npm test
 ```
 
-412 tests, no database required.
+537 tests, no database required.
 
 | File | Covers |
 | --- | --- |
@@ -481,6 +590,10 @@ npm test
 | `portfolio.test.ts` | Valuation, attribution, exposure, concentration, rebalancing |
 | `risk.test.ts` | Volatility, beta, Sharpe, Sortino, drawdown, VaR, CVaR, risk contribution |
 | `factors-format.test.ts` | Factor scoring and every display format |
+| `wacc-builder.test.ts` | Fisher conversion both ways, Hamada levering and unlevering on a median, the country-premium check, and each of the checks a reviewer would raise |
+| `dcf-v2.test.ts` | Both terminal methods and their implied counterparts, cash-flow units with and without an end year, the two aggregations, debt allocation under a sum of the parts, the capex fade, and the warnings a cash-burning forecast earns |
+| `research-qa.test.ts` | The risk quadrant, deck defaults, and the peer comparison: ranking in both directions, not-meaningful exclusions, medians over partial rows, and that no measure group is named after an industry |
+| `agents.test.ts` | The agent contract: a finding with no source cannot be built, the worst finding is the verdict, and nothing checked is not a pass |
 | `universe.test.ts` | The generated universe: balance-sheet identity and cash-flow articulation in every period of every company, LTM provenance, one trading calendar, and each price series realising its volatility and beta anchors |
 
 The engine is tested against hand-computed fixtures rather than snapshots, so a test

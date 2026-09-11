@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useState, type ReactNode } from 'react';
+import { Fragment, useMemo, useState, type ReactNode } from 'react';
 import { cx, EmptyState, IconButton, Input } from './primitives';
 import { Icon } from './icons';
 import { Num } from './values';
@@ -251,8 +251,10 @@ export function FinancialTable({
                   : row.emphasis === 'subtotal' ? 'font-medium text-ink'
                   : 'text-ink-2';
               return (
-                <>
-                  <tr key={row.key} className="border-b border-line/50 hover:bg-raised transition-colors">
+                // The fragment is the element the list renders, so the key
+                // belongs here rather than on the row inside it.
+                <Fragment key={row.key}>
+                  <tr className="border-b border-line/50 hover:bg-raised transition-colors">
                     <td
                       className={cx('sticky left-0 bg-panel whitespace-nowrap', emphasis)}
                       style={{ paddingLeft: `${10 + (row.indent ?? 0) * 14}px` }}
@@ -274,7 +276,7 @@ export function FinancialTable({
                     ))}
                   </tr>
                   {showGrowth && growthSet.has(row.key) ? (
-                    <tr key={`${row.key}-growth`} className="border-b border-line/50 bg-sunken/40">
+                    <tr className="border-b border-line/50 bg-sunken/40">
                       <td className="sticky left-0 bg-sunken/40 text-2xs text-ink-4" style={{ paddingLeft: `${24 + (row.indent ?? 0) * 14}px` }}>
                         growth
                       </td>
@@ -294,7 +296,7 @@ export function FinancialTable({
                       })}
                     </tr>
                   ) : null}
-                </>
+                </Fragment>
               );
             })}
           </tbody>
