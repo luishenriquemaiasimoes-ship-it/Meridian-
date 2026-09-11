@@ -410,7 +410,7 @@ export function computeCompanyMetrics(input: MetricsInputs): CompanyMetrics {
       quarterlyPeriods: quarters.length,
       hasLtm: !!ltm,
       source: basis?.source ?? 'unknown',
-      isSimulated: (basis?.source ?? '').startsWith('Mock'),
+      isSimulated: (basis?.source ?? '').includes('Mock'),
     },
   };
 }

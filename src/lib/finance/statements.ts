@@ -179,7 +179,10 @@ export function computeLTM(quarters: FinancialPeriod[]): FinancialPeriod | null 
     income,
     balance: { ...latest.balance },
     cashFlow,
-    source: 'MERIDIAN LTM aggregation',
+    // The provenance of the underlying quarters is carried forward. An LTM is an
+    // aggregation, not a new source, and the reader must still be told where the
+    // figures came from.
+    source: `MERIDIAN LTM of ${latest.source}`,
   });
 }
 

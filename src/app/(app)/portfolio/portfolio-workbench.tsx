@@ -245,8 +245,9 @@ export function PortfolioWorkbench(props: {
                 { key: 'benchmark', label: props.benchmarkCode, format: 'ratio', decimals: 1 },
               ]}
               yFormat="ratio"
-              title="Net asset value against the benchmark"
-              subtitle="Both indexed to 100 at inception"
+              title="Performance against the benchmark"
+              subtitle="Unit value and index, both rebased to 100 at inception"
+              footnote="Measured on the fund's time-weighted unit value, so a subscription or a redemption never reads as a return."
             />
           ) : null}
 

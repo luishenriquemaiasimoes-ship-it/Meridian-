@@ -310,6 +310,21 @@ export function buildQuarterlyPeriods(bp: CompanyBlueprint, annuals: FinancialPe
     balance.accountsReceivable = round2((annual.balance.accountsReceivable ?? 0) * (1 + (scale - 0.25) * 0.4) * wc);
     balance.inventory = round2((annual.balance.inventory ?? 0) * wc);
     balance.cash = round2((annual.balance.cash ?? 0) * (0.92 + rng() * 0.16));
+
+    // Working capital and cash move during the quarter while the funding side
+    // does not, so retained earnings absorbs the difference — which is what a
+    // real balance sheet does, and what keeps A = L + E true in every period
+    // rather than only at the year end.
+    const quarterAssets =
+      (balance.cash ?? 0) + (balance.accountsReceivable ?? 0) + (balance.inventory ?? 0) +
+      (balance.otherCurrentAssets ?? 0) + (balance.ppe ?? 0) + (balance.intangibles ?? 0) +
+      (balance.goodwill ?? 0) + (balance.otherAssets ?? 0);
+    const annualAssets =
+      (annual.balance.cash ?? 0) + (annual.balance.accountsReceivable ?? 0) + (annual.balance.inventory ?? 0) +
+      (annual.balance.otherCurrentAssets ?? 0) + (annual.balance.ppe ?? 0) + (annual.balance.intangibles ?? 0) +
+      (annual.balance.goodwill ?? 0) + (annual.balance.otherAssets ?? 0);
+    balance.retainedEarnings = round2((annual.balance.retainedEarnings ?? 0) + (quarterAssets - annualAssets));
+
     balance.totalAssets = null;
     balance.totalLiabilities = null;
     balance.totalEquity = null;

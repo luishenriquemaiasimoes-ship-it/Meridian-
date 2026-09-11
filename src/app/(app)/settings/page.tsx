@@ -12,6 +12,7 @@ export const dynamic = 'force-dynamic';
 
 const SECTIONS: { href: string; icon: IconName; title: string; description: string }[] = [
   { href: '/settings/data-sources', icon: 'Database', title: 'Data sources', description: 'Where every figure comes from, when it last refreshed, and what is simulated.' },
+  { href: '/settings/data-quality', icon: 'Scale', title: 'Data quality', description: 'Where the inputs are weak, which company, which field, and what it means for the numbers.' },
   { href: '/settings/profile', icon: 'User', title: 'Profile', description: 'Your name, title, theme and password.' },
   { href: '/settings/organization', icon: 'Org', title: 'Organization', description: 'Members, roles and what each role may do.' },
   { href: '/workspaces', icon: 'Workspace', title: 'Workspaces', description: 'Books, their benchmarks and their cost of capital.' },

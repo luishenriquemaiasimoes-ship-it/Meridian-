@@ -52,6 +52,7 @@ export const PRIMARY_NAV: { group: string; items: NavItem[] }[] = [
 export const SECONDARY_NAV: NavItem[] = [
   { href: '/settings', label: 'Settings', icon: 'Settings', purpose: 'Configure the workspace.' },
   { href: '/settings/data-sources', label: 'Data sources', icon: 'Database', purpose: 'Where is the data coming from?' },
+  { href: '/settings/data-quality', label: 'Data quality', icon: 'Scale', purpose: 'How much can I trust the inputs?' },
   { href: '/settings/profile', label: 'Profile', icon: 'User', purpose: 'Your account.' },
   { href: '/settings/organization', label: 'Organization', icon: 'Org', purpose: 'Members and roles.' },
 ];

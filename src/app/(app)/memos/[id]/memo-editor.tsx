@@ -11,6 +11,7 @@ import { Icon } from '@/components/ui/icons';
 import { Num, RecommendationBadge, SeverityBadge, StatRow, ThesisVerdictBadge } from '@/components/ui/values';
 import { DASH, formatDate, formatMetric, formatPercent, ordinal } from '@/lib/finance/format';
 import { downloadText } from '@/lib/import/csv';
+import { downloadResearchPdf, slugify } from '@/lib/export/pdf';
 import { MEMO_SECTIONS, type MemoSection } from '@/lib/memo/sections';
 import { isNum } from '@/lib/finance/core';
 import type { MemoEvidence } from '@/server/services/memo';
@@ -117,6 +118,81 @@ export function MemoEditor(props: {
     } finally { setBusy(false); }
   };
 
+  const exportPdf = () => {
+    const figures: string[][] = e
+      ? [
+          ['Price', formatMetric(e.price, 'currency', { currency })],
+          ['Market capitalisation', formatMetric(e.marketCap, 'currencyMillions', { currency })],
+          ['Revenue growth', formatMetric(e.fundamentals.revenueGrowth, 'percent')],
+          ['EBITDA margin', formatMetric(e.fundamentals.ebitdaMargin, 'percent')],
+          ['ROIC', e.bankLike ? 'n/m for a bank' : formatMetric(e.fundamentals.roic, 'percent')],
+          ['ROE', formatMetric(e.fundamentals.roe, 'percent')],
+          ['WACC', formatMetric(e.fundamentals.wacc, 'percent')],
+          ['ROIC less WACC', e.bankLike ? 'n/m for a bank' : formatMetric(e.fundamentals.roicSpread, 'percentSigned')],
+          ['Net debt / EBITDA', formatMetric(e.fundamentals.netDebtToEbitda, 'multiple')],
+          ['Interest coverage', formatMetric(e.fundamentals.interestCoverage, 'multiple')],
+          ['FCF yield', formatMetric(e.fundamentals.fcfYield, 'percent')],
+          ['P / E', formatMetric(e.multiples.pe, 'multiple')],
+          ['EV / EBITDA', e.bankLike ? 'n/m for a bank' : formatMetric(e.multiples.evEbitda, 'multiple')],
+        ]
+      : [];
+
+    downloadResearchPdf({
+      kicker: 'Investment memo',
+      title: props.title,
+      subtitle: e ? `${e.ticker} — ${e.name} · ${e.sector}` : undefined,
+      meta: [
+        { label: 'Author', value: props.author },
+        { label: 'Status', value: props.status.replace('_', ' ').toLowerCase() },
+        { label: 'Last updated', value: props.updatedAt.slice(0, 10) },
+        ...(props.recommendation ? [{ label: 'Recommendation', value: props.recommendation.replace('_', ' ') }] : []),
+        ...(props.targetPrice !== null
+          ? [{ label: 'Target price', value: formatMetric(props.targetPrice, 'currency', { currency }) }]
+          : []),
+        ...(isNum(upside) ? [{ label: 'Upside', value: formatMetric(upside, 'percentSigned') }] : []),
+        ...(e ? [{ label: 'Basis', value: e.basisLabel }] : []),
+        ...(props.portfolioRole ? [{ label: 'Portfolio role', value: props.portfolioRole }] : []),
+      ],
+      sections: props.sections.map((s) => ({ title: s.title, body: s.body })),
+      tables: [
+        ...(figures.length
+          ? [{
+              title: 'Appendix A — figures as computed by MERIDIAN',
+              columns: ['Measure', 'Value'],
+              rows: figures,
+              note: 'Every figure is computed by the platform from the statements loaded into this workspace. A dash means the datum is unavailable and "n/m" that the measure is not meaningful for this kind of company. Nothing has been substituted for a missing value.',
+            }]
+          : []),
+        ...(e && e.peerMedians.length
+          ? [{
+              title: 'Appendix B — against the peer set',
+              columns: ['Multiple', 'Company', 'Peer median'],
+              rows: e.peerMedians.map((p) => [
+                p.label,
+                formatMetric(p.company, formatFor(p.key)),
+                formatMetric(p.median, formatFor(p.key)),
+              ]),
+              note: 'Medians are computed only over the peers that report the measure.',
+            }]
+          : []),
+        ...(e && e.models.length
+          ? [{
+              title: 'Appendix C — valuation models on record',
+              columns: ['Model', 'Fair value', 'Upside'],
+              rows: e.models.map((m) => [
+                `${m.name} (${m.kind})`,
+                m.fairValue === null ? 'not run' : formatMetric(m.fairValue, 'currency', { currency }),
+                formatMetric(m.upside, 'percentSigned'),
+              ]),
+              note: 'A model that has not been run since it was saved is reported as such rather than given a value.',
+            }]
+          : []),
+      ],
+      provenance: 'Produced in MERIDIAN. Recommendations only — the platform does not route, place or execute orders.',
+      fileName: `${slugify(props.title)}.pdf`,
+    });
+  };
+
   const exportMarkdown = () => {
     const lines: string[] = [
       `# ${props.title}`,
@@ -150,7 +226,7 @@ export function MemoEditor(props: {
       lines.push('');
       lines.push('Every figure above is computed by the platform from the statements loaded into this workspace. A blank or "n/m" means the datum is unavailable or not meaningful for this kind of company, never zero.');
     }
-    downloadText(`${slug(props.title)}.md`, lines.filter((l) => l !== '').join('\n'));
+    downloadText(`${slugify(props.title)}.md`, lines.filter((l) => l !== '').join('\n'));
   };
 
   return (
@@ -170,6 +246,7 @@ export function MemoEditor(props: {
             <span className="text-2xs text-ink-4">{written} of {draft.sections.length} sections written</span>
           </div>
           <div className="flex items-center gap-2">
+            <Button icon={<Icon.Download size={13} />} onClick={exportPdf}>PDF</Button>
             <Button icon={<Icon.Download size={13} />} onClick={exportMarkdown}>Markdown</Button>
             {props.canWrite && mode === 'edit' ? (
               <Button variant="primary" onClick={() => save()} loading={busy} disabled={!dirty}>Save</Button>
@@ -476,6 +553,3 @@ function formatFor(key: string): 'multiple' | 'percent' {
     : 'multiple';
 }
 
-function slug(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}

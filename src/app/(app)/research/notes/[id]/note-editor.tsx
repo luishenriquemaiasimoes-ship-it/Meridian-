@@ -9,8 +9,9 @@ import {
 } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
 import { Num, RecommendationBadge, StatRow } from '@/components/ui/values';
-import { DASH, formatDateTime } from '@/lib/finance/format';
+import { DASH, formatDateTime, formatMetric } from '@/lib/finance/format';
 import { downloadText } from '@/lib/import/csv';
+import { downloadResearchPdf, slugify } from '@/lib/export/pdf';
 import type { Currency } from '@/lib/finance/types';
 
 export interface NoteSection { key: string; title: string; body: string }
@@ -142,6 +143,45 @@ export function NoteEditor(props: {
     } finally { setBusy(false); }
   };
 
+  const exportPdf = () => {
+    downloadResearchPdf({
+      kicker: 'Research note',
+      title: props.title,
+      subtitle: props.company ? `${props.company.ticker} — ${props.company.name}` : 'Thematic note',
+      meta: [
+        { label: 'Author', value: props.author },
+        { label: 'Status', value: props.status.replace('_', ' ').toLowerCase() },
+        { label: 'Last updated', value: props.updatedAt.slice(0, 10) },
+        ...(props.recommendation ? [{ label: 'Recommendation', value: props.recommendation.replace('_', ' ') }] : []),
+        ...(props.targetPrice !== null
+          ? [{ label: 'Target price', value: formatMetric(props.targetPrice, 'currency', { currency: props.company?.currency ?? 'BRL' }) }]
+          : []),
+        ...(props.conviction ? [{ label: 'Conviction', value: props.conviction.replace('_', ' ').toLowerCase() }] : []),
+      ],
+      sections: props.sections.map((s) => ({ title: s.title, body: s.body })),
+      tables: props.company
+        ? [{
+            title: 'Figures at the time of export',
+            columns: ['Measure', 'Value'],
+            rows: [
+              ['Price', formatMetric(props.company.price, 'currency', { currency: props.company.currency })],
+              ['Target price', formatMetric(props.targetPrice, 'currency', { currency: props.company.currency })],
+              ['Upside to target', formatMetric(
+                props.targetPrice !== null && props.company.price ? props.targetPrice / props.company.price - 1 : null,
+                'percentSigned',
+              )],
+              ['P / E', formatMetric(props.company.pe, 'multiple')],
+              ['EV / EBITDA', props.company.bankLike ? 'n/m for a bank' : formatMetric(props.company.evEbitda, 'multiple')],
+              ['ROIC', props.company.bankLike ? 'n/m for a bank' : formatMetric(props.company.roic, 'percent')],
+            ],
+            note: 'Computed by the platform from the statements held in this workspace. A dash means the figure is unavailable; nothing has been substituted for it.',
+          }]
+        : undefined,
+      provenance: 'Produced in MERIDIAN. Figures are computed from the statements held in the workspace at the time of export, not from a market feed.',
+      fileName: `${slugify(props.title)}.pdf`,
+    });
+  };
+
   const exportMarkdown = () => {
     const lines = [
       `# ${props.title}`,
@@ -157,7 +197,7 @@ export function NoteEditor(props: {
       '---',
       'Produced in MERIDIAN. Figures cited alongside this note come from the workspace metric set and are labelled by origin in the application.',
     ].filter((l) => l !== '');
-    downloadText(`${slug(props.title)}.md`, lines.join('\n'));
+    downloadText(`${slugify(props.title)}.md`, lines.join('\n'));
   };
 
   const latest = props.versions[0];
@@ -188,6 +228,7 @@ export function NoteEditor(props: {
             ]}
           />
           <div className="flex items-center gap-2">
+            <Button icon={<Icon.Download size={13} />} onClick={exportPdf}>PDF</Button>
             <Button icon={<Icon.Download size={13} />} onClick={exportMarkdown}>Markdown</Button>
             {props.canWrite && mode === 'edit' ? (
               <>
@@ -458,6 +499,3 @@ export function NoteEditor(props: {
   );
 }
 
-function slug(s: string): string {
-  return s.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-}
