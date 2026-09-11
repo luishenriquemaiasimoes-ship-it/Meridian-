@@ -151,31 +151,32 @@ model Company {
   createdAt             DateTime @default(now())
   updatedAt             DateTime @updatedAt
 
-  security        Security?
-  statements      FinancialStatement[]
-  segments        SegmentDatum[]
-  managementItems ManagementRecord[]
-  ownership       OwnershipRecord[]
-  estimates       Estimate[]
-  newsItems       NewsItem[]
-  earnings        EarningsEvent[]
-  peerLinks       PeerLink[]                @relation("CompanyPeers")
-  peerOf          PeerLink[]                @relation("PeerCompany")
-  theses          InvestmentThesis[]
-  valuations      ValuationModel[]
-  notes           ResearchNote[]
-  memos           InvestmentMemo[]
-  positions       PortfolioPosition[]
-  transactions    PortfolioTransaction[]
-  watchlistItems  WatchlistItem[]
-  alerts          Alert[]
-  documents       Document[]
-  adjustments     NormalizationAdjustment[]
-  committeeItems  CommitteeItem[]
-  catalysts       Catalyst[]
-  risks           RiskItem[]
-  targetHistory   TargetPriceRecord[]
-  earningsReviews EarningsReview[]
+  security         Security?
+  statements       FinancialStatement[]
+  segments         SegmentDatum[]
+  managementItems  ManagementRecord[]
+  ownership        OwnershipRecord[]
+  estimates        Estimate[]
+  consensusTargets ConsensusTarget[]
+  newsItems        NewsItem[]
+  earnings         EarningsEvent[]
+  peerLinks        PeerLink[]                @relation("CompanyPeers")
+  peerOf           PeerLink[]                @relation("PeerCompany")
+  theses           InvestmentThesis[]
+  valuations       ValuationModel[]
+  notes            ResearchNote[]
+  memos            InvestmentMemo[]
+  positions        PortfolioPosition[]
+  transactions     PortfolioTransaction[]
+  watchlistItems   WatchlistItem[]
+  alerts           Alert[]
+  documents        Document[]
+  adjustments      NormalizationAdjustment[]
+  committeeItems   CommitteeItem[]
+  catalysts        Catalyst[]
+  risks            RiskItem[]
+  targetHistory    TargetPriceRecord[]
+  earningsReviews  EarningsReview[]
 
   @@index([sector])
   @@index([country])
@@ -294,6 +295,26 @@ model Estimate {
   company       Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
 
   @@unique([companyId, fiscalYear, fiscalQuarter, metric])
+}
+
+/// A sell-side target price on record. Kept separate from Estimate, which
+/// holds line-item forecasts: a target is a conclusion, not a line item.
+model ConsensusTarget {
+  id             String   @id @default(cuid())
+  companyId      String
+  /// Contributor name. Simulated contributors are named as such.
+  contributor    String
+  targetPrice    Float
+  recommendation String?
+  currency       String   @default("BRL")
+  asOf           DateTime
+  source         String   @default("MockConsensusProvider")
+  createdAt      DateTime @default(now())
+
+  company Company @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([companyId, contributor])
+  @@index([companyId, asOf])
 }
 
 model NewsItem {

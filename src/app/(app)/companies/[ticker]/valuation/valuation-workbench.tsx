@@ -7,6 +7,8 @@ import {
   Segmented, Select, Tooltip, useToast,
 } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
+import { WaccBuilder } from './wacc-builder';
+import { ReconciliationPanel } from './reconciliation-panel';
 import { HeatmapTable } from '@/components/ui/table';
 import { Bps, MetricCard, Num, StatRow } from '@/components/ui/values';
 import { BarSeriesChart, WaterfallChart } from '@/components/charts';
@@ -22,7 +24,7 @@ import { downloadText, toCsv } from '@/lib/import/csv';
 import type { Currency } from '@/lib/finance/types';
 import { isNum } from '@/lib/finance/core';
 
-type Tab = 'model' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
+type Tab = 'model' | 'wacc' | 'reconcile' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
 
 const AXIS_LABELS: Record<SensitivityAxis, string> = {
   WACC: 'WACC', TERMINAL_GROWTH: 'Terminal growth', EXIT_MULTIPLE: 'Exit multiple',
@@ -234,6 +236,8 @@ export function ValuationWorkbench(props: {
 
   const tabs: { value: Tab; label: string }[] = [
     { value: 'model', label: 'Model' },
+    { value: 'wacc', label: 'WACC build' },
+    { value: 'reconcile', label: 'Reconciliation' },
     { value: 'sensitivity', label: 'Sensitivity' },
     { value: 'reverse', label: 'Reverse DCF' },
     { value: 'scenarios', label: 'Bull / base / bear' },
@@ -534,6 +538,27 @@ export function ValuationWorkbench(props: {
         <SotpTab
           sotp={sotp} setSotp={(next) => { setSotp(next); }} result={sotpResult}
           currency={currency} canEdit={props.canEdit} ticker={props.ticker}
+        />
+      ) : null}
+
+      {tab === 'wacc' ? (
+        <WaccBuilder
+          ticker={props.ticker}
+          modelId={props.modelId}
+          currency={currency}
+          canEdit={props.canEdit}
+          currentModelWacc={assumptions.wacc}
+          onApply={(wacc) => { patch({ wacc }); setTab('model'); }}
+        />
+      ) : null}
+
+      {tab === 'reconcile' ? (
+        <ReconciliationPanel
+          ticker={props.ticker}
+          modelId={props.modelId}
+          currency={currency}
+          canEdit={props.canEdit}
+          assumptions={assumptions}
         />
       ) : null}
 

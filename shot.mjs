@@ -1,0 +1,13 @@
+import { chromium } from 'playwright';
+const browser = await chromium.launch({ executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome' });
+const ctx = await browser.newContext();
+await ctx.request.post('http://localhost:3000/api/auth/login', { data: { email: 'demo@meridian.app', password: 'meridian2026' } });
+const page = await ctx.newPage();
+await page.setViewportSize({ width: 1440, height: 1100 });
+await page.context().addCookies([{ name: 'meridian_theme', value: 'dark', url: 'http://localhost:3000' }]);
+await page.goto('http://localhost:3000/companies/VALE3/valuation', { waitUntil: 'networkidle' });
+await page.getByRole('button', { name: 'WACC build' }).click();
+await page.waitForTimeout(1800);
+await page.screenshot({ path: process.argv[2] + '/wacc-builder.png', fullPage: false });
+console.log('ok');
+await browser.close();

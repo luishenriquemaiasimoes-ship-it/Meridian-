@@ -3,7 +3,7 @@ import { PrismaClient } from '@prisma/client';
 import { hashPassword } from '../src/lib/auth/password';
 import { BLUEPRINTS, findBlueprint } from '../src/lib/data-providers/mock/blueprints';
 import { MockMarketDataProvider, MARKET_INDICATORS } from '../src/lib/data-providers/mock/provider';
-import { AS_OF, LATEST_FISCAL_YEAR } from '../src/lib/data-providers/mock/generator';
+import { AS_OF, LATEST_FISCAL_YEAR, buildConsensusTargets } from '../src/lib/data-providers/mock/generator';
 import { buildDefaultDcfAssumptions } from '../src/lib/finance/modelDefaults';
 import { calculateDcf } from '../src/lib/finance/dcf';
 import { deriveScenarioSet, runScenarios } from '../src/lib/finance/scenarios';
@@ -158,6 +158,15 @@ async function seedUniverse() {
       data: est.map((e) => ({
         companyId: company.id, fiscalYear: e.fiscalYear, fiscalQuarter: e.fiscalQuarter,
         metric: e.metric, value: e.value, analysts: e.analysts, source: e.source,
+      })),
+    });
+
+    const targets = buildConsensusTargets(bp);
+    await prisma.consensusTarget.createMany({
+      data: targets.map((c) => ({
+        companyId: company.id, contributor: c.contributor, targetPrice: c.targetPrice,
+        recommendation: c.recommendation, currency: c.currency,
+        asOf: d(c.asOf), source: c.source,
       })),
     });
 
@@ -495,12 +504,45 @@ async function seedWorkspaceContent(ctx: Ctx) {
     const scenarioDefs = deriveScenarioSet(assumptions);
     const scenarioResult = runScenarios(scenarioDefs, bp.anchors.price);
 
-    await prisma.valuationModel.create({
+    // The discount rate as a build, with a source on every component. One of
+    // the demo models deliberately carries the inflation-linked instrument and
+    // no country premium, so the review checks have something real to catch.
+    const usesRealRate = spec.ticker === 'ITUB4';
+    const isBrl = bp.profile.currency === 'BRL';
+    const waccBuild = {
+      currency: bp.profile.currency,
+      erpIsDevelopedMarket: true,
+      riskFree: usesRealRate
+        ? { value: 0.0642, source: 'NTN-B 2035 real yield (MockMarketDataProvider)', asOf: AS_OF, basis: 'REAL', inflation: 0.0418, instrument: 'NTN-B 2035 real yield' }
+        : isBrl
+          ? { value: 0.1218, source: 'NTN-F 2033 nominal yield (MockMarketDataProvider)', asOf: AS_OF, basis: 'NOMINAL', inflation: null, instrument: 'NTN-F 2033 nominal yield' }
+          : { value: 0.0412, source: 'US Treasury 10Y (MockMarketDataProvider)', asOf: AS_OF, basis: 'NOMINAL', inflation: null, instrument: 'US Treasury 10Y' },
+      equityRiskPremium: { value: 0.046, source: 'Mature-market equity risk premium (MockMarketDataProvider)', asOf: AS_OF },
+      countryRiskPremium: isBrl && !usesRealRate
+        ? { value: 0.0208, source: 'EMBI+ Brazil sovereign spread (MockMarketDataProvider)', asOf: AS_OF }
+        : null,
+      betaMethod: 'OBSERVED',
+      observedBeta: { value: bp.anchors.beta, source: 'Regression against the market benchmark', asOf: AS_OF, window: '3y daily', benchmark: isBrl ? 'IBOV' : 'SPX' },
+      peerBetas: [],
+      targetDebtToEquity: null,
+      costOfDebt: { value: bp.anchors.costOfDebt, source: 'Weighted average cost of debt in the notes', asOf: AS_OF, basis: 'REPORTED' },
+      taxRate: { value: bp.anchors.taxRate, source: 'Statutory rate', asOf: AS_OF },
+      marketValueEquity: { value: bp.anchors.shares * bp.anchors.price, source: 'Market price x shares outstanding', asOf: AS_OF },
+      debt: { value: assumptions.netDebt, source: `Net debt on ${LATEST_FISCAL_YEAR} reported balance sheet`, asOf: AS_OF, basis: 'NET_DEBT' },
+      cash: null,
+      targetEquityWeight: null,
+      rationale: usesRealRate
+        ? null
+        : 'Observed beta over three years covers a full cycle; country premium taken from the sovereign spread because the revenue is domestic.',
+    };
+
+    const model = await prisma.valuationModel.create({
       data: {
         workspaceId: ctx.workspaceId, companyId,
         name: `${spec.ticker} — DCF ${LATEST_FISCAL_YEAR + 1}E`,
         kind: 'DCF', status: 'ACTIVE',
         assumptions: j(assumptions),
+        waccBuild: j(waccBuild),
         scenarios: j(scenarioDefs.map((s) => ({ key: s.key, label: s.label, probability: s.probability, assumptions: s.assumptions }))),
         outputs: j({
           fairValuePerShare: result.fairValuePerShare,
@@ -516,6 +558,33 @@ async function seedWorkspaceContent(ctx: Ctx) {
         authorName: ctx.names.analyst,
         createdAt: daysAgo(118), updatedAt: daysAgo(9),
       },
+    });
+
+    // Provenance for each input. Everything here traces to the mock provider or
+    // to the analyst, and is recorded as whichever it is — the verification
+    // panel then shows a real mix rather than a uniformly clean model.
+    const sourceRows: { path: string; label: string; kind: string; reference: string; value: number | null }[] = [
+      { path: 'wacc.riskFree', label: 'Risk-free rate', kind: 'MOCK', reference: waccBuild.riskFree.source, value: waccBuild.riskFree.value },
+      { path: 'wacc.equityRiskPremium', label: 'Equity risk premium', kind: 'MOCK', reference: waccBuild.equityRiskPremium.source, value: waccBuild.equityRiskPremium.value },
+      ...(waccBuild.countryRiskPremium ? [{ path: 'wacc.countryRiskPremium', label: 'Country risk premium', kind: 'MOCK', reference: waccBuild.countryRiskPremium.source, value: waccBuild.countryRiskPremium.value }] : []),
+      { path: 'wacc.beta', label: 'Beta', kind: 'DERIVED', reference: 'Regression against the market benchmark', value: bp.anchors.beta },
+      { path: 'wacc.costOfDebt', label: 'Cost of debt', kind: 'FILING', reference: `Note 18, ${LATEST_FISCAL_YEAR} annual report`, value: bp.anchors.costOfDebt },
+      { path: 'wacc.taxRate', label: 'Tax rate', kind: 'MANUAL', reference: 'Statutory rate applied by the analyst', value: bp.anchors.taxRate },
+      { path: 'wacc.marketValueEquity', label: 'Market value of equity', kind: 'MARKET', reference: 'Market price x shares outstanding', value: bp.anchors.shares * bp.anchors.price },
+      { path: 'wacc.debt', label: 'Debt', kind: 'FILING', reference: `Balance sheet, FY${LATEST_FISCAL_YEAR}`, value: assumptions.netDebt },
+      { path: 'forecast.baseRevenue', label: 'Base-year revenue', kind: 'FILING', reference: `Income statement, FY${LATEST_FISCAL_YEAR}`, value: assumptions.baseRevenue },
+      { path: 'forecast.revenueGrowth', label: 'Revenue growth path', kind: 'MANUAL', reference: 'Analyst forecast', value: assumptions.revenueGrowth[0] ?? null },
+      { path: 'forecast.ebitdaMargin', label: 'EBITDA margin path', kind: 'MANUAL', reference: 'Analyst forecast', value: assumptions.ebitdaMargin[0] ?? null },
+      { path: 'terminal.growth', label: 'Perpetuity growth', kind: 'MANUAL', reference: 'Analyst assumption, anchored to long-run nominal growth', value: assumptions.terminalGrowth },
+      { path: 'bridge.netDebt', label: 'Net debt', kind: 'FILING', reference: `Balance sheet, FY${LATEST_FISCAL_YEAR}`, value: assumptions.netDebt },
+      { path: 'bridge.shares', label: 'Shares outstanding', kind: 'FILING', reference: `Shareholding note, FY${LATEST_FISCAL_YEAR}`, value: assumptions.sharesOutstanding },
+    ];
+    await prisma.inputSource.createMany({
+      data: sourceRows.map((r) => ({
+        workspaceId: ctx.workspaceId, modelId: model.id, path: r.path, label: r.label,
+        kind: r.kind, reference: r.reference, value: r.value,
+        asOf: d(AS_OF), verifiedBy: ctx.names.analyst, verifiedAt: daysAgo(9),
+      })),
     });
   }
 

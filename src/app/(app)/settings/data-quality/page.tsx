@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { requireContext } from '@/server/context';
 import { getQualityReport, getStatementChecks } from '@/server/services/quality';
+import { getWorkspaceVerificationGaps } from '@/server/services/reconciliation';
 import { PageHeader } from '@/components/ui/primitives';
 import { QualityWorkbench } from './quality-workbench';
 
@@ -14,8 +15,11 @@ export default async function DataQualityPage({
   const ctx = await requireContext();
   const { ticker } = await searchParams;
 
-  const report = await getQualityReport(ctx.workspaceId);
-  const checks = ticker ? await getStatementChecks(ticker) : null;
+  const [report, checks, models] = await Promise.all([
+    getQualityReport(ctx.workspaceId),
+    ticker ? getStatementChecks(ticker) : Promise.resolve(null),
+    getWorkspaceVerificationGaps(ctx.workspaceId),
+  ]);
 
   return (
     <>
@@ -34,6 +38,7 @@ export default async function DataQualityPage({
         report={report}
         selectedTicker={ticker ?? null}
         statementChecks={checks}
+        models={models}
       />
     </>
   );

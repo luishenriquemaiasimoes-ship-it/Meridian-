@@ -532,6 +532,50 @@ export function buildOwnership(bp: CompanyBlueprint): OwnershipData[] {
   return bp.ownership.map((o) => ({ holder: o.holder, kind: o.kind, stake: o.stake }));
 }
 
+export interface ConsensusTargetData {
+  contributor: string;
+  targetPrice: number;
+  recommendation: string;
+  currency: string;
+  asOf: string;
+  source: string;
+}
+
+const CONTRIBUTORS = [
+  'Simulated Broker A', 'Simulated Broker B', 'Simulated Broker C',
+  'Simulated Broker D', 'Simulated Broker E', 'Simulated Broker F',
+];
+
+/**
+ * A spread of sell-side targets around the current price. Contributors are
+ * named "Simulated Broker" on purpose: a fabricated target attributed to a
+ * real institution would be indistinguishable from a real one, and this
+ * product does not manufacture that ambiguity.
+ */
+export function buildConsensusTargets(bp: CompanyBlueprint): ConsensusTargetData[] {
+  const rng = makeRng(seedFromString(`${bp.profile.ticker}-tp`));
+  const price = bp.anchors.price;
+  // Contributors cluster above the price more often than below, as they do.
+  const centre = 1 + 0.06 + bp.anchors.priceDrift * 0.5;
+  const count = 3 + Math.floor(rng() * 4);
+
+  return Array.from({ length: count }, (_, i) => {
+    const dispersion = (rng() - 0.42) * 0.34;
+    const target = price * Math.max(0.5, centre + dispersion);
+    const upside = target / price - 1;
+    const recommendation =
+      upside > 0.25 ? 'STRONG_BUY' : upside > 0.10 ? 'BUY' : upside > -0.05 ? 'HOLD' : 'SELL';
+    return {
+      contributor: CONTRIBUTORS[i % CONTRIBUTORS.length],
+      targetPrice: round2(target),
+      recommendation,
+      currency: bp.profile.currency,
+      asOf: AS_OF,
+      source: 'MockConsensusProvider',
+    };
+  });
+}
+
 export function buildEstimates(bp: CompanyBlueprint, annuals: FinancialPeriod[]): EstimateData[] {
   const rng = makeRng(seedFromString(`${bp.profile.ticker}-est`));
   const latest = annuals[annuals.length - 1];
@@ -665,6 +709,7 @@ export interface GeneratedCompany {
   management: ManagementData[];
   ownership: OwnershipData[];
   estimates: EstimateData[];
+  consensusTargets: ConsensusTargetData[];
   earnings: EarningsData[];
   news: NewsData[];
 }
@@ -683,6 +728,7 @@ export function generateCompany(bp: CompanyBlueprint): GeneratedCompany {
     management: buildManagement(bp),
     ownership: buildOwnership(bp),
     estimates: buildEstimates(bp, annuals),
+    consensusTargets: buildConsensusTargets(bp),
     earnings: buildEarnings(bp, quarters),
     news: buildNews(bp),
   };

@@ -106,6 +106,12 @@ export const MARKET_INDICATORS: MarketIndicatorData[] = [
   { code: 'CDI', name: 'CDI', category: 'RATE', value: 10.65, previous: 11.15, unit: 'PERCENT', asOf: AS_OF },
   { code: 'US10Y', name: 'US Treasury 10Y', category: 'RATE', value: 4.12, previous: 4.18, unit: 'PERCENT', asOf: AS_OF },
   { code: 'NTNB35', name: 'NTN-B 2035 real yield', category: 'RATE', value: 6.42, previous: 6.51, unit: 'PERCENT', asOf: AS_OF },
+  // A nominal prefixed bond sits beside the inflation-linked one on purpose:
+  // picking the wrong one is the most common error in a BRL cost of equity,
+  // and the WACC builder can only offer the right answer if it is on the shelf.
+  { code: 'NTNF33', name: 'NTN-F 2033 nominal yield', category: 'RATE', value: 12.18, previous: 12.34, unit: 'PERCENT', asOf: AS_OF },
+  { code: 'EMBIBR', name: 'EMBI+ Brazil sovereign spread', category: 'RATE', value: 2.08, previous: 2.15, unit: 'PERCENT', asOf: AS_OF },
+  { code: 'ERPUS', name: 'Mature-market equity risk premium', category: 'MACRO', value: 4.60, previous: 4.72, unit: 'PERCENT', asOf: AS_OF },
   { code: 'IPCA', name: 'IPCA (12-month)', category: 'MACRO', value: 4.18, previous: 4.32, unit: 'PERCENT', asOf: AS_OF },
   { code: 'BRENT', name: 'Brent crude', category: 'COMMODITY', value: 71.4, previous: 72.8, unit: 'USD_PER_BARREL', currency: 'USD', asOf: AS_OF },
   { code: 'IRONORE', name: 'Iron ore 62% Fe', category: 'COMMODITY', value: 98.6, previous: 96.9, unit: 'USD_PER_TONNE', currency: 'USD', asOf: AS_OF },

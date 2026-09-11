@@ -13,8 +13,11 @@ import { DASH, formatDate } from '@/lib/finance/format';
 import { downloadText, toCsv } from '@/lib/import/csv';
 import { isNum } from '@/lib/finance/core';
 import type { QualityReport, CompanyQuality, QualityIssue, StatementCheck } from '@/server/services/quality';
+import type { getWorkspaceVerificationGaps } from '@/server/services/reconciliation';
 
-type Tab = 'companies' | 'issues' | 'statements';
+type ModelVerification = Awaited<ReturnType<typeof getWorkspaceVerificationGaps>>[number];
+
+type Tab = 'companies' | 'issues' | 'statements' | 'sources';
 
 const SEVERITY_TONE: Record<string, 'neg' | 'warn' | 'neutral'> = {
   BLOCKING: 'neg', IMPORTANT: 'warn', INFORMATIONAL: 'neutral',
@@ -28,6 +31,7 @@ export function QualityWorkbench(props: {
   report: QualityReport;
   selectedTicker: string | null;
   statementChecks: StatementCheck[] | null;
+  models: ModelVerification[];
 }) {
   const router = useRouter();
   const [tab, setTab] = useState<Tab>(props.selectedTicker ? 'statements' : 'companies');
@@ -211,6 +215,7 @@ export function QualityWorkbench(props: {
             { value: 'companies', label: 'By company', count: companies.length },
             { value: 'issues', label: 'Issues', count: issues.length },
             { value: 'statements', label: 'Statement integrity' },
+            { value: 'sources', label: 'Source verification', count: props.models.length },
           ]}
           className="flex-1"
         />
@@ -262,6 +267,8 @@ export function QualityWorkbench(props: {
           </Panel>
         </div>
       ) : null}
+
+      {tab === 'sources' ? <SourceVerification models={props.models} /> : null}
 
       {tab === 'statements' ? (
         <div className="space-y-3">
@@ -370,6 +377,139 @@ export function QualityWorkbench(props: {
           </ul>
         </Panel>
       </div>
+    </div>
+  );
+}
+
+
+const SOURCE_STATUS_TONE: Record<string, 'pos' | 'warn' | 'neg' | 'neutral'> = {
+  VERIFIED: 'pos', ASSERTED: 'neutral', SIMULATED: 'warn', STALE: 'warn', UNVERIFIED: 'neg',
+};
+
+/**
+ * Every valuation model in the workspace, and whether each of its inputs traces
+ * to something a reader can open. The point is not to shame an estimate — an
+ * analyst's own forecast is the job — but to make the difference visible before
+ * the model reaches a committee.
+ */
+function SourceVerification({ models }: { models: ModelVerification[] }) {
+  const [expanded, setExpanded] = useState<string | null>(models[0]?.modelId ?? null);
+
+  if (!models.length) {
+    return (
+      <Panel>
+        <PanelHeader title="Source verification" dense />
+        <p className="px-3 pb-3 text-xs text-ink-4">
+          No valuation model exists in this workspace yet. Build one and every input it needs will be listed here with
+          whatever vouches for it.
+        </p>
+      </Panel>
+    );
+  }
+
+  const totals = models.reduce(
+    (acc, m) => ({
+      unverified: acc.unverified + m.report.counts.unverified,
+      critical: acc.critical + m.report.counts.criticalUnverified,
+      simulated: acc.simulated + m.report.counts.simulated,
+      stale: acc.stale + m.report.counts.stale,
+    }),
+    { unverified: 0, critical: 0, simulated: 0, stale: 0 },
+  );
+  const worst = models.slice().sort((a, b) => a.report.score - b.report.score);
+
+  return (
+    <div className="space-y-3">
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <MetricCard label="Models" value={models.length} format="number" decimals={0} sublabel={`${models.filter((m) => m.hasWaccBuild).length} with a WACC build`} />
+        <MetricCard label="Inputs with no source" value={totals.unverified} format="number" decimals={0} accent={totals.critical > 0} sublabel={`${totals.critical} of them load-bearing`} />
+        <MetricCard label="Inputs on simulated data" value={totals.simulated} format="number" decimals={0} />
+        <MetricCard label="Observations past 90 days" value={totals.stale} format="number" decimals={0} sublabel="A stale rate is not today's rate" />
+      </div>
+
+      <InlineNote tone="info">
+        A number in a model is either traceable to something a reader can open, or it is an assertion. The product
+        accepts assertions — that is what a forecast is — and records them as such. What it will not do is let an
+        estimate wear the clothes of a filing.
+      </InlineNote>
+
+      {worst.map((m) => {
+        const open = expanded === m.modelId;
+        return (
+          <Panel key={m.modelId}>
+            <PanelHeader
+              title={
+                <button
+                  type="button"
+                  onClick={() => setExpanded(open ? null : m.modelId)}
+                  className="flex items-center gap-2 text-left focus-ring rounded"
+                >
+                  <Icon.ChevronRight size={13} className={cx('shrink-0 text-ink-4 transition', open && 'rotate-90')} />
+                  <Link href={`/companies/${m.ticker}/valuation?model=${m.modelId}`} className="font-semibold text-ink hover:text-accent">
+                    {m.ticker}
+                  </Link>
+                  <span className="font-normal text-ink-2">{m.modelName}</span>
+                </button>
+              }
+              subtitle={`${m.authorName} · updated ${formatDate(m.updatedAt)}${m.hasWaccBuild ? '' : ' · no WACC build'}`}
+              actions={
+                <div className="flex items-center gap-2">
+                  {m.report.counts.criticalUnverified > 0 ? (
+                    <Badge tone="neg">{m.report.counts.criticalUnverified} load-bearing unsourced</Badge>
+                  ) : m.report.counts.unverified > 0 ? (
+                    <Badge tone="warn">{m.report.counts.unverified} unsourced</Badge>
+                  ) : (
+                    <Badge tone="pos">fully sourced</Badge>
+                  )}
+                  <span className="num text-sm font-semibold text-ink">{m.report.score}</span>
+                </div>
+              }
+            />
+            {open ? (
+              <div className="px-3 pb-3">
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-2xs uppercase tracking-wide text-ink-4">
+                      <th className="py-1 text-left font-semibold">Input</th>
+                      <th className="py-1 text-left font-semibold">Group</th>
+                      <th className="py-1 text-left font-semibold">Source</th>
+                      <th className="py-1 text-right font-semibold">As of</th>
+                      <th className="py-1 text-right font-semibold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-line">
+                    {m.report.rows.map((r) => (
+                      <tr key={r.path}>
+                        <td className="py-1.5 text-ink-2">
+                          {r.label}
+                          {r.critical ? (
+                            <Tooltip content="The model cannot produce a number without this.">
+                              <span className="ml-1.5 text-2xs text-ink-4">load-bearing</span>
+                            </Tooltip>
+                          ) : null}
+                        </td>
+                        <td className="py-1.5 text-2xs text-ink-4">{r.group}</td>
+                        <td className="py-1.5 text-2xs text-ink-3">
+                          {r.source?.reference ?? <span className="text-neg">nothing recorded</span>}
+                        </td>
+                        <td className="py-1.5 text-right text-2xs text-ink-4">
+                          {r.source?.asOf ? formatDate(r.source.asOf) : DASH}
+                          {isNum(r.ageDays) && (r.ageDays as number) > 90 ? (
+                            <span className="ml-1 text-warn">({r.ageDays}d)</span>
+                          ) : null}
+                        </td>
+                        <td className="py-1.5 text-right">
+                          <Badge tone={SOURCE_STATUS_TONE[r.status] ?? 'neutral'}>{r.status.toLowerCase()}</Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : null}
+          </Panel>
+        );
+      })}
     </div>
   );
 }
