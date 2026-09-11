@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getUniverseMetrics } from '@/server/services/metrics';
 import { SCREEN_METRIC_LIST, THEMES } from '@/server/services/screener';
 import { prisma, parseJson } from '@/lib/db';
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Screener' };
 export const dynamic = 'force-dynamic';
 
 export default async function ScreenerPage({ searchParams }: { searchParams: Promise<{ screen?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { screen } = await searchParams;
 
   const [metrics, screens] = await Promise.all([

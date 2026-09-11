@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { getMetricsMap } from '@/server/services/metrics';
 import { Badge, EmptyState, PageHeader, Panel, PanelHeader } from '@/components/ui/primitives';
@@ -18,7 +18,7 @@ const STATUS_TONE: Record<string, 'pos' | 'neutral' | 'warn' | 'neg'> = {
 };
 
 export default async function MemosPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [memos, companies, metrics] = await Promise.all([
     prisma.investmentMemo.findMany({

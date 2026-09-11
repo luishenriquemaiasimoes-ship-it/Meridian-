@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { EmptyState, PageHeader, Panel } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export default async function AuditPage({
   searchParams,
 }: { searchParams: Promise<{ entity?: string; action?: string; actor?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const sp = await searchParams;
 
   if (!ctx.can('audit:read')) {

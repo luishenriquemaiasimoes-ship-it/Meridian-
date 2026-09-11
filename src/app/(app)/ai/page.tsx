@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { aiProviderInfo } from '@/lib/ai/llm';
 import { AiConsole } from '@/components/ai/ai-console';
@@ -21,7 +21,7 @@ const SUGGESTIONS = [
 ];
 
 export default async function AiPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const provider = aiProviderInfo();
 
   const [conversations, universeSize] = await Promise.all([

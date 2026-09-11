@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getSectorAggregates, THEMES } from '@/server/services/screener';
 import { getUniverseMetrics } from '@/server/services/metrics';
 import { getSectorWorkbench } from '@/server/services/sector';
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function SectorsPage({
   searchParams,
 }: { searchParams: Promise<{ sector?: string; theme?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { sector, theme } = await searchParams;
 
   const [aggregates, universe, research] = await Promise.all([

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { PageHeader } from '@/components/ui/primitives';
 import { WorkspacesWorkbench } from './workspaces-workbench';
@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Workspaces' };
 export const dynamic = 'force-dynamic';
 
 export default async function WorkspacesPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const workspaces = await prisma.workspace.findMany({
     where: { organizationId: ctx.organizationId },

@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
 import { prisma, parseJson } from '@/lib/db';
 import { Badge, Button, EmptyState, Panel, PanelHeader } from '@/components/ui/primitives';
@@ -19,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ticker: s
 
 export default async function CompanyResearchPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

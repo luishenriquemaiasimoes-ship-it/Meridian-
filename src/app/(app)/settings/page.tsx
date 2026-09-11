@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { PageHeader, Panel, PanelHeader, Badge, InlineNote } from '@/components/ui/primitives';
 import { Icon, type IconName } from '@/components/ui/icons';
@@ -20,7 +20,7 @@ const SECTIONS: { href: string; icon: IconName; title: string; description: stri
 ];
 
 export default async function SettingsPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [workspace, sources, members] = await Promise.all([
     prisma.workspace.findUnique({

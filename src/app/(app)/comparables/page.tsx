@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { listPeerGroups } from '@/server/services/comps';
 import { getUniverseMetrics } from '@/server/services/metrics';
 import { PageHeader } from '@/components/ui/primitives';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function ComparablesPage({
   searchParams,
 }: { searchParams: Promise<{ group?: string; tickers?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { group, tickers } = await searchParams;
 
   const [groups, universe] = await Promise.all([

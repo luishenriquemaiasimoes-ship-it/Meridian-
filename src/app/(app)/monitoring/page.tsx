@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { ALERT_METRICS, evaluateAlerts, evaluateThesisHealth } from '@/server/services/alerts';
 import { PageHeader } from '@/components/ui/primitives';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export default async function MonitoringPage({
   searchParams,
 }: { searchParams: Promise<{ tab?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { tab } = await searchParams;
 
   const [alerts, health, events, notifications, companies] = await Promise.all([

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { listEarnings } from '@/server/services/earnings';
 import { prisma } from '@/lib/db';
 import { PageHeader } from '@/components/ui/primitives';
@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Earnings' };
 export const dynamic = 'force-dynamic';
 
 export default async function EarningsPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [events, positions, watchItems] = await Promise.all([
     listEarnings(ctx.workspaceId, 160),

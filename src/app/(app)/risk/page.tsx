@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { listPortfolios } from '@/server/services/portfolio';
 import { getPortfolioRiskProfile } from '@/server/services/risk';
 import { EmptyState, PageHeader, Panel } from '@/components/ui/primitives';
@@ -13,7 +13,7 @@ export const dynamic = 'force-dynamic';
 export default async function RiskPage({
   searchParams,
 }: { searchParams: Promise<{ id?: string; tab?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { id, tab } = await searchParams;
 
   const portfolios = await listPortfolios(ctx.workspaceId);

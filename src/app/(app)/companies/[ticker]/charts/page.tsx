@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier, buildHistoricalMultiples } from '@/server/services/company';
 import { prisma } from '@/lib/db';
 import { ChartsWorkbench } from './charts-workbench';
@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ticker: s
 
 export default async function ChartsPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma, parseJson } from '@/lib/db';
 import { PageHeader } from '@/components/ui/primitives';
 import { LibraryWorkbench } from './library-workbench';
@@ -16,7 +16,7 @@ interface Extraction {
 export default async function LibraryPage({
   searchParams,
 }: { searchParams: Promise<{ q?: string; ticker?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { q, ticker } = await searchParams;
 
   const [documents, companies] = await Promise.all([

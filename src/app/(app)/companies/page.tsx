@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getUniverseMetrics } from '@/server/services/metrics';
 import { PageHeader } from '@/components/ui/primitives';
 import { UniverseTable } from './universe-table';
@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Companies' };
 export const dynamic = 'force-dynamic';
 
 export default async function CompaniesPage() {
-  await requireContext();
+  await requirePageContext();
   const metrics = await getUniverseMetrics();
 
   const rows = metrics.map((m) => ({

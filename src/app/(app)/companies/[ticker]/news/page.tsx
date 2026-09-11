@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
 import { prisma } from '@/lib/db';
 import { Badge, InlineNote, Panel, PanelHeader } from '@/components/ui/primitives';
@@ -20,7 +20,7 @@ const IMPACT_TONE = { HIGH: 'warn', MEDIUM: 'outline', LOW: 'outline' } as const
 
 export default async function NewsPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

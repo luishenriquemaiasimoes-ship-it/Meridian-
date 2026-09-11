@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getUniverseMetrics } from '@/server/services/metrics';
 import { listValuationModels } from '@/server/services/valuation';
 import { PageHeader } from '@/components/ui/primitives';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export default async function AgentsPage({
   searchParams,
 }: { searchParams: Promise<{ agent?: string; ticker?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { agent, ticker } = await searchParams;
 
   const [universe, models] = await Promise.all([

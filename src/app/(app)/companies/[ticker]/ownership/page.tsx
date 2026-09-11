@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
 import { Badge, Grid, InlineNote, Panel, PanelHeader } from '@/components/ui/primitives';
 import { Bps, MetricCard, Num, StatRow } from '@/components/ui/values';
@@ -24,7 +24,7 @@ const OWNERSHIP_LABELS: Record<string, string> = {
 
 export default async function OwnershipPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  await requireContext();
+  await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

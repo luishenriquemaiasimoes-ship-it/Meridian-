@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
 import { buildCompanyContext } from '@/server/services/ai';
 import { reason } from '@/lib/ai/reasoner';
@@ -27,7 +27,7 @@ const STANDING_QUESTIONS = [
 
 export default async function CompanyAiPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

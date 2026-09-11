@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { PageHeader } from '@/components/ui/primitives';
 import { OrganizationPanel } from './organization-panel';
@@ -9,7 +9,7 @@ export const metadata: Metadata = { title: 'Organization' };
 export const dynamic = 'force-dynamic';
 
 export default async function OrganizationPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [organization, memberships, workspaces] = await Promise.all([
     prisma.organization.findUnique({ where: { id: ctx.organizationId } }),

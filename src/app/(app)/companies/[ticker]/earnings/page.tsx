@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
 import { getEarningsDetail } from '@/server/services/earnings';
 import { prisma } from '@/lib/db';
@@ -19,7 +19,7 @@ export default async function CompanyEarningsPage({
 }: { params: Promise<{ ticker: string }>; searchParams: Promise<{ id?: string }> }) {
   const { ticker } = await params;
   const { id } = await searchParams;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

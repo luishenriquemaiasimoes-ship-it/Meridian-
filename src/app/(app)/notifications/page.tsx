@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { PageHeader } from '@/components/ui/primitives';
 import { NotificationList } from './notification-list';
@@ -8,7 +8,7 @@ export const metadata: Metadata = { title: 'Notifications' };
 export const dynamic = 'force-dynamic';
 
 export default async function NotificationsPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const rows = await prisma.notification.findMany({
     where: { workspaceId: ctx.workspaceId, OR: [{ userId: ctx.userId }, { userId: null }] },

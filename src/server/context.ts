@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { prisma } from '@/lib/db';
 import { SESSION_COOKIE, WORKSPACE_COOKIE, verifySession } from '@/lib/auth/session';
 import { can, isRole, type Permission, type Role } from '@/lib/auth/rbac';
@@ -91,6 +92,25 @@ export async function getRequestContext(): Promise<RequestContext | null> {
     })),
     can: (permission: Permission) => can(role, permission),
   };
+}
+
+/**
+ * The page equivalent of requireContext.
+ *
+ * A page and its layout render in parallel, so a page cannot rely on the
+ * layout's redirect having already happened: with no session the page runs
+ * too, and throwing there surfaces an error screen instead of the login form.
+ * That is the wrong answer to the thing that actually causes it — a session
+ * that expired, or a database reseeded underneath a cookie that still carries
+ * a valid signature. Redirecting sends the layout and the page to the same
+ * place, so the race stops mattering.
+ *
+ * API routes keep requireContext: a fetch wants 401, not a redirect to HTML.
+ */
+export async function requirePageContext(): Promise<RequestContext> {
+  const ctx = await getRequestContext();
+  if (!ctx) redirect('/login');
+  return ctx;
 }
 
 export async function requireContext(): Promise<RequestContext> {

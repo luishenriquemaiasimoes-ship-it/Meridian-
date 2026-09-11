@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma, parseJson } from '@/lib/db';
 import { Badge, InlineNote, PageHeader, Panel, PanelHeader } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
@@ -20,7 +20,7 @@ const KIND_LABEL: Record<string, string> = {
 };
 
 export default async function DataSourcesPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [sources, counts, latestPrice, latestStatement] = await Promise.all([
     prisma.dataSource.findMany({ where: { workspaceId: ctx.workspaceId }, orderBy: { kind: 'asc' } }),

@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
 import { getComps } from '@/server/services/comps';
 import { getSectorAggregates } from '@/server/services/screener';
@@ -23,7 +23,7 @@ export async function generateMetadata({ params }: { params: Promise<{ ticker: s
 
 export default async function FundamentalsPage({ params }: { params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { getMetricsMap } from '@/server/services/metrics';
 import { getPortfolioAnalytics } from '@/server/services/portfolio';
@@ -11,7 +11,7 @@ export const metadata: Metadata = { title: 'Committee' };
 export const dynamic = 'force-dynamic';
 
 export default async function CommitteePage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [items, metrics, analytics, memos, companies, members] = await Promise.all([
     prisma.committeeItem.findMany({

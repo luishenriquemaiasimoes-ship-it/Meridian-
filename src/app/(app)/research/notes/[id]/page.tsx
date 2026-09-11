@@ -1,7 +1,7 @@
 import { notFound } from 'next/navigation';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma, parseJson } from '@/lib/db';
 import { getMetricsMap } from '@/server/services/metrics';
 import { PageHeader } from '@/components/ui/primitives';
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 
 export default async function NotePage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const note = await prisma.researchNote.findFirst({
     where: { id, workspaceId: ctx.workspaceId },

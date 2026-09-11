@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
 import { prisma } from '@/lib/db';
 import { evaluateThesisHealth } from '@/server/services/alerts';
@@ -14,7 +14,7 @@ export default async function CompanyLayout({
   children, params,
 }: { children: React.ReactNode; params: Promise<{ ticker: string }> }) {
   const { ticker } = await params;
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) notFound();
 

@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getDashboard } from '@/server/services/dashboard';
 import { Badge, Button, EmptyState, Grid, PageHeader, Panel, PanelHeader } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
@@ -17,7 +17,7 @@ export const metadata: Metadata = { title: 'Home' };
 export const dynamic = 'force-dynamic';
 
 export default async function HomePage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const data = await getDashboard(ctx.workspaceId);
   const currency = ctx.baseCurrency as Currency;
 

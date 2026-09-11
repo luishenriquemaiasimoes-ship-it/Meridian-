@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { listWatchlists } from '@/server/services/watchlists';
 import { PageHeader } from '@/components/ui/primitives';
@@ -11,7 +11,7 @@ export const dynamic = 'force-dynamic';
 export default async function WatchlistsPage({
   searchParams,
 }: { searchParams: Promise<{ id?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { id } = await searchParams;
 
   const [watchlists, companies] = await Promise.all([

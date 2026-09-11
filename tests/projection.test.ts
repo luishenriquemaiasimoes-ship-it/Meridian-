@@ -492,9 +492,12 @@ describe('the balance tolerance', () => {
     // direction. Pushing every asset line the same way is the worst case.
     const assetLines = ['cash', 'shortTermInvestments', 'receivables', 'inventory',
       'otherCurrentAssets', 'tangibleAssets', 'intangibleAssets', 'otherNonCurrentAssets'] as const;
-    const opening = { ...m.opening } as Record<string, number>;
-    for (const k of assetLines) if (typeof opening[k] === 'number') opening[k] += 0.005;
-    m.opening = opening as typeof m.opening;
+    const opening = { ...m.opening };
+    for (const k of assetLines) {
+      const v = opening[k];
+      if (typeof v === 'number') opening[k] = v + 0.005;
+    }
+    m.opening = opening;
     expect(project(m).balance.every((b) => b.balances)).toBe(true);
   });
 

@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { listValuationModels } from '@/server/services/valuation';
 import { getMetricsMap } from '@/server/services/metrics';
 import { prisma } from '@/lib/db';
@@ -16,7 +16,7 @@ function num(v: unknown): number | null {
 }
 
 export default async function ValuationPage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [models, metrics, theses] = await Promise.all([
     listValuationModels(ctx.workspaceId),

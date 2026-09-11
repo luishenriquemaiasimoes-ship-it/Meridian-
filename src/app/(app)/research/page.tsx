@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { prisma } from '@/lib/db';
 import { PageHeader } from '@/components/ui/primitives';
 import { ResearchWorkbench } from './research-workbench';
@@ -10,7 +10,7 @@ export const dynamic = 'force-dynamic';
 export default async function ResearchPage({
   searchParams,
 }: { searchParams: Promise<{ tab?: string; new?: string; ticker?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const sp = await searchParams;
 
   const [notes, memos, documents, reviews, companies] = await Promise.all([

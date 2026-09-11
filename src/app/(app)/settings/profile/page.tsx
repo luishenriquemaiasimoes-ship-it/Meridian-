@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { PERMISSIONS, permissionsFor } from '@/lib/auth/rbac';
 import { prisma } from '@/lib/db';
 import { PageHeader } from '@/components/ui/primitives';
@@ -10,7 +10,7 @@ export const metadata: Metadata = { title: 'Profile' };
 export const dynamic = 'force-dynamic';
 
 export default async function ProfilePage() {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
 
   const [user, activity, sessions] = await Promise.all([
     prisma.user.findUnique({ where: { id: ctx.userId } }),

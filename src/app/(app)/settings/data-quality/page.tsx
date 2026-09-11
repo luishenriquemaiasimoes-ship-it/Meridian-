@@ -1,6 +1,6 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import { requireContext } from '@/server/context';
+import { requirePageContext } from '@/server/context';
 import { getQualityReport, getStatementChecks } from '@/server/services/quality';
 import { getWorkspaceVerificationGaps } from '@/server/services/reconciliation';
 import { PageHeader } from '@/components/ui/primitives';
@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic';
 export default async function DataQualityPage({
   searchParams,
 }: { searchParams: Promise<{ ticker?: string }> }) {
-  const ctx = await requireContext();
+  const ctx = await requirePageContext();
   const { ticker } = await searchParams;
 
   const [report, checks, models] = await Promise.all([
