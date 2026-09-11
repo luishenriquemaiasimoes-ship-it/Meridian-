@@ -49,9 +49,49 @@ export interface CompanyAnchors {
   freeFloat: number;
 }
 
+/**
+ * The unit a business actually sells, and what it charges for it.
+ *
+ * A revenue line built as "grows 8% a year" hides the two decisions that
+ * matter: how much is sold and at what price. Stating them separately is what
+ * lets an analyst disagree with one without touching the other — traffic can
+ * be flat while the tariff follows inflation, and a model that cannot express
+ * that is not a model of the business.
+ *
+ * Volumes are absolute, never in thousands or millions. Revenue is carried in
+ * millions, so revenue divided by an absolute volume gives a price that reads
+ * back as currency per unit once scaled — and a volume stated in thousands
+ * would silently shift that by three orders of magnitude.
+ *
+ * Optional because not every business has one natural unit: a conglomerate or
+ * a bank is better read through its segments.
+ */
+export interface RevenueDriver {
+  /** What is counted, in the words the company itself uses. */
+  unit: string;
+  /** Volume in the latest full year, absolute. */
+  volume: number;
+  /** Annual volume growth. Separate from price on purpose. */
+  volumeGrowth: number;
+  /**
+   * Revenue per unit, as an order-of-magnitude anchor only: the model
+   * recomputes it from the reported top line so the build-up always
+   * reconciles to the revenue rather than to this number.
+   */
+  price: number;
+  /** Annual price growth. */
+  priceGrowth: number;
+  /** The index the price follows, where it follows one. */
+  priceIndex?: string;
+  /** Which part of revenue the driver explains; the rest is other lines. */
+  shareOfRevenue?: number;
+}
+
 export interface CompanyBlueprint {
   profile: CompanyProfile;
   anchors: CompanyAnchors;
+  /** The volume-and-price driver behind the top line, where the business has one. */
+  driver?: RevenueDriver;
   segments: { name: string; share: number; margin: number; growth: number; marketShare?: number }[];
   geographies: { name: string; share: number }[];
   management: { name: string; role: string; since: number; background: string }[];
@@ -108,6 +148,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 42_000_000, freeFloat: 0.86,
     },
     {
+      driver: {
+        unit: 'toneladas de minério', volume: 320_000_000, volumeGrowth: 0.01,
+        price: 0.000474, priceGrowth: 0.02, shareOfRevenue: 0.74,
+      },
       segments: [
         { name: 'Iron Ore Solutions', share: 0.74, margin: 0.47, growth: 0.01, marketShare: 0.19 },
         { name: 'Energy Transition Metals', share: 0.19, margin: 0.24, growth: 0.08, marketShare: 0.05 },
@@ -155,6 +199,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 58_000_000, freeFloat: 0.63,
     },
     {
+      driver: {
+        unit: 'barris de óleo equivalente', volume: 1_020_000_000, volumeGrowth: 0.015,
+        price: 0.000353, priceGrowth: 0.015, shareOfRevenue: 0.64,
+      },
       segments: [
         { name: 'Exploration & Production', share: 0.58, margin: 0.58, growth: 0.02, marketShare: 0.72 },
         { name: 'Refining, Transport & Marketing', share: 0.36, margin: 0.18, growth: 0.01 },
@@ -289,6 +337,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 18_000_000, freeFloat: 0.42,
     },
     {
+      driver: {
+        unit: 'unidades produzidas', volume: 22_500_000, volumeGrowth: 0.07,
+        price: 0.00000164, priceGrowth: 0.04,
+      },
       segments: [
         { name: 'Industrial Electro-Electronic Equipment', share: 0.53, margin: 0.23, growth: 0.09, marketShare: 0.11 },
         { name: 'Generation, Transmission & Distribution', share: 0.30, margin: 0.24, growth: 0.16 },
@@ -340,6 +392,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 21_000_000, freeFloat: 0.71,
     },
     {
+      driver: {
+        unit: 'diárias de locação', volume: 128_000_000, volumeGrowth: 0.06,
+        price: 0.000000323, priceGrowth: 0.045, priceIndex: 'IPCA', shareOfRevenue: 0.78,
+      },
       segments: [
         { name: 'Car Rental (RAC)', share: 0.38, margin: 0.44, growth: 0.06, marketShare: 0.35 },
         { name: 'Fleet Management', share: 0.27, margin: 0.58, growth: 0.09 },
@@ -384,6 +440,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 26_000_000, freeFloat: 0.28,
     },
     {
+      driver: {
+        unit: 'hectolitros', volume: 180_000_000, volumeGrowth: 0.02,
+        price: 0.00000047, priceGrowth: 0.055, priceIndex: 'IPCA', shareOfRevenue: 0.96,
+      },
       segments: [
         { name: 'Brazil Beer', share: 0.47, margin: 0.34, growth: 0.04, marketShare: 0.60 },
         { name: 'Brazil NAB', share: 0.13, margin: 0.28, growth: 0.05 },
@@ -475,6 +535,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 14_000_000, freeFloat: 0.55,
     },
     {
+      driver: {
+        unit: 'toneladas de celulose', volume: 10_800_000, volumeGrowth: 0.025,
+        price: 0.0000032, priceGrowth: 0.025, shareOfRevenue: 0.79,
+      },
       segments: [
         { name: 'Pulp', share: 0.78, margin: 0.50, growth: 0.04, marketShare: 0.28 },
         { name: 'Paper & Packaging', share: 0.22, margin: 0.28, growth: 0.05 },
@@ -518,6 +582,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 12_000_000, freeFloat: 0.88,
     },
     {
+      driver: {
+        unit: 'barris produzidos', volume: 36_500_000, volumeGrowth: 0.09,
+        price: 0.00031, priceGrowth: 0.015, shareOfRevenue: 0.97,
+      },
       segments: [
         { name: 'Frade & Polvo', share: 0.34, margin: 0.66, growth: 0.03 },
         { name: 'Albacora Leste', share: 0.41, margin: 0.72, growth: 0.16 },
@@ -562,6 +630,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 16_000_000, freeFloat: 0.93,
     },
     {
+      driver: {
+        unit: 'MWh distribuídos', volume: 96_000_000, volumeGrowth: 0.032,
+        price: 0.00000039, priceGrowth: 0.05, priceIndex: 'IPCA', shareOfRevenue: 0.87,
+      },
       segments: [
         { name: 'Distribution', share: 0.72, margin: 0.27, growth: 0.08, marketShare: 0.14 },
         { name: 'Transmission', share: 0.13, margin: 0.72, growth: 0.10 },
@@ -606,6 +678,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 19_000_000, freeFloat: 0.97,
     },
     {
+      driver: {
+        unit: 'lojas em operação', volume: 740, volumeGrowth: 0.03,
+        price: 0.0189, priceGrowth: 0.055, priceIndex: 'IPCA', shareOfRevenue: 0.72,
+      },
       segments: [
         { name: 'Retail Operation', share: 0.87, margin: 0.17, growth: 0.05, marketShare: 0.08 },
         { name: 'Financial Products (Realize)', share: 0.13, margin: 0.36, growth: 0.07 },
@@ -649,6 +725,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 9_000_000, freeFloat: 0.95,
     },
     {
+      driver: {
+        unit: 'clientes ativos', volume: 780_000, volumeGrowth: 0.06,
+        price: 0.0000068, priceGrowth: 0.06, priceIndex: 'IPCA', shareOfRevenue: 0.92,
+      },
       segments: [
         { name: 'Management (ERP)', share: 0.74, margin: 0.32, growth: 0.13, marketShare: 0.38 },
         { name: 'Business Performance', share: 0.14, margin: 0.20, growth: 0.19 },
@@ -693,6 +773,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 15_000_000, freeFloat: 0.90,
     },
     {
+      driver: {
+        unit: 'lojas em operação', volume: 3100, volumeGrowth: 0.06,
+        price: 0.0119, priceGrowth: 0.05, priceIndex: 'IPCA', shareOfRevenue: 0.94,
+      },
       segments: [
         { name: 'Retail Pharmacy', share: 0.92, margin: 0.09, growth: 0.09, marketShare: 0.16 },
         { name: 'Digital & Health Services', share: 0.08, margin: 0.13, growth: 0.21 },
@@ -781,6 +865,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 40_000_000, freeFloat: 0.31,
     },
     {
+      driver: {
+        unit: 'beneficiários', volume: 16_200_000, volumeGrowth: 0.03,
+        price: 0.00000175, priceGrowth: 0.075, priceIndex: 'IPCA', shareOfRevenue: 0.88,
+      },
       segments: [
         { name: 'Health Plans', share: 0.86, margin: 0.14, growth: 0.08, marketShare: 0.17 },
         { name: 'Dental Plans', share: 0.06, margin: 0.30, growth: 0.11 },
@@ -827,6 +915,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 52_000_000, freeFloat: 0.99,
     },
     {
+      driver: {
+        unit: 'dispositivos vendidos', volume: 248_000_000, volumeGrowth: 0.02,
+        price: 0.00000107, priceGrowth: 0.03, shareOfRevenue: 0.76,
+      },
       segments: [
         { name: 'iPhone', share: 0.51, margin: 0.38, growth: 0.03, marketShare: 0.19 },
         { name: 'Services', share: 0.26, margin: 0.55, growth: 0.12 },
@@ -920,6 +1012,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 220_000_000, freeFloat: 0.96,
     },
     {
+      driver: {
+        unit: 'GPUs de data center', volume: 4_100_000, volumeGrowth: 0.35,
+        price: 0.0000288, priceGrowth: 0.02, shareOfRevenue: 0.87,
+      },
       segments: [
         { name: 'Data Center', share: 0.88, margin: 0.68, growth: 0.34, marketShare: 0.82 },
         { name: 'Gaming', share: 0.08, margin: 0.42, growth: 0.05 },
@@ -1102,6 +1198,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 6_000_000, freeFloat: 0.97,
     },
     {
+      driver: {
+        unit: 'toneladas de minério', volume: 330_000_000, volumeGrowth: 0.008,
+        price: 0.000166, priceGrowth: 0.018, shareOfRevenue: 0.66,
+      },
       segments: [
         { name: 'Iron Ore', share: 0.58, margin: 0.53, growth: 0.0, marketShare: 0.21 },
         { name: 'Aluminium', share: 0.23, margin: 0.24, growth: 0.04 },
@@ -1147,6 +1247,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 9_000_000, freeFloat: 0.98,
     },
     {
+      driver: {
+        unit: 'toneladas de minério', volume: 295_000_000, volumeGrowth: 0.01,
+        price: 0.00019, priceGrowth: 0.018, shareOfRevenue: 0.63,
+      },
       segments: [
         { name: 'Iron Ore', share: 0.51, margin: 0.60, growth: 0.01, marketShare: 0.18 },
         { name: 'Copper', share: 0.32, margin: 0.42, growth: 0.08 },
@@ -1193,6 +1297,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 18_000_000, freeFloat: 0.99,
     },
     {
+      driver: {
+        unit: 'libras de cobre', volume: 4_200_000_000, volumeGrowth: 0.02,
+        price: 0.0000000055, priceGrowth: 0.022, shareOfRevenue: 0.72,
+      },
       segments: [
         { name: 'North America Copper', share: 0.31, margin: 0.28, growth: 0.04, marketShare: 0.06 },
         { name: 'South America Copper', share: 0.24, margin: 0.34, growth: 0.03 },
@@ -1239,6 +1347,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 16_000_000, freeFloat: 0.99,
     },
     {
+      driver: {
+        unit: 'barris de óleo equivalente', volume: 1_420_000_000, volumeGrowth: 0.012,
+        price: 0.00013, priceGrowth: 0.015, shareOfRevenue: 0.61,
+      },
       segments: [
         { name: 'Upstream', share: 0.28, margin: 0.38, growth: 0.03, marketShare: 0.03 },
         { name: 'Product Solutions', share: 0.61, margin: 0.07, growth: -0.02 },
@@ -1283,6 +1395,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 12_000_000, freeFloat: 0.36,
     },
     {
+      driver: {
+        unit: 'veículos equivalentes', volume: 900_000_000, volumeGrowth: 0.025,
+        price: 0.0000061, priceGrowth: 0.045, priceIndex: 'IPCA', shareOfRevenue: 0.88,
+      },
       segments: [
         { name: 'Ecovias Imigrantes', share: 0.24, margin: 0.72, growth: 0.05 },
         { name: 'Eco050 e Eco135', share: 0.21, margin: 0.58, growth: 0.08 },
@@ -1329,6 +1445,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 38_000_000, freeFloat: 0.45,
     },
     {
+      driver: {
+        unit: 'veículos equivalentes', volume: 1_150_000_000, volumeGrowth: 0.03,
+        price: 0.0000106, priceGrowth: 0.045, priceIndex: 'IPCA', shareOfRevenue: 0.62,
+      },
       segments: [
         { name: 'Rodovias', share: 0.62, margin: 0.6, growth: 0.06 },
         { name: 'Aeroportos', share: 0.21, margin: 0.51, growth: 0.11 },
@@ -1375,6 +1495,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 44_000_000, freeFloat: 0.68,
     },
     {
+      driver: {
+        unit: 'TKU', volume: 78_000_000_000, volumeGrowth: 0.045,
+        price: 0.000000000121, priceGrowth: 0.04, priceIndex: 'IPCA', shareOfRevenue: 0.92,
+      },
       segments: [
         { name: 'Operação Norte', share: 0.58, margin: 0.52, growth: 0.09 },
         { name: 'Operação Sul', share: 0.27, margin: 0.41, growth: 0.05 },
@@ -1420,6 +1544,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 31_000_000, freeFloat: 0.82,
     },
     {
+      driver: {
+        unit: 'm³ faturados', volume: 3_450_000_000, volumeGrowth: 0.018,
+        price: 0.0000062, priceGrowth: 0.055, priceIndex: 'IPCA', shareOfRevenue: 0.95,
+      },
       segments: [
         { name: 'Água', share: 0.55, margin: 0.52, growth: 0.07 },
         { name: 'Esgoto', share: 0.4, margin: 0.49, growth: 0.1 },
@@ -1465,6 +1593,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 14_000_000, freeFloat: 0.49,
     },
     {
+      driver: {
+        unit: 'RAP contratada (R$ mi)', volume: 5400, volumeGrowth: 0.03,
+        price: 1, priceGrowth: 0.045, priceIndex: 'IPCA',
+      },
       segments: [
         { name: 'Concessões próprias', share: 0.71, margin: 0.88, growth: 0.04 },
         { name: 'Participações em coligadas', share: 0.23, margin: 0.83, growth: 0.05 },
@@ -1510,6 +1642,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 27_000_000, freeFloat: 0.88,
     },
     {
+      driver: {
+        unit: 'MWh distribuídos', volume: 29_500_000, volumeGrowth: 0.02,
+        price: 0.000000617, priceGrowth: 0.05, priceIndex: 'IPCA', shareOfRevenue: 0.88,
+      },
       segments: [
         { name: 'Distribuição', share: 0.52, margin: 0.24, growth: 0.04 },
         { name: 'Geração e transmissão', share: 0.36, margin: 0.58, growth: 0.07 },
@@ -1555,6 +1691,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 19_000_000, freeFloat: 0.52,
     },
     {
+      driver: {
+        unit: 'MWh distribuídos', volume: 41_000_000, volumeGrowth: 0.035,
+        price: 0.00000057, priceGrowth: 0.052, priceIndex: 'IPCA', shareOfRevenue: 0.9,
+      },
       segments: [
         { name: 'Distribuição', share: 0.84, margin: 0.28, growth: 0.08 },
         { name: 'Transmissão', share: 0.09, margin: 0.72, growth: 0.11 },
@@ -1599,6 +1739,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 35_000_000, freeFloat: 0.62,
     },
     {
+      driver: {
+        unit: 'toneladas de aço', volume: 11_800_000, volumeGrowth: 0.02,
+        price: 0.0000049, priceGrowth: 0.025, shareOfRevenue: 0.91,
+      },
       segments: [
         { name: 'Brasil', share: 0.4, margin: 0.13, growth: 0.02 },
         { name: 'América do Norte', share: 0.34, margin: 0.16, growth: 0.03 },
@@ -1644,6 +1788,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 40_000_000, freeFloat: 0.41,
     },
     {
+      driver: {
+        unit: 'toneladas de aço e minério', volume: 14_500_000, volumeGrowth: 0.018,
+        price: 0.0000026, priceGrowth: 0.025, shareOfRevenue: 0.79,
+      },
       segments: [
         { name: 'Siderurgia', share: 0.51, margin: 0.12, growth: 0.01 },
         { name: 'Mineração', share: 0.28, margin: 0.38, growth: 0.04 },
@@ -1690,6 +1838,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 29_000_000, freeFloat: 0.55,
     },
     {
+      driver: {
+        unit: 'toneladas de papel e celulose', volume: 4_100_000, volumeGrowth: 0.03,
+        price: 0.0000041, priceGrowth: 0.035, shareOfRevenue: 0.89,
+      },
       segments: [
         { name: 'Papéis e embalagens', share: 0.58, margin: 0.33, growth: 0.06 },
         { name: 'Celulose', share: 0.31, margin: 0.45, growth: 0.03 },
@@ -1735,6 +1887,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 52_000_000, freeFloat: 0.5,
     },
     {
+      driver: {
+        unit: 'toneladas de proteína', volume: 32_500_000, volumeGrowth: 0.025,
+        price: 0.000012, priceGrowth: 0.04,
+      },
       segments: [
         { name: 'Beef North America', share: 0.31, margin: 0.05, growth: 0.03 },
         { name: 'Seara e Brasil', share: 0.24, margin: 0.12, growth: 0.08 },
@@ -1781,6 +1937,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 33_000_000, freeFloat: 0.69,
     },
     {
+      driver: {
+        unit: 'lojas em operação', volume: 300, volumeGrowth: 0.055,
+        price: 0.262, priceGrowth: 0.05, priceIndex: 'IPCA', shareOfRevenue: 0.93,
+      },
       segments: [
         { name: 'Lojas maduras', share: 0.72, margin: 0.078, growth: 0.04 },
         { name: 'Lojas em maturação', share: 0.21, margin: 0.061, growth: 0.19 },
@@ -1825,6 +1985,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 24_000_000, freeFloat: 0.26,
     },
     {
+      driver: {
+        unit: 'acessos', volume: 116_000_000, volumeGrowth: 0.02,
+        price: 0.0000004, priceGrowth: 0.05, priceIndex: 'IPCA', shareOfRevenue: 0.92,
+      },
       segments: [
         { name: 'Móvel pós-pago', share: 0.44, margin: 0.46, growth: 0.08 },
         { name: 'Móvel pré-pago', share: 0.14, margin: 0.38, growth: -0.02 },
@@ -2004,6 +2168,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 6_200_000, freeFloat: 0.97,
     },
     {
+      driver: {
+        unit: 'transações', volume: 234_000_000_000, volumeGrowth: 0.09,
+        price: 0.000000000166, priceGrowth: 0.02,
+      },
       segments: [
         { name: 'Service revenues', share: 0.36, margin: 0.71, growth: 0.09 },
         { name: 'Data processing', share: 0.34, margin: 0.73, growth: 0.1 },
@@ -2049,6 +2217,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 2_900_000, freeFloat: 0.88,
     },
     {
+      driver: {
+        unit: 'transações', volume: 159_000_000_000, volumeGrowth: 0.095,
+        price: 0.000000000187, priceGrowth: 0.02,
+      },
       segments: [
         { name: 'Payment network', share: 0.63, margin: 0.64, growth: 0.09 },
         { name: 'Value-added services', share: 0.37, margin: 0.58, growth: 0.15 },
@@ -2092,6 +2264,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 3_700_000, freeFloat: 0.96,
     },
     {
+      driver: {
+        unit: 'vidas cobertas', volume: 50_800_000, volumeGrowth: 0.02,
+        price: 0.00000454, priceGrowth: 0.055, shareOfRevenue: 0.56,
+      },
       segments: [
         { name: 'UnitedHealthcare', share: 0.56, margin: 0.056, growth: 0.06 },
         { name: 'Optum Health', share: 0.21, margin: 0.081, growth: 0.11 },
@@ -2226,6 +2402,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 13_800_000, freeFloat: 0.94,
     },
     {
+      driver: {
+        unit: 'caixas unitárias', volume: 34_000_000_000, volumeGrowth: 0.02,
+        price: 0.00000000135, priceGrowth: 0.035,
+      },
       segments: [
         { name: 'Europe, Middle East & Africa', share: 0.29, margin: 0.42, growth: 0.04 },
         { name: 'North America', share: 0.33, margin: 0.27, growth: 0.03 },
@@ -2272,6 +2452,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 17_400_000, freeFloat: 0.53,
     },
     {
+      driver: {
+        unit: 'lojas em operação', volume: 10_600, volumeGrowth: 0.01,
+        price: 0.0491, priceGrowth: 0.03, shareOfRevenue: 0.87,
+      },
       segments: [
         { name: 'Walmart U.S.', share: 0.69, margin: 0.068, growth: 0.04 },
         { name: 'Walmart International', share: 0.18, margin: 0.052, growth: 0.07 },
@@ -2316,6 +2500,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 88_000_000, freeFloat: 0.79,
     },
     {
+      driver: {
+        unit: 'veículos entregues', volume: 1_840_000, volumeGrowth: 0.12,
+        price: 0.0000432, priceGrowth: 0.005, shareOfRevenue: 0.78,
+      },
       segments: [
         { name: 'Automotive', share: 0.78, margin: 0.16, growth: 0.06 },
         { name: 'Energy generation & storage', share: 0.16, margin: 0.22, growth: 0.38 },
@@ -2450,6 +2638,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 41_000_000, freeFloat: 0.96,
     },
     {
+      driver: {
+        unit: 'unidades vendidas', volume: 62_000_000, volumeGrowth: 0.15,
+        price: 0.000000474, priceGrowth: 0.03,
+      },
       segments: [
         { name: 'Data Center', share: 0.49, margin: 0.31, growth: 0.42 },
         { name: 'Client', share: 0.26, margin: 0.22, growth: 0.18 },
@@ -2495,6 +2687,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 8_900_000, freeFloat: 0.97,
     },
     {
+      driver: {
+        unit: 'barris de óleo equivalente', volume: 1_180_000_000, volumeGrowth: 0.015,
+        price: 0.000106, priceGrowth: 0.015, shareOfRevenue: 0.64,
+      },
       segments: [
         { name: 'Upstream', share: 0.64, margin: 0.27, growth: 0.03 },
         { name: 'Downstream', share: 0.33, margin: 0.06, growth: 0.01 },
@@ -2539,6 +2735,10 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
       averageVolume: 12_600_000, freeFloat: 0.98,
     },
     {
+      driver: {
+        unit: 'barris de óleo equivalente', volume: 1_030_000_000, volumeGrowth: 0.005,
+        price: 0.000066, priceGrowth: 0.015, shareOfRevenue: 0.45,
+      },
       segments: [
         { name: 'Integrated Gas', share: 0.24, margin: 0.32, growth: 0.05 },
         { name: 'Upstream', share: 0.21, margin: 0.38, growth: 0.02 },

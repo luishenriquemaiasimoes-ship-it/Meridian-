@@ -7,6 +7,7 @@ import { buildWaccInstitutional } from '@/lib/finance/waccBuilder';
 import { getWaccBuildContext } from './wacc';
 import { isNum, mean, safeDiv } from '@/lib/finance/core';
 import type { FinancialPeriod } from '@/lib/finance/types';
+import { findBlueprint } from '@/lib/data-providers/mock/blueprints';
 
 /* ==================================================================
    Building a full model from what the company has reported.
@@ -93,19 +94,51 @@ export async function buildProjectionContext(
     }),
   ) ?? 0.04;
 
-  const revenue: RevenueLine[] = segments.length && segmentTotal > 0
-    ? segments.map((s) => ({
-        key: s.segment.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
-        label: s.segment,
-        kind: 'GROWTH' as const,
-        baseRevenue: (s.revenue ?? 0) / segmentTotal * baseRevenue,
-        revenueGrowth: [historicalGrowth],
-        source: `Divulgação de segmentos, FY${baseYear}`,
-      }))
-    : [{
-        key: 'revenue', label: 'Receita', kind: 'GROWTH' as const,
-        baseRevenue, revenueGrowth: [historicalGrowth], source: statementSource,
-      }];
+  /**
+   * Where the business has one natural unit, the top line is built from it:
+   * a volume and a price, each with its own path, so an analyst can hold
+   * traffic flat while the tariff follows inflation. Where it does not —
+   * a conglomerate, a bank — the segment split is the better reading, and
+   * where neither exists there is one line.
+   */
+  const driver = findBlueprint(symbol)?.driver ?? null;
+  const driverShare = driver?.shareOfRevenue ?? 1;
+
+  const revenue: RevenueLine[] = driver
+    ? [
+        {
+          key: 'volume', label: `Receita de ${driver.unit}`, kind: 'VOLUME_PRICE' as const,
+          baseVolume: driver.volume,
+          volumeGrowth: [driver.volumeGrowth],
+          // The price is recomputed from the reported top line so the two
+          // reconcile: an anchor that has drifted from the statements would
+          // otherwise show a build-up that does not add up to the revenue.
+          basePrice: driver.volume > 0 ? (baseRevenue * driverShare) / driver.volume : driver.price,
+          priceGrowth: [driver.priceGrowth],
+          priceIndex: driver.priceIndex ?? null,
+          source: `${driver.unit} reportado, FY${baseYear}`,
+        },
+        ...(driverShare < 0.999
+          ? [{
+              key: 'other', label: 'Demais receitas', kind: 'PCT_OF' as const,
+              ofKey: 'volume', pctOf: [(1 - driverShare) / driverShare],
+              source: statementSource,
+            }]
+          : []),
+      ]
+    : segments.length && segmentTotal > 0
+      ? segments.map((s) => ({
+          key: s.segment.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+          label: s.segment,
+          kind: 'GROWTH' as const,
+          baseRevenue: (s.revenue ?? 0) / segmentTotal * baseRevenue,
+          revenueGrowth: [historicalGrowth],
+          source: `Divulgação de segmentos, FY${baseYear}`,
+        }))
+      : [{
+          key: 'revenue', label: 'Receita', kind: 'GROWTH' as const,
+          baseRevenue, revenueGrowth: [historicalGrowth], source: statementSource,
+        }];
 
   /* --- costs: from the reported cost structure --------------------- */
   const cogsPct = Math.abs(mean(annuals.map((p) => {
@@ -249,7 +282,9 @@ export async function buildProjectionContext(
   const provenance = [
     { path: 'opening.balance', label: 'Balanço de abertura', value: latest.balance.totalAssets ?? null, source: statementSource },
     { path: 'revenue.base', label: 'Receita base', value: baseRevenue, source: statementSource },
-    { path: 'revenue.segments', label: 'Divisão por segmento', value: segments.length, source: `Divulgação de segmentos, FY${baseYear}` },
+    driver
+      ? { path: 'revenue.driver', label: `Volume (${driver.unit})`, value: driver.volume, source: `Operacional reportado, FY${baseYear}` }
+      : { path: 'revenue.segments', label: 'Divisão por segmento', value: segments.length, source: `Divulgação de segmentos, FY${baseYear}` },
     { path: 'costs.cogs', label: 'Custo % da receita', value: cogsPct, source: `${statementSource} — ex-depreciação` },
     { path: 'costs.sga', label: 'Despesas % da receita', value: sgaPct, source: statementSource },
     { path: 'capex.pct', label: 'Capex % da receita', value: capexPct, source: `Fluxo de caixa, média de ${annuals.length} anos` },

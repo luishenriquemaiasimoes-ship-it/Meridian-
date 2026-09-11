@@ -499,3 +499,38 @@ describe('the balance tolerance', () => {
     expect(project(big).balance.every((b) => b.balances)).toBe(true);
   });
 });
+
+describe('a volume-and-price line', () => {
+  const m = concession();
+  const r = project(m);
+
+  it('reconciles: volume times price is the line', () => {
+    for (const year of r.revenue) {
+      const toll = year.lines.find((l) => l.key === 'toll')!;
+      expect(toll.gross).toBeCloseTo((toll.volume as number) * (toll.price as number), 6);
+    }
+  });
+
+  it('compounds volume and price independently, not as one growth rate', () => {
+    const flatTraffic = {
+      ...concession(),
+      revenue: concession().revenue.map((l) =>
+        l.key === 'toll' ? { ...l, volumeGrowth: [0] } : l),
+    };
+    const a = project(concession()).revenue[3].lines.find((l) => l.key === 'toll')!;
+    const b = project(flatTraffic).revenue[3].lines.find((l) => l.key === 'toll')!;
+    // Same tariff path, different traffic: the price is untouched.
+    expect(b.price).toBeCloseTo(a.price as number, 9);
+    expect(b.volume as number).toBeLessThan(a.volume as number);
+  });
+
+  it('holds the price flat when only the index is set to zero', () => {
+    const frozen = {
+      ...concession(),
+      revenue: concession().revenue.map((l) =>
+        l.key === 'toll' ? { ...l, priceGrowth: [0] } : l),
+    };
+    const line = project(frozen).revenue[4].lines.find((l) => l.key === 'toll')!;
+    expect(line.price).toBeCloseTo(6.2, 9);
+  });
+});

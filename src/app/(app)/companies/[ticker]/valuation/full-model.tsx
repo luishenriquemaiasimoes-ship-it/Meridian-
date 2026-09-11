@@ -7,7 +7,7 @@ import {
 } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
 import { Num } from '@/components/ui/values';
-import { DASH, formatMetric, formatPercent } from '@/lib/finance/format';
+import { DASH, formatMetric, formatPercent, REPORTING_UNIT_SCALE } from '@/lib/finance/format';
 import { isNum } from '@/lib/finance/core';
 import type { Currency } from '@/lib/finance/types';
 import type { MetricFormat } from '@/lib/finance/format';
@@ -400,6 +400,23 @@ export { StatementTable };
 
 /* =========================== build-ups =========================== */
 
+
+/**
+ * The price per unit, in currency.
+ *
+ * Revenue is carried in millions and volumes are absolute, so the model's
+ * price is in millions per unit: scaling it back is what turns 0.0000061 into
+ * the six reais and ten centavos a driver actually pays. The decimals adapt
+ * because the same field holds a toll and the price of a mine.
+ */
+function unitPrice(price: number | null, currency: Currency): string {
+  if (!isNum(price)) return DASH;
+  const perUnit = (price as number) * REPORTING_UNIT_SCALE;
+  const magnitude = Math.abs(perUnit);
+  const decimals = magnitude >= 1000 ? 0 : magnitude >= 10 ? 2 : magnitude >= 0.1 ? 3 : 4;
+  return formatMetric(perUnit, 'currency', { currency, decimals });
+}
+
 function Drivers(props: {
   context: ProjectionContext; input: ProjectionInput; run: ProjectionRun;
   years: number[]; currency: Currency; canEdit: boolean;
@@ -473,7 +490,7 @@ function Drivers(props: {
                         <Num value={cell?.gross ?? null} format="currencyMillions" currency={currency} />
                         {isNum(cell?.volume) ? (
                           <span className="block text-2xs text-ink-4">
-                            {formatMetric(cell?.volume ?? null, 'number', { decimals: 0 })} × {formatMetric(cell?.price ?? null, 'currency', { currency, decimals: 2 })}
+                            {formatMetric(cell?.volume ?? null, 'number', { decimals: 0 })} × {unitPrice(cell?.price ?? null, currency)}
                           </span>
                         ) : null}
                       </td>
