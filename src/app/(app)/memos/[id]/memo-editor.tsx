@@ -489,6 +489,69 @@ export function MemoEditor(props: {
                 </div>
               </Panel>
             ) : null}
+
+            {e.consensus ? (
+              <Panel>
+                <PanelHeader
+                  title="Against the contributed range"
+                  subtitle={`${e.consensus.count} targets on record`}
+                  dense
+                />
+                <div className="px-3 pb-3">
+                  <p className="text-2xs leading-relaxed text-ink-2">{e.consensus.summary}</p>
+                  {e.consensus.rationale ? (
+                    <blockquote className="mt-2 border-l-2 border-accent/40 pl-2 text-2xs leading-relaxed text-ink-2">
+                      {e.consensus.rationale.text}
+                      <span className="mt-0.5 block text-ink-4">
+                        {e.consensus.rationale.recordedBy} · {formatDate(e.consensus.rationale.recordedAt)}
+                      </span>
+                    </blockquote>
+                  ) : (
+                    <p className="mt-1.5 text-2xs text-ink-4">
+                      No reason recorded for the difference. It is recorded on the valuation tab, under
+                      reconciliation, and shows up here once it is.
+                    </p>
+                  )}
+                </div>
+              </Panel>
+            ) : null}
+
+            {e.deckPoints.length ? (
+              <Panel>
+                <PanelHeader title="What the case rests on" subtitle="From the qualitative deck" dense />
+                <div className="divide-y divide-line px-3 pb-3">
+                  {e.deckPoints.map((d) => (
+                    <div key={d.title} className="py-1.5">
+                      <div className="flex items-baseline gap-2">
+                        <Badge tone={d.weight === 'CORE' ? 'accent' : 'outline'}>{d.weight.toLowerCase()}</Badge>
+                        <span className="text-2xs font-medium text-ink">{d.title}</span>
+                      </div>
+                      {d.breaks.length ? (
+                        <p className="mt-0.5 text-2xs text-ink-4">Breaks if: {d.breaks.join('; ')}</p>
+                      ) : null}
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
+
+            {e.openQuestions.length ? (
+              <Panel>
+                <PanelHeader
+                  title="Open committee questions"
+                  subtitle="Worth answering in the memo rather than at the meeting"
+                  dense
+                />
+                <div className="divide-y divide-line px-3 pb-3">
+                  {e.openQuestions.map((q) => (
+                    <div key={q.question} className="flex items-start justify-between gap-2 py-1.5">
+                      <span className="text-2xs leading-relaxed text-ink-2">{q.question}</span>
+                      <Badge tone={q.hasGap ? 'warn' : 'neutral'}>{q.hasGap ? 'gap' : q.status.toLowerCase()}</Badge>
+                    </div>
+                  ))}
+                </div>
+              </Panel>
+            ) : null}
           </>
         ) : (
           <InlineNote tone="warn">
