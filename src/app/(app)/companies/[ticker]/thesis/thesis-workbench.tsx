@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Badge, Button, cx, EmptyState, Field, InlineNote, Modal, NumberInput, Panel,
+  Badge, Button, cx, EmptyState, Field, InlineNote, Modal, NumberInput, PercentInput, Panel,
   PanelHeader, Segmented, Select, Textarea, Input, useToast,
 } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
@@ -660,7 +660,7 @@ export function ThesisWorkbench(props: {
               </Select>
             </Field>
             <Field label="Probability">
-              <NumberInput value={catalystForm.probability} step="0.05" onValueChange={(v) => setCatalystForm((f) => ({ ...f, probability: v }))} suffix={formatPercent(catalystForm.probability, 0)} />
+              <PercentInput value={catalystForm.probability} step={5} decimals={0} onValueChange={(v) => setCatalystForm((f) => ({ ...f, probability: v }))} />
             </Field>
           </div>
           <Field label="Notes"><Textarea value={catalystForm.notes} onChange={(e) => setCatalystForm((f) => ({ ...f, notes: e.target.value }))} rows={2} /></Field>
@@ -687,7 +687,7 @@ export function ThesisWorkbench(props: {
               </Select>
             </Field>
             <Field label="Probability">
-              <NumberInput value={riskForm.probability} step="0.05" onValueChange={(v) => setRiskForm((f) => ({ ...f, probability: v }))} suffix={formatPercent(riskForm.probability, 0)} />
+              <PercentInput value={riskForm.probability} step={5} decimals={0} onValueChange={(v) => setRiskForm((f) => ({ ...f, probability: v }))} />
             </Field>
           </div>
           <Field label="Mitigation" hint="Position sizing, a hedge, or the indicator you would watch."><Textarea value={riskForm.mitigation} onChange={(e) => setRiskForm((f) => ({ ...f, mitigation: e.target.value }))} rows={2} /></Field>

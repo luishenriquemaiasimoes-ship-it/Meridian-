@@ -299,7 +299,7 @@ export async function buildAiContext(
   const scopeTicker = scope.type === 'COMPANY' || scope.type === 'DCF' ? scope.id ?? null : null;
   const ticker = named ?? scopeTicker;
 
-  const { intent } = detectIntent(question);
+  const { intent } = detectIntent(question, { type: scope.type, id: scopeTicker });
   const wantsPortfolio =
     intent === 'PORTFOLIO_REVIEW' || intent === 'PORTFOLIO_RISK' || scope.type === 'PORTFOLIO' || !ticker;
 
@@ -316,6 +316,7 @@ export async function buildAiContext(
     portfolio,
     universeSize: universe.length,
     isDemoData: workspace?.isDemo ?? false,
+    scope: { type: scope.type, id: scopeTicker },
   };
 }
 

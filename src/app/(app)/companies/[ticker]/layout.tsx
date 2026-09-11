@@ -71,8 +71,8 @@ export default async function CompanyLayout({
             </div>
             <div>
               <div className="label">Market cap</div>
-              <Num value={m.marketCap} format="currencyCompact" currency={currency} className="text-md" />
-              <div className="mt-0.5 text-2xs text-ink-4">EV <Num value={m.enterpriseValue} format="currencyCompact" currency={currency} className="text-2xs" /></div>
+              <Num value={m.marketCap} format="currencyMillions" currency={currency} className="text-md" />
+              <div className="mt-0.5 text-2xs text-ink-4">EV <Num value={m.enterpriseValue} format="currencyMillions" currency={currency} className="text-2xs" /></div>
             </div>
             <div>
               <div className="label">Target</div>

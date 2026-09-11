@@ -51,6 +51,14 @@ export const AXIS_PROPS = {
   axisLine: { stroke: CHROME.axis },
 } as const;
 
+/**
+ * A level series — an indexed performance line, a price, a multiple — is read
+ * by its shape, so the axis fits the data rather than anchoring at zero, which
+ * would flatten the comparison into the bottom third of the plot. Bars keep
+ * their zero, because a bar's length is the number.
+ */
+export const LEVEL_AXIS_DOMAIN = ['auto', 'auto'] as const;
+
 export const GRID_PROPS = {
   stroke: CHROME.grid,
   strokeDasharray: '0',

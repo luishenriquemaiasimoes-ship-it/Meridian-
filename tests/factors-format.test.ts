@@ -3,6 +3,7 @@ import {
   DEFAULT_SCORE_WEIGHTS, earningsStability, investmentScore,
   scoreAllFactors, scoreFactor, type MetricUniverse,
 } from '@/lib/finance/factors';
+import { detectIntent } from '@/lib/ai/intent';
 import {
   formatBps, formatCompact, formatDays, formatMetric, formatMoney,
   formatMultiple, formatNumber, formatPercent, signClass, DASH,
@@ -193,5 +194,56 @@ describe('financial formatting', () => {
     expect(signClass(0)).toBe('flat');
     expect(signClass(null)).toBe('flat');
     expect(signClass(0.1, true)).toBe('neg');
+  });
+});
+
+describe('AI intent routing', () => {
+  it('reads a risk question on a portfolio screen as a portfolio question', () => {
+    expect(detectIntent('What is the biggest risk?').intent).toBe('THESIS_RISK');
+    expect(detectIntent('What is the biggest risk?', { type: 'PORTFOLIO', id: null }).intent)
+      .toBe('PORTFOLIO_RISK');
+  });
+
+  it('reads a question that names the book as a portfolio question, scope or no scope', () => {
+    expect(detectIntent('What is the biggest risk in the book?').intent).toBe('PORTFOLIO_RISK');
+    expect(detectIntent('Qual o maior risco do livro?').intent).toBe('PORTFOLIO_RISK');
+  });
+
+  it('leaves a company scope alone', () => {
+    expect(detectIntent('What is the biggest risk?', { type: 'COMPANY', id: 'VALE3' }).intent)
+      .toBe('THESIS_RISK');
+  });
+
+  it('keeps an explicitly portfolio-worded question on the portfolio intent', () => {
+    expect(detectIntent('Qual o risco da carteira?').intent).toBe('PORTFOLIO_RISK');
+    expect(detectIntent('What is the portfolio risk?').intent).toBe('PORTFOLIO_RISK');
+  });
+
+  it('does not redirect a measure that has no portfolio equivalent', () => {
+    expect(detectIntent('What is the EBITDA margin?', { type: 'PORTFOLIO', id: null }).intent)
+      .toBe('MARGINS');
+  });
+});
+
+describe('AI intent scoring', () => {
+  it.each([
+    ['Is VALE3 cheap?', 'VALUATION'],
+    ['O que aconteceu com o ROIC?', 'ROIC'],
+    ['Compare ITUB4 with its peers', 'PEER_COMPARISON'],
+    ['What does the current price already imply?', 'REVERSE_DCF'],
+    ['Monte um DCF', 'DCF'],
+    ['Qual o preço-alvo?', 'TARGET_PRICE'],
+    ['Summarise the last quarter', 'EARNINGS'],
+    ['Como está a alavancagem?', 'LEVERAGE'],
+    ['What is the dividend policy?', 'CAPITAL_ALLOCATION'],
+    ['O que mudou na tese?', 'WHAT_CHANGED'],
+    ['Show me the portfolio attribution', 'PORTFOLIO_REVIEW'],
+    ['What is the portfolio drawdown?', 'PORTFOLIO_RISK'],
+  ])('routes %s to %s', (question, expected) => {
+    expect(detectIntent(question).intent).toBe(expected);
+  });
+
+  it('falls back to an overview when nothing matches', () => {
+    expect(detectIntent('Tell me something interesting').intent).toBe('OVERVIEW');
   });
 });

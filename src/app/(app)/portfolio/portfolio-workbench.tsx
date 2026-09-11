@@ -192,7 +192,8 @@ export function PortfolioWorkbench(props: {
     <div className="space-y-4">
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
         <MetricCard label="Net asset value" value={props.summary.totalMarketValue} format="currencyCompact" currency={currency} accent />
-        <MetricCard label="Invested" value={props.summary.investedValue} format="currencyCompact" currency={currency}
+        <MetricCard label="Positions" value={props.summary.investedValue} format="currencyCompact" currency={currency}
+          tooltip="Market value of the holdings, excluding cash."
           sublabel={`${props.summary.positionCount} positions`} />
         <MetricCard label="Cash" value={props.summary.cash} format="currencyCompact" currency={currency}
           sublabel={isNum(props.summary.totalMarketValue) ? `${formatPercent(props.summary.cash / (props.summary.totalMarketValue as number))} of NAV` : undefined} />

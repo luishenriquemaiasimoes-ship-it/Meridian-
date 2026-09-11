@@ -880,9 +880,17 @@ function answerPortfolioReview(p: PortfolioContext): AiAnswer {
       `Largest contributors to return: ${p.topContributors.slice(0, 3).map((x) => `${x.ticker} ${formatPercent(x.contribution, 2, { signed: true })}`).join(', ')}.`,
       ['Attribution engine']));
   }
-  if (p.topDetractors.length) {
+  // Only a position that actually cost the book return is a detractor. The
+  // bottom of the ranking can be positive, and calling it a detractor would be
+  // a claim the numbers do not support.
+  const detractors = p.topDetractors.filter((x) => isNum(x.contribution) && (x.contribution as number) < 0);
+  if (detractors.length) {
     blocks.push(block('CALCULATION',
-      `Largest detractors: ${p.topDetractors.slice(0, 3).map((x) => `${x.ticker} ${formatPercent(x.contribution, 2, { signed: true })}`).join(', ')}.`,
+      `Largest detractors: ${detractors.slice(0, 3).map((x) => `${x.ticker} ${formatPercent(x.contribution, 2, { signed: true })}`).join(', ')}.`,
+      ['Attribution engine']));
+  } else if (p.topDetractors.length) {
+    blocks.push(block('CALCULATION',
+      'No position detracted from return over the period: every holding contributed positively.',
       ['Attribution engine']));
   }
 
@@ -979,7 +987,9 @@ const COMPANY_INTENTS: Intent[] = [
 ];
 
 export function reason(question: string, context: AiContext): AiAnswer {
-  const { intent } = detectIntent(question);
+  // The scope disambiguates: "what is the biggest risk" means the book on a
+  // portfolio screen and the thesis on a company screen.
+  const { intent } = detectIntent(question, context.scope);
 
   if (intent === 'PORTFOLIO_REVIEW' || intent === 'PORTFOLIO_RISK') {
     if (!context.portfolio) {
@@ -998,7 +1008,16 @@ export function reason(question: string, context: AiContext): AiAnswer {
   }
 
   if (COMPANY_INTENTS.includes(intent)) {
-    if (!context.company) return missingCompany(question);
+    // A company question with no company named, asked where a book is open,
+    // is answered about the book rather than refused.
+    if (!context.company) {
+      if (context.portfolio) {
+        return intent === 'THESIS_RISK' || intent === 'LEVERAGE'
+          ? answerPortfolioRisk(context.portfolio)
+          : answerPortfolioReview(context.portfolio);
+      }
+      return missingCompany(question);
+    }
     const c = context.company;
     switch (intent) {
       case 'VALUATION': return answerValuation(c);

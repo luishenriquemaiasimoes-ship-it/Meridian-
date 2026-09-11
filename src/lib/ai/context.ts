@@ -149,4 +149,6 @@ export interface AiContext {
   portfolio: PortfolioContext | null;
   universeSize: number;
   isDemoData: boolean;
+  /** The screen the question was asked from, which disambiguates what it meant. */
+  scope?: { type?: string; id?: string | null };
 }

@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
-  Badge, Button, cx, Field, InlineNote, NumberInput, Panel, PanelHeader,
+  Badge, Button, cx, Field, InlineNote, NumberInput, PercentInput, Panel, PanelHeader,
   Segmented, Select, Tooltip, useToast,
 } from '@/components/ui/primitives';
 import { Icon } from '@/components/ui/icons';
@@ -460,11 +460,8 @@ export function ValuationWorkbench(props: {
               <PanelHeader title="Probabilities" subtitle="How much weight each case carries." dense />
               {(['bull', 'base', 'bear'] as const).map((k) => (
                 <Field key={k} label={k === 'bull' ? 'Bull' : k === 'base' ? 'Base' : 'Bear'} className="mb-2">
-                  <NumberInput
-                    value={probabilities[k]} step="0.05"
-                    onValueChange={(v) => setProbabilities((p) => ({ ...p, [k]: v }))}
-                    suffix={formatPercent(probabilities[k], 0)}
-                  />
+                  <PercentInput value={probabilities[k]} step={0.5} decimals={0}
+                onValueChange={(v) => setProbabilities((p) => ({ ...p, [k]: v }))} />
                 </Field>
               ))}
               <div className="mt-3 border-t border-line pt-3">
@@ -612,8 +609,8 @@ function ModelTab({
 }) {
   const rows: { label: string; formula?: string; pick: (y: (typeof result.years)[number]) => number | null; format: 'currencyMillions' | 'percent' | 'ratio'; emphasis?: boolean; editable?: 'revenueGrowth' | 'ebitdaMargin' }[] = [
     { label: 'Revenue', pick: (y) => y.revenue, format: 'currencyMillions', emphasis: true },
-    { label: 'Revenue growth', pick: (y) => y.revenueGrowth, format: 'percent', editable: 'revenueGrowth' },
-    { label: 'EBITDA margin', pick: (y) => y.ebitdaMargin, format: 'percent', editable: 'ebitdaMargin' },
+    { label: 'Revenue growth %', pick: (y) => y.revenueGrowth, format: 'percent', editable: 'revenueGrowth' },
+    { label: 'EBITDA margin %', pick: (y) => y.ebitdaMargin, format: 'percent', editable: 'ebitdaMargin' },
     { label: 'EBITDA', formula: 'Revenue × EBITDA margin', pick: (y) => y.ebitda, format: 'currencyMillions', emphasis: true },
     { label: 'D&A', formula: 'Revenue × D&A %', pick: (y) => -y.da, format: 'currencyMillions' },
     { label: 'EBIT', formula: 'EBITDA − D&A', pick: (y) => y.ebit, format: 'currencyMillions', emphasis: true },
@@ -634,12 +631,12 @@ function ModelTab({
           <PanelHeader title="Assumptions" subtitle="Change any input; the model re-runs immediately." dense />
           <div className="space-y-2.5">
             <Field label="WACC" hint="Weighted average cost of capital.">
-              <NumberInput value={assumptions.wacc} step="0.0025" disabled={!canEdit}
-                onValueChange={(v) => patch({ wacc: v })} suffix={formatPercent(assumptions.wacc, 2)} />
+              <PercentInput value={assumptions.wacc} step={0.25} decimals={2} disabled={!canEdit}
+                onValueChange={(v) => patch({ wacc: v })} />
             </Field>
             <Field label="Tax rate">
-              <NumberInput value={assumptions.taxRate} step="0.01" disabled={!canEdit}
-                onValueChange={(v) => patch({ taxRate: v })} suffix={formatPercent(assumptions.taxRate, 1)} />
+              <PercentInput value={assumptions.taxRate} step={0.5} decimals={1} disabled={!canEdit}
+                onValueChange={(v) => patch({ taxRate: v })} />
             </Field>
             <Field label="Terminal method">
               <Select
@@ -652,8 +649,8 @@ function ModelTab({
             </Field>
             {assumptions.terminalMethod === 'GORDON' ? (
               <Field label="Terminal growth" hint="Must be below the WACC for the perpetuity to be defined.">
-                <NumberInput value={assumptions.terminalGrowth} step="0.0025" disabled={!canEdit}
-                  onValueChange={(v) => patch({ terminalGrowth: v })} suffix={formatPercent(assumptions.terminalGrowth, 2)} />
+                <PercentInput value={assumptions.terminalGrowth} step={0.25} decimals={2} disabled={!canEdit}
+                onValueChange={(v) => patch({ terminalGrowth: v })} />
               </Field>
             ) : (
               <Field label="Exit multiple" hint={peerMedianEvEbitda ? `Peer median EV/EBITDA is ${formatMultiple(peerMedianEvEbitda)}.` : undefined}>
@@ -662,16 +659,16 @@ function ModelTab({
               </Field>
             )}
             <Field label="D&A % of revenue">
-              <NumberInput value={assumptions.daPctRevenue[0]} step="0.005" disabled={!canEdit}
-                onValueChange={(v) => patchSingle('daPctRevenue', v)} suffix={formatPercent(assumptions.daPctRevenue[0], 1)} />
+              <PercentInput value={assumptions.daPctRevenue[0]} step={0.5} decimals={1} disabled={!canEdit}
+                onValueChange={(v) => patchSingle('daPctRevenue', v)} />
             </Field>
             <Field label="Capex % of revenue">
-              <NumberInput value={assumptions.capexPctRevenue[0]} step="0.005" disabled={!canEdit}
-                onValueChange={(v) => patchSingle('capexPctRevenue', v)} suffix={formatPercent(assumptions.capexPctRevenue[0], 1)} />
+              <PercentInput value={assumptions.capexPctRevenue[0]} step={0.5} decimals={1} disabled={!canEdit}
+                onValueChange={(v) => patchSingle('capexPctRevenue', v)} />
             </Field>
             <Field label="NWC % of revenue" hint="Change in this level drives the working-capital cash flow.">
-              <NumberInput value={assumptions.nwcPctRevenue[0]} step="0.005" disabled={!canEdit}
-                onValueChange={(v) => patchSingle('nwcPctRevenue', v)} suffix={formatPercent(assumptions.nwcPctRevenue[0], 1)} />
+              <PercentInput value={assumptions.nwcPctRevenue[0]} step={0.5} decimals={1} disabled={!canEdit}
+                onValueChange={(v) => patchSingle('nwcPctRevenue', v)} />
             </Field>
             <div className="grid grid-cols-2 gap-2">
               <Field label={`Net debt (${currency} mn)`}>
@@ -755,14 +752,9 @@ function ModelTab({
                   {result.years.map((y, i) => (
                     <td key={y.year} className="px-2.5 py-1 text-right">
                       {r.editable && canEdit ? (
-                        <input
-                          type="number" step="0.005"
+                        <PercentCell
                           value={assumptions[r.editable][Math.min(i, assumptions[r.editable].length - 1)]}
-                          onChange={(e) => {
-                            const v = Number(e.target.value);
-                            if (Number.isFinite(v)) patchArray(r.editable!, i, v);
-                          }}
-                          className="num w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-right hover:border-line focus:border-accent focus:bg-panel focus:outline-none"
+                          onChange={(v) => patchArray(r.editable!, i, v)}
                         />
                       ) : (
                         <Num
@@ -897,5 +889,29 @@ function SotpTab({
         </InlineNote>
       </Panel>
     </div>
+  );
+}
+
+/**
+ * An editable forecast cell. It reads and writes the ratio the engine uses but
+ * shows the percentage an analyst types, and holds the raw keystrokes while the
+ * field is focused so a half-typed "3." does not snap back to "3".
+ */
+function PercentCell({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  const [draft, setDraft] = useState<string | null>(null);
+  return (
+    <input
+      type="number"
+      step={0.25}
+      value={draft ?? (value * 100).toFixed(2)}
+      onChange={(e) => {
+        setDraft(e.target.value);
+        const v = Number(e.target.value);
+        if (Number.isFinite(v)) onChange(v / 100);
+      }}
+      onBlur={() => setDraft(null)}
+      className="num w-full rounded border border-transparent bg-transparent px-1 py-0.5 text-right hover:border-line focus:border-accent focus:bg-panel focus:outline-none"
+      aria-label="Percentage"
+    />
   );
 }

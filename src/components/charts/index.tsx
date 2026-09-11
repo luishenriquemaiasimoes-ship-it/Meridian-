@@ -7,7 +7,7 @@ import {
   XAxis, YAxis, ZAxis,
 } from 'recharts';
 import { ChartFrame, ChartTooltip, type ChartSeriesMeta } from './frame';
-import { ACCENT, ALL_PAIRS_SERIES, AXIS_PROPS, BAR_RADIUS, CHROME, DIVERGING, GRID_PROPS, LINE_WIDTH, NEGATIVE, POSITIVE, SEQUENTIAL, seriesColor } from './theme';
+import { ACCENT, ALL_PAIRS_SERIES, AXIS_PROPS, BAR_RADIUS, LEVEL_AXIS_DOMAIN, CHROME, DIVERGING, GRID_PROPS, LINE_WIDTH, NEGATIVE, POSITIVE, SEQUENTIAL, seriesColor } from './theme';
 import { formatMetric, type MetricFormat, DASH } from '@/lib/finance/format';
 import type { Currency } from '@/lib/finance/types';
 import { isNum } from '@/lib/finance/core';
@@ -76,7 +76,7 @@ export function LineSeriesChart({
         <LineChart data={data} margin={{ top: 6, right: 10, bottom: 2, left: 2 }}>
           <CartesianGrid {...GRID_PROPS} />
           <XAxis dataKey={xKey} {...AXIS_PROPS} minTickGap={24} />
-          <YAxis {...AXIS_PROPS} width={54} tickFormatter={tickFormatter(yFormat ?? series[0]?.format, currency)} />
+          <YAxis {...AXIS_PROPS} width={54} domain={LEVEL_AXIS_DOMAIN as unknown as [number, number]} tickFormatter={tickFormatter(yFormat ?? series[0]?.format, currency)} />
           {isNum(referenceValue) ? (
             <ReferenceLine
               y={referenceValue as number} stroke={CHROME.muted} strokeDasharray="3 3"

@@ -47,7 +47,9 @@ export interface PortfolioSummary {
   positions: PositionResult[];
   cash: number;
   totalMarketValue: number | null;
+  /** What the positions cost, plus cash: the capital put into the book. */
   totalCostBasis: number;
+  /** Market value of the positions alone, excluding cash. */
   investedValue: number | null;
   unrealizedPnl: number | null;
   unrealizedPnlPct: number | null;

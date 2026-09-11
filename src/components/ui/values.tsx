@@ -118,7 +118,7 @@ export function MetricCard({
         {tooltip ? <Tooltip content={tooltip}><Icon.Info size={11} className="text-ink-4" /></Tooltip> : null}
       </div>
       <div className="mt-1 flex items-baseline gap-2">
-        <span className={cx('num text-lg font-semibold', isNum(value) ? 'text-ink' : 'text-ink-4')}>
+        <span className={cx('num whitespace-nowrap text-lg font-semibold', isNum(value) ? 'text-ink' : 'text-ink-4')}>
           {formatMetric(value, format, { currency, decimals })}
         </span>
         {delta !== undefined ? <Delta value={delta} format={deltaFormat} invert={deltaInvert} className="text-xs" /> : null}

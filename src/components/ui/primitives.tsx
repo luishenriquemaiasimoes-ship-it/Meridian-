@@ -183,6 +183,43 @@ export function NumberInput({
   );
 }
 
+/**
+ * A rate entered the way an analyst says it: 14.25 for 14.25%. The value passed
+ * in and handed back is the ratio the engine works in, so no caller has to
+ * remember which side of the hundred it is on.
+ */
+export function PercentInput({
+  value, onValueChange, decimals = 2, step = 0.25, className, ...rest
+}: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'value' | 'step'> & {
+  value: number | null;
+  onValueChange: (v: number) => void;
+  decimals?: number;
+  step?: number;
+}) {
+  const asPercent = value === null || !Number.isFinite(value) ? '' : (value * 100).toFixed(decimals);
+  const [draft, setDraft] = useState<string | null>(null);
+
+  return (
+    <div className="relative">
+      <input
+        type="number"
+        step={step}
+        value={draft ?? asPercent}
+        onChange={(e) => {
+          setDraft(e.target.value);
+          const n = Number(e.target.value);
+          if (Number.isFinite(n)) onValueChange(n / 100);
+          else if (e.target.value === '' || e.target.value === '-') onValueChange(0);
+        }}
+        onBlur={() => setDraft(null)}
+        className={cx(FIELD_BASE, 'h-7 num pr-6 text-right', className)}
+        {...rest}
+      />
+      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-2xs text-ink-4">%</span>
+    </div>
+  );
+}
+
 export function Textarea({ className, ...rest }: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return <textarea className={cx(FIELD_BASE, 'py-2 leading-relaxed resize-y min-h-[80px]', className)} {...rest} />;
 }
