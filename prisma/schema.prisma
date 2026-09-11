@@ -102,24 +102,28 @@ model Workspace {
   organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
   benchmark    Benchmark?   @relation(fields: [benchmarkId], references: [id])
 
-  theses          InvestmentThesis[]
-  valuations      ValuationModel[]
-  notes           ResearchNote[]
-  memos           InvestmentMemo[]
-  portfolios      Portfolio[]
-  watchlists      Watchlist[]
-  alerts          Alert[]
-  screens         SavedScreen[]
-  documents       Document[]
-  conversations   AiConversation[]
-  auditLogs       AuditLog[]
-  notifications   Notification[]
-  peerGroups      PeerGroup[]
-  adjustments     NormalizationAdjustment[]
-  committeeItems  CommitteeItem[]
-  earningsReviews EarningsReview[]
-  dataSources     DataSource[]
-  inputSources    InputSource[]
+  theses           InvestmentThesis[]
+  valuations       ValuationModel[]
+  notes            ResearchNote[]
+  memos            InvestmentMemo[]
+  portfolios       Portfolio[]
+  watchlists       Watchlist[]
+  alerts           Alert[]
+  screens          SavedScreen[]
+  documents        Document[]
+  conversations    AiConversation[]
+  auditLogs        AuditLog[]
+  notifications    Notification[]
+  peerGroups       PeerGroup[]
+  adjustments      NormalizationAdjustment[]
+  committeeItems   CommitteeItem[]
+  earningsReviews  EarningsReview[]
+  dataSources      DataSource[]
+  inputSources     InputSource[]
+  sectorAnalyses   SectorAnalysis[]
+  peerTemplates    PeerComparisonTemplate[]
+  qualitativeDecks QualitativeDeck[]
+  qaItems          QaItem[]
 
   @@unique([organizationId, slug])
 }
@@ -158,6 +162,8 @@ model Company {
   ownership        OwnershipRecord[]
   estimates        Estimate[]
   consensusTargets ConsensusTarget[]
+  qualitativeDecks QualitativeDeck[]
+  qaItems          QaItem[]
   newsItems        NewsItem[]
   earnings         EarningsEvent[]
   peerLinks        PeerLink[]                @relation("CompanyPeers")
@@ -898,6 +904,106 @@ model DataSource {
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@unique([workspaceId, code])
+}
+
+// ------------------- Research workflow (v2) -------------------
+
+/// A written view of a sector, produced before any company inside it. The peer
+/// comparison rows are defined by the analyst: the product does not decide
+/// which measures matter in a given industry.
+model SectorAnalysis {
+  id          String   @id @default(cuid())
+  workspaceId String
+  /// Free text. A sector here is whatever the desk covers as one, which is not
+  /// always what a classification standard calls a sector.
+  sector      String
+  title       String
+  status      String   @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  /// JSON [{key,title,body}] — structure, regulation, dynamics, whatever the
+  /// analyst decides this sector needs.
+  sections    String
+  /// JSON string[] of tickers in the comparison.
+  tickers     String
+  /// JSON PeerComparisonRow[] — the rows of the comparison table.
+  rows        String
+  authorName  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, sector])
+}
+
+/// A saved set of comparison rows the desk reuses. Nothing ships pre-loaded:
+/// a template exists because an analyst built it while covering something.
+model PeerComparisonTemplate {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  /// The sector it was built for, or null for a general-purpose set.
+  sector      String?
+  /// JSON PeerComparisonRow[]
+  rows        String
+  authorName  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, name])
+}
+
+/// The qualitative case for a company, before and beside the model. A company
+/// rarely has one thesis; it has several, of unequal weight, and the deck
+/// holds them as they are rather than flattening them into one narrative.
+model QualitativeDeck {
+  id          String   @id @default(cuid())
+  workspaceId String
+  companyId   String
+  status      String   @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  /// JSON DeckThesis[] — numbered, each with its own depth and priority.
+  theses      String
+  /// JSON DeckRisk[] — probability and impact, for the quadrant.
+  risks       String
+  /// JSON StressTest[] — competitive and financing tests the analyst defines.
+  stressTests String
+  summary     String?
+  authorName  String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, companyId])
+}
+
+/// A question the committee is likely to ask, and the draft answer built from
+/// what the workspace holds. Never from anything else.
+model QaItem {
+  id          String   @id @default(cuid())
+  workspaceId String
+  companyId   String
+  theme       String
+  question    String
+  /// The draft answer, assembled from workspace data with its citations.
+  draftAnswer String?
+  /// JSON string[] naming where each figure in the answer came from.
+  citations   String?
+  /// PENDING | PREPARED | NEEDS_WORK
+  status      String   @default("PENDING")
+  /// True when the draft could not be completed from workspace data.
+  hasGap      Boolean  @default(false)
+  notes       String?
+  createdBy   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  company   Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, companyId, status])
 }
 
 // ------------------------ AI & committee ------------------------

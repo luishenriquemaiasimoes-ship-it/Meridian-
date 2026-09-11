@@ -2,6 +2,7 @@ import type { Metadata } from 'next';
 import { requireContext } from '@/server/context';
 import { getSectorAggregates, THEMES } from '@/server/services/screener';
 import { getUniverseMetrics } from '@/server/services/metrics';
+import { getSectorWorkbench } from '@/server/services/sector';
 import { PageHeader } from '@/components/ui/primitives';
 import { SectorsWorkbench } from './sectors-workbench';
 
@@ -11,10 +12,14 @@ export const dynamic = 'force-dynamic';
 export default async function SectorsPage({
   searchParams,
 }: { searchParams: Promise<{ sector?: string; theme?: string }> }) {
-  await requireContext();
+  const ctx = await requireContext();
   const { sector, theme } = await searchParams;
 
-  const [aggregates, universe] = await Promise.all([getSectorAggregates(), getUniverseMetrics()]);
+  const [aggregates, universe, research] = await Promise.all([
+    getSectorAggregates(),
+    getUniverseMetrics(),
+    getSectorWorkbench(ctx.workspaceId),
+  ]);
 
   const companies = universe.map((m) => ({
     ticker: m.ticker,
@@ -55,6 +60,8 @@ export default async function SectorsPage({
         themes={themeCounts}
         initialSector={sector ?? null}
         initialTheme={theme ?? null}
+        research={research}
+        canEdit={ctx.can('research:write')}
       />
     </>
   );

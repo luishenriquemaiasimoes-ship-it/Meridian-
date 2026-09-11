@@ -14,6 +14,7 @@ const TABS = [
   { slug: 'segments', label: 'Segments' },
   { slug: 'ownership', label: 'Ownership' },
   { slug: 'thesis', label: 'Thesis' },
+  { slug: 'deck', label: 'Deck & Q&A' },
   { slug: 'research', label: 'Research' },
   { slug: 'news', label: 'News' },
   { slug: 'charts', label: 'Charts' },

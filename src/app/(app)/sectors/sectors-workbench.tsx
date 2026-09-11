@@ -11,6 +11,8 @@ import { BarSeriesChart, ScatterPlot } from '@/components/charts';
 import { DASH, formatPercent } from '@/lib/finance/format';
 import { isNum } from '@/lib/finance/core';
 import type { Currency } from '@/lib/finance/types';
+import { SectorAnalysisWorkbench } from './sector-analysis';
+import type { SectorWorkbenchData } from '@/server/services/sector';
 
 interface Aggregate {
   sector: string; companies: number;
@@ -29,7 +31,7 @@ interface CompanyRow {
   fcfYield: number | null; return12m: number | null;
 }
 
-type Tab = 'sectors' | 'themes' | 'map';
+type Tab = 'sectors' | 'themes' | 'map' | 'analysis';
 
 export function SectorsWorkbench(props: {
   aggregates: Aggregate[];
@@ -37,6 +39,8 @@ export function SectorsWorkbench(props: {
   themes: { slug: string; label: string; description: string; count: number }[];
   initialSector: string | null;
   initialTheme: string | null;
+  research: SectorWorkbenchData;
+  canEdit: boolean;
 }) {
   const [tab, setTab] = useState<Tab>(props.initialTheme ? 'themes' : 'sectors');
   const [sector, setSector] = useState<string | null>(props.initialSector);
@@ -145,6 +149,7 @@ export function SectorsWorkbench(props: {
           { value: 'sectors', label: 'Sectors', count: props.aggregates.length },
           { value: 'themes', label: 'Themes', count: props.themes.length },
           { value: 'map', label: 'Quality map' },
+          { value: 'analysis', label: 'Sector analysis', count: props.research.analyses.length },
         ]}
       />
 
@@ -298,6 +303,14 @@ export function SectorsWorkbench(props: {
             </Panel>
           </div>
         </div>
+      ) : null}
+
+      {tab === 'analysis' ? (
+        <SectorAnalysisWorkbench
+          data={props.research}
+          canEdit={props.canEdit}
+          defaultSector={sector}
+        />
       ) : null}
     </div>
   );
