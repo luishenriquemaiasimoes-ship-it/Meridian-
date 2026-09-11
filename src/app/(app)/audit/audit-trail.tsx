@@ -13,6 +13,8 @@ interface Entry {
   id: string; actorName: string; action: string; entityType: string;
   entityId: string | null; entityLabel: string | null; field: string | null;
   previousValue: string | null; newValue: string | null; summary: string; createdAt: string;
+  /** False when the entity the entry refers to has since been deleted. */
+  linkable: boolean;
 }
 
 const ACTION_TONE: Record<string, 'pos' | 'neutral' | 'warn' | 'neg'> = {
@@ -21,6 +23,9 @@ const ACTION_TONE: Record<string, 'pos' | 'neutral' | 'warn' | 'neg'> = {
 
 /** Where an entity can be opened, when the record points at something reachable. */
 function hrefFor(entry: Entry): string | null {
+  // The record of a change outlives the thing it changed. A deletion, or an
+  // entity deleted later, has no page to link to.
+  if (entry.action === 'DELETE' || !entry.linkable) return null;
   switch (entry.entityType) {
     case 'InvestmentThesis':
     case 'TargetPriceRecord':

@@ -97,7 +97,7 @@ The corollaries the code holds to:
 src/
   app/                         Next.js App Router
     (app)/                     the authenticated application shell
-    api/                       43 route handlers
+    api/                       44 route handlers
     login, signup, onboarding  the unauthenticated flow
   components/
     ui/                        primitives, tables, values, icons
@@ -381,7 +381,7 @@ datum. Fabricate news or consensus. Place an order.
 
 ## API
 
-43 route handlers. Every one resolves through `route()` in `src/server/http.ts`, which
+44 route handlers. Every one resolves through `route()` in `src/server/http.ts`, which
 authenticates, checks the permission, and maps errors — Zod failures become 422 with
 per-field messages; a thrown error carrying `status` becomes that status; anything else is
 a 500 that logs server-side and says nothing revealing to the client.
@@ -406,7 +406,7 @@ a 500 that logs server-side and says nothing revealing to the client.
 | Notifications | `GET/POST /api/notifications` |
 | Documents | `GET/POST /api/documents` · `DELETE /api/documents/[id]` |
 | Earnings | `POST /api/earnings/review` |
-| Export | `GET /api/export/financials`, `/api/export/dcf` (live-formula Excel) |
+| Export | `GET /api/export/financials`, `/api/export/dcf`, `/api/export/portfolio` — Excel workbooks carrying live formulas, not values |
 | AI | `POST /api/ai/ask` |
 | Onboarding | `POST /api/onboarding` |
 

@@ -45,6 +45,14 @@ export default async function AuditPage({
     select: { entityType: true, action: true, actorName: true },
   });
 
+  // An entry is a permanent record; the thing it changed may since have been
+  // deleted. Only the ids that still exist are linked, so the trail never sends
+  // the reader to a page that is gone.
+  const live = await resolveLiveEntities(
+    ctx.workspaceId,
+    rows.filter((r) => r.entityId).map((r) => ({ type: r.entityType, id: r.entityId as string })),
+  );
+
   return (
     <>
       <PageHeader
@@ -64,6 +72,7 @@ export default async function AuditPage({
           newValue: r.newValue,
           summary: r.summary,
           createdAt: r.createdAt.toISOString(),
+          linkable: !!r.entityId && live.has(`${r.entityType}:${r.entityId}`),
         }))}
         entityTypes={Array.from(new Set(all.map((a) => a.entityType))).sort()}
         actions={Array.from(new Set(all.map((a) => a.action))).sort()}
@@ -73,4 +82,44 @@ export default async function AuditPage({
       />
     </>
   );
+}
+
+
+/**
+ * Which of the referenced entities still exist. Only the types the audit trail
+ * links to are checked; anything else is never a link in the first place.
+ */
+async function resolveLiveEntities(
+  workspaceId: string,
+  refs: { type: string; id: string }[],
+): Promise<Set<string>> {
+  const byType = new Map<string, string[]>();
+  for (const r of refs) byType.set(r.type, [...(byType.get(r.type) ?? []), r.id]);
+
+  const finders: Record<string, (ids: string[]) => Promise<{ id: string }[]>> = {
+    ResearchNote: (ids) => prisma.researchNote.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+    InvestmentMemo: (ids) => prisma.investmentMemo.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+    Document: (ids) => prisma.document.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+    ValuationModel: (ids) => prisma.valuationModel.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+    Alert: (ids) => prisma.alert.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+    Watchlist: (ids) => prisma.watchlist.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+    CommitteeItem: (ids) => prisma.committeeItem.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+    PeerGroup: (ids) => prisma.peerGroup.findMany({ where: { workspaceId, id: { in: ids } }, select: { id: true } }),
+  };
+
+  const live = new Set<string>();
+  await Promise.all(
+    Array.from(byType.entries()).map(async ([type, ids]) => {
+      const find = finders[type];
+      if (!find) {
+        // Types without a per-record page — a thesis, a portfolio, a membership —
+        // link to a screen that always exists.
+        for (const id of ids) live.add(`${type}:${id}`);
+        return;
+      }
+      const found = await find(Array.from(new Set(ids)));
+      for (const row of found) live.add(`${type}:${row.id}`);
+    }),
+  );
+  return live;
 }

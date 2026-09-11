@@ -143,6 +143,31 @@
     background-size: 800px 100%;
   }
   .grid-dense-table th, .grid-dense-table td { padding: 5px 10px; }
+
+  /* Link-shaped buttons. A <Link> cannot be a <Button>, so these mirror the
+     Button primitive's variants exactly — same height, radius and colours. */
+  .btn-primary, .btn-secondary, .btn-ghost, .btn-danger {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    height: 28px; padding: 0 10px; border-radius: 4px;
+    font-size: 12px; font-weight: 500; line-height: 1; white-space: nowrap;
+    border: 1px solid transparent; transition: all 120ms ease; user-select: none;
+    text-decoration: none;
+  }
+  .btn-primary:focus-visible, .btn-secondary:focus-visible,
+  .btn-ghost:focus-visible, .btn-danger:focus-visible {
+    outline: none; box-shadow: 0 0 0 2px rgb(var(--m-accent) / 0.45);
+  }
+  .btn-primary { background: rgb(var(--m-accent)); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.1); }
+  .btn-secondary {
+    background: rgb(var(--m-raised)); color: rgb(var(--m-ink));
+    border-color: rgb(var(--m-line));
+  }
+  .btn-secondary:hover { border-color: rgb(var(--m-line-strong)); background: rgb(var(--m-sunken)); }
+  .btn-ghost { background: transparent; color: rgb(var(--m-ink-2)); }
+  .btn-ghost:hover { background: rgb(var(--m-raised)); color: rgb(var(--m-ink)); }
+  .btn-danger { background: rgb(var(--m-neg)); color: #fff; }
+  .btn-danger:hover { filter: brightness(1.1); }
 }
 
 @media print {

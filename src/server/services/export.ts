@@ -210,6 +210,163 @@ export async function buildDcfWorkbook(params: {
   return Buffer.from(buffer);
 }
 
+export interface PortfolioWorkbookInput {
+  name: string;
+  currency: Currency;
+  benchmarkCode: string;
+  inceptionDate: string;
+  asOf: string;
+  summary: {
+    totalMarketValue: number | null;
+    investedValue: number | null;
+    cash: number;
+    unrealizedPnl: number | null;
+    unrealizedPnlPct: number | null;
+    positionCount: number;
+  };
+  positions: {
+    ticker: string; name: string; sector: string; country: string; currency: string;
+    quantity: number; averagePrice: number; currentPrice: number | null;
+    marketValue: number | null; weight: number | null;
+    unrealizedPnl: number | null; unrealizedPnlPct: number | null;
+    pe: number | null; evEbitda: number | null; roic: number | null;
+    fcfYield: number | null; beta: number | null;
+  }[];
+  performance: { label: string; portfolio: number | null; benchmark: number | null; active: number | null }[];
+  exposures: { dimension: string; label: string; marketValue: number; weight: number; count: number }[];
+  contributions: { ticker: string; weight: number | null; return: number | null; contribution: number | null }[];
+  navSeries: { date: string; value: number; unitValue: number; benchmark: number }[];
+  transactions: { tradeDate: string; kind: string; ticker: string | null; quantity: number; price: number; amount: number; note: string | null }[];
+}
+
+/**
+ * The book as a workbook. Positions carry live formulas so a reader can change
+ * a price and watch the weights move, which is the point of exporting to Excel
+ * rather than to a picture of a table.
+ */
+export async function buildPortfolioWorkbook(input: PortfolioWorkbookInput): Promise<Buffer> {
+  const wb = new ExcelJS.Workbook();
+  wb.creator = 'MERIDIAN';
+  wb.created = new Date();
+
+  const money = `#,##0.00;[Red](#,##0.00)`;
+  const pct = '0.0%';
+
+  /* --------------------------------- Cover -------------------------------- */
+  const cover = wb.addWorksheet('Cover');
+  cover.columns = [{ width: 30 }, { width: 62 }];
+  cover.addRow(['MERIDIAN']).font = { bold: true, size: 14 };
+  cover.addRow([]);
+  for (const [k, v] of [
+    ['Portfolio', input.name],
+    ['Base currency', input.currency],
+    ['Benchmark', input.benchmarkCode],
+    ['Inception', input.inceptionDate],
+    ['Exported', input.asOf],
+    ['Positions', String(input.summary.positionCount)],
+  ]) {
+    const row = cover.addRow([k, v]);
+    row.getCell(1).font = { bold: true };
+  }
+  cover.addRow([]);
+  cover.addRow(['Note', 'Figures are computed by MERIDIAN from the data held in the workspace at the time of export. A blank cell means the figure is unavailable — nothing has been substituted for it.']).getCell(2).alignment = { wrapText: true };
+  cover.addRow(['', 'MERIDIAN produces recommendations only. It does not route, place or execute orders.']).getCell(2).alignment = { wrapText: true };
+
+  /* ------------------------------- Positions ------------------------------ */
+  const ws = wb.addWorksheet('Positions');
+  const headers = [
+    'Ticker', 'Company', 'Sector', 'Country', 'Currency', 'Shares', 'Average price',
+    'Price', 'Market value', 'Weight', 'Unrealised P&L', 'Unrealised %',
+    'P/E', 'EV/EBITDA', 'ROIC', 'FCF yield', 'Beta',
+  ];
+  ws.columns = headers.map((h, i) => ({ width: i === 1 ? 30 : Math.max(12, h.length + 3) }));
+  styleHeader(ws.addRow(headers));
+
+  const first = 2;
+  input.positions.forEach((p, i) => {
+    const r = first + i;
+    const row = ws.addRow([
+      p.ticker, p.name, p.sector, p.country, p.currency,
+      p.quantity, p.averagePrice, p.currentPrice,
+      // Live: market value, weight and P&L recompute from shares and price.
+      { formula: `IF(H${r}="","",F${r}*H${r})` },
+      { formula: `IF(I${r}="","",I${r}/SUM($I$${first}:$I$${first + input.positions.length - 1}))` },
+      { formula: `IF(H${r}="","",F${r}*(H${r}-G${r}))` },
+      { formula: `IF(OR(H${r}="",G${r}=0),"",H${r}/G${r}-1)` },
+      p.pe, p.evEbitda, p.roic, p.fcfYield, p.beta,
+    ]);
+    row.getCell(6).numFmt = '#,##0';
+    for (const c of [7, 8, 9, 11]) row.getCell(c).numFmt = money;
+    for (const c of [10, 12, 15, 16]) row.getCell(c).numFmt = pct;
+    for (const c of [13, 14, 17]) row.getCell(c).numFmt = '0.00';
+  });
+
+  const last = first + input.positions.length - 1;
+  const totals = ws.addRow([
+    'Total', '', '', '', '', null, null, null,
+    { formula: `SUM(I${first}:I${last})` },
+    { formula: `SUM(J${first}:J${last})` },
+    { formula: `SUM(K${first}:K${last})` },
+    null, null, null, null, null,
+    { formula: `SUMPRODUCT(J${first}:J${last},Q${first}:Q${last})` },
+  ]);
+  totals.font = { bold: true };
+  totals.getCell(9).numFmt = money;
+  totals.getCell(10).numFmt = pct;
+  totals.getCell(11).numFmt = money;
+  totals.getCell(17).numFmt = '0.00';
+  ws.addRow(['Cash', '', '', '', '', null, null, null, input.summary.cash]).getCell(9).numFmt = money;
+  ws.views = [{ state: 'frozen', xSplit: 2, ySplit: 1 }];
+
+  /* ------------------------------ Performance ----------------------------- */
+  const perf = wb.addWorksheet('Performance');
+  perf.columns = [{ width: 16 }, { width: 16 }, { width: 16 }, { width: 16 }];
+  styleHeader(perf.addRow(['Period', 'Portfolio', input.benchmarkCode, 'Active']));
+  for (const p of input.performance) {
+    const row = perf.addRow([p.label, p.portfolio, p.benchmark, p.active]);
+    for (const c of [2, 3, 4]) row.getCell(c).numFmt = pct;
+  }
+  perf.addRow([]);
+  styleHeader(perf.addRow(['Date', 'Net asset value', 'Unit value', `${input.benchmarkCode} (rebased)`]));
+  for (const n of input.navSeries) {
+    const row = perf.addRow([n.date, n.value, n.unitValue, n.benchmark]);
+    row.getCell(2).numFmt = money;
+    for (const c of [3, 4]) row.getCell(c).numFmt = '#,##0.0000';
+  }
+
+  /* ------------------------------ Attribution ----------------------------- */
+  const attr = wb.addWorksheet('Attribution');
+  attr.columns = [{ width: 14 }, { width: 14 }, { width: 14 }, { width: 16 }];
+  styleHeader(attr.addRow(['Ticker', 'Weight', 'Return', 'Contribution']));
+  for (const c of input.contributions) {
+    const row = attr.addRow([c.ticker, c.weight, c.return, c.contribution]);
+    for (const i of [2, 3, 4]) row.getCell(i).numFmt = pct;
+  }
+
+  /* ------------------------------- Exposure ------------------------------- */
+  const exp = wb.addWorksheet('Exposure');
+  exp.columns = [{ width: 16 }, { width: 26 }, { width: 18 }, { width: 12 }, { width: 10 }];
+  styleHeader(exp.addRow(['Dimension', 'Group', 'Market value', 'Weight', 'Holdings']));
+  for (const e of input.exposures) {
+    const row = exp.addRow([e.dimension, e.label, e.marketValue, e.weight, e.count]);
+    row.getCell(3).numFmt = money;
+    row.getCell(4).numFmt = pct;
+  }
+
+  /* ----------------------------- Transactions ----------------------------- */
+  const tx = wb.addWorksheet('Transactions');
+  tx.columns = [{ width: 14 }, { width: 14 }, { width: 12 }, { width: 14 }, { width: 14 }, { width: 16 }, { width: 46 }];
+  styleHeader(tx.addRow(['Trade date', 'Kind', 'Ticker', 'Quantity', 'Price', 'Amount', 'Note']));
+  for (const t of input.transactions) {
+    const row = tx.addRow([t.tradeDate, t.kind, t.ticker ?? '', t.quantity, t.price, t.amount, t.note ?? '']);
+    row.getCell(4).numFmt = '#,##0';
+    for (const c of [5, 6]) row.getCell(c).numFmt = money;
+  }
+
+  const buffer = await wb.xlsx.writeBuffer();
+  return Buffer.from(buffer);
+}
+
 export async function buildGenericWorkbook(
   sheetName: string,
   headers: string[],
