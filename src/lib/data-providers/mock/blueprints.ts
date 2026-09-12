@@ -3630,14 +3630,14 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
   ),
   bp(
     {
-      ticker: 'ELET3', name: 'Eletrobras', legalName: 'Centrais Elétricas Brasileiras S.A.', exchange: 'B3',
+      ticker: 'AXIA3', name: 'Axia Energia', legalName: 'Axia Energia S.A. (formerly Centrais Elétricas Brasileiras S.A.)', exchange: 'B3',
       country: 'Brazil', sector: 'Utilities', industry: 'Electric Utilities', currency: 'BRL',
       description:
-        'Eletrobras is the largest power generation and transmission company in Latin America, holding a hydro-dominated generation fleet and an extensive transmission grid.',
+        'Axia Energia — Eletrobras until the November 2025 rebrand, which replaced the ELET tickers with AXIA — is the largest power generation and transmission company in Latin America, holding a hydro-dominated generation fleet and an extensive transmission grid. It was privatised in 2022.',
       businessModel:
         'Privatisation converted contracted generation into merchant exposure: the hydro fleet now sells into the free market, so the power price does what a regulated tariff used to do. The transmission grid is the ballast.',
       competitiveAdvantages: ['Largest hydro fleet in the region with low marginal cost', 'Extensive transmission grid earning permitted revenue', 'Decontracting of energy into the free market', 'Scale in generation auctions'],
-      website: 'https://eletrobras.com', employees: 11000, foundedYear: 1962,
+      website: 'https://axiaenergia.com.br', employees: 11000, foundedYear: 1962,
       ceo: 'Chief Executive Officer (simulated profile)', headquarters: 'Rio de Janeiro, Brazil',
       themes: ['energy-transition', 'infrastructure'],
     },
@@ -3668,9 +3668,9 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
         { name: 'Chief Financial Officer', role: 'Chief Financial Officer', since: 2023, background: 'Simulated profile; the platform holds no biography for this person.' },
       ],
       ownership: [
-        { holder: 'União Federal', kind: 'CONTROLLING', stake: 0.437 },
+        { holder: 'União Federal (voto limitado a 10%)', kind: 'INSTITUTIONAL', stake: 0.300 },
         { holder: 'BNDESPar', kind: 'INSTITUTIONAL', stake: 0.091 },
-        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.218 },
+        { holder: 'Fundos estrangeiros', kind: 'INSTITUTIONAL', stake: 0.355 },
         { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.254 },
       ],
       peers: ['CPLE6', 'TAEE11', 'ENGI11', 'EGIE3'],
@@ -3722,7 +3722,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
         { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.096 },
         { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.1 },
       ],
-      peers: ['ELET3', 'CPLE6', 'TAEE11', 'ENGI11'],
+      peers: ['AXIA3', 'CPLE6', 'TAEE11', 'ENGI11'],
     },
   ),
   bp(
@@ -5446,7 +5446,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
         { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.048 },
         { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.785 },
       ],
-      peers: ['DUK', 'EGIE3', 'ELET3', 'ENGI11'],
+      peers: ['DUK', 'EGIE3', 'AXIA3', 'ENGI11'],
     },
   ),
 
@@ -5497,7 +5497,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
         { holder: 'State Street', kind: 'INSTITUTIONAL', stake: 0.056 },
         { holder: 'Free float / retail', kind: 'RETAIL', stake: 0.765 },
       ],
-      peers: ['NEE', 'ELET3', 'CPLE6', 'EGIE3'],
+      peers: ['NEE', 'AXIA3', 'CPLE6', 'EGIE3'],
     },
   ),
 
@@ -5547,7 +5547,7 @@ export const BLUEPRINTS: CompanyBlueprint[] = [
         { holder: 'Gestoras locais', kind: 'INSTITUTIONAL', stake: 0.132 },
         { holder: 'Free float / varejo', kind: 'RETAIL', stake: 0.177 },
       ],
-      peers: ['CPLE6', 'EQTL3', 'ELET3', 'ENGI11'],
+      peers: ['CPLE6', 'EQTL3', 'AXIA3', 'ENGI11'],
     },
   ),
 
