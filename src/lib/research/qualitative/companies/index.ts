@@ -5,6 +5,7 @@ import { FINANCIALS } from './financials';
 import { HEALTH_CARE } from './healthcare';
 import { INDUSTRIALS } from './industrials';
 import { REAL_ESTATE } from './realestate';
+import { TECH } from './tech';
 import { MATERIALS } from './materials';
 import { UTILITIES } from './utilities';
 
@@ -28,6 +29,7 @@ export const COMPANY_QUALITATIVE: CompanyQualitative[] = [
   ...HEALTH_CARE,
   ...INDUSTRIALS,
   ...REAL_ESTATE,
+  ...TECH,
   ...MATERIALS,
   ...UTILITIES,
 ];
