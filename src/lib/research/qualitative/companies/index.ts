@@ -1,6 +1,7 @@
 import type { CompanyQualitative } from '../types';
 import { FINANCIALS } from './financials';
 import { MATERIALS } from './materials';
+import { UTILITIES } from './utilities';
 
 /* ==================================================================
    Company qualitative profiles.
@@ -18,6 +19,7 @@ import { MATERIALS } from './materials';
 export const COMPANY_QUALITATIVE: CompanyQualitative[] = [
   ...FINANCIALS,
   ...MATERIALS,
+  ...UTILITIES,
 ];
 
 const BY_TICKER = new Map(COMPANY_QUALITATIVE.map((c) => [c.ticker, c]));
