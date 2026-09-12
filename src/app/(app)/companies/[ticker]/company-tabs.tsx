@@ -13,6 +13,7 @@ const TABS = [
   { slug: 'earnings', label: 'Earnings' },
   { slug: 'segments', label: 'Segments' },
   { slug: 'sector', label: 'Sector' },
+  { slug: 'business', label: 'Business' },
   { slug: 'ownership', label: 'Ownership' },
   { slug: 'thesis', label: 'Thesis' },
   { slug: 'deck', label: 'Deck & Q&A' },

@@ -1,0 +1,30 @@
+import type { CompanyQualitative } from '../types';
+import { MATERIALS } from './materials';
+
+/* ==================================================================
+   Company qualitative profiles.
+
+   Split by sector because that is how they get written and reviewed —
+   the questions worth asking about a miner are not the questions worth
+   asking about a bank, and grouping them keeps each file internally
+   comparable.
+
+   A company with no profile yet returns null, and the UI says so
+   rather than rendering an empty shell. An empty page that looks like
+   a finished one is worse than an honest absence.
+   ================================================================== */
+
+export const COMPANY_QUALITATIVE: CompanyQualitative[] = [
+  ...MATERIALS,
+];
+
+const BY_TICKER = new Map(COMPANY_QUALITATIVE.map((c) => [c.ticker, c]));
+
+export function findCompanyQualitative(ticker: string): CompanyQualitative | null {
+  return BY_TICKER.get(ticker.toUpperCase()) ?? null;
+}
+
+/** How much of the universe has been researched, for the coverage view. */
+export function qualitativeCoverage(): { researched: number; tickers: string[] } {
+  return { researched: COMPANY_QUALITATIVE.length, tickers: [...BY_TICKER.keys()] };
+}
