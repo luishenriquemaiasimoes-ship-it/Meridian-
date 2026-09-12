@@ -1,4 +1,5 @@
 import type { CompanyQualitative } from '../types';
+import { ENERGY } from './energy';
 import { FINANCIALS } from './financials';
 import { MATERIALS } from './materials';
 import { UTILITIES } from './utilities';
@@ -17,6 +18,7 @@ import { UTILITIES } from './utilities';
    ================================================================== */
 
 export const COMPANY_QUALITATIVE: CompanyQualitative[] = [
+  ...ENERGY,
   ...FINANCIALS,
   ...MATERIALS,
   ...UTILITIES,
