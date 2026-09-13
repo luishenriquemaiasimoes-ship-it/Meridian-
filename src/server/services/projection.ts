@@ -180,6 +180,40 @@ export function growthFadePath(
   return Array.from({ length: years }, (_, i) => floor + (start - floor) * fade ** i);
 }
 
+/**
+ * The most capex a year of growth can justify: replace what wore out, and
+ * enlarge the asset base at the rate the business is actually growing.
+ *
+ * Capex and revenue were assumed independently, so nothing checked that the
+ * spending earned anything. NextEra spends 93% of its revenue on capex, which
+ * is true — it is building a rate base — but the model let that compound the
+ * asset base at 15% a year against 8% revenue growth. Capital intensity rose
+ * every year forever, free cash flow was negative in all ten, and the implied
+ * return on the $220bn invested over the decade was 3.9%. No company invests at
+ * that return, and a regulated utility least of all, because the regulator sets
+ * it. The model then reported net debt above enterprise value and declined to
+ * publish a value for one of the largest utilities in the world.
+ *
+ * This is the same constraint the terminal year already applies — the asset
+ * base may not outgrow the business forever — extended to the years before it,
+ * where the compounding actually happens. It is a ceiling and not a target: a
+ * company spending less than its growth would justify keeps spending less. And
+ * it scales with the growth being forecast, so a genuine build-out is untouched.
+ * Equinix at 35% of revenue against a ceiling of 62%, Tesla at 9.8% against
+ * 11.8%, and Verizon at 12.8% against 15.3% all pass through unchanged.
+ *
+ * `intensity` is the asset base per unit of revenue, so `growth * intensity` is
+ * what enlarging the base at the growth rate costs, as a share of revenue.
+ */
+export function capexCeiling(
+  daPct: number,
+  intensity: number,
+  growth: number,
+  floorPct = 0,
+): number {
+  return Math.max(daPct + Math.max(growth, 0) * intensity, floorPct);
+}
+
 export function capexFadePath(
   capexPct: number,
   maintenancePct: number,
@@ -419,23 +453,58 @@ export async function buildProjectionContext(
         }];
 
   /* --- costs: from the reported cost structure --------------------- */
-  const cogsPct = Math.abs(mean(annuals.map((p) => {
+  /**
+   * The cost ratios are backed out of reported operating profit, not read off
+   * the cost lines directly.
+   *
+   * The engine charges depreciation from its own schedule, so the ratios it is
+   * given have to be free of it — and the old code took the whole D&A charge
+   * out of COGS, on the assumption that is where it sits. For a manufacturer it
+   * is. For a REIT, a utility or a services business it sits in operating
+   * expenses instead, and then two things went wrong at once: SG&A kept its
+   * depreciation and got charged it a second time from the schedule, while COGS
+   * had a charge subtracted that was never in it. Where D&A was larger than
+   * COGS the subtraction went negative and a Math.abs turned it back into a
+   * positive cost, so the model invented expense out of the sign.
+   *
+   * Realty Income came out with a -25.5% operating margin against the 39% it
+   * reports, and NextEra 17.8% against 50.1%. Across the universe 48 of 117
+   * companies were off by more than three points and every single one was off
+   * in the same direction.
+   *
+   * Anchoring on EBIT removes the guesswork: whatever is left of revenue after
+   * operating profit and depreciation IS the cash cost, wherever the statement
+   * happens to put it. It is then split between the two lines in the proportion
+   * the company reports, so the model still shows a gross margin. Year one now
+   * reconciles with the last reported year by construction.
+   */
+  const costSplit = annuals.map((p) => {
+    const rev = p.income.revenue;
+    if (!isNum(rev) || (rev as number) <= 0) return null;
     const da = isNum(p.income.da) ? Math.abs(p.income.da as number) : 0;
-    const c = isNum(p.income.cogs) ? Math.abs(p.income.cogs as number) : null;
-    // D&A is charged separately by the engine, so it comes out of COGS here.
-    return c === null ? null : ratio((c as number) - da, p.income.revenue);
-  })) ?? 0.6);
-  const sgaPct = Math.abs(mean(annuals.map((p) => {
+    const ebit = isNum(p.income.ebit) ? (p.income.ebit as number) : null;
+    if (ebit === null) return null;
+
+    const cashCost = (rev as number) - ebit - da;
+    if (cashCost < 0) return null;
+
+    const cogs = isNum(p.income.cogs) ? Math.abs(p.income.cogs as number) : 0;
     const sga = (isNum(p.income.sga) ? Math.abs(p.income.sga as number) : 0)
       + (isNum(p.income.rnd) ? Math.abs(p.income.rnd as number) : 0);
-    return ratio(sga, p.income.revenue);
-  })) ?? 0.1);
+    const reported = cogs + sga;
+    // Where the statement reports neither line, put it all in COGS.
+    const cogsShare = reported > 0 ? cogs / reported : 1;
+    return { cogs: (cashCost * cogsShare) / (rev as number), sga: (cashCost * (1 - cogsShare)) / (rev as number) };
+  }).filter((x): x is { cogs: number; sga: number } => x !== null);
+
+  const cogsPct = mean(costSplit.map((c) => c.cogs)) ?? 0.6;
+  const sgaPct = mean(costSplit.map((c) => c.sga)) ?? 0.1;
 
   const costs: CostLine[] = [
     { key: 'cogs', label: 'Custo dos produtos e serviços', block: 'COGS', kind: 'PCT_REVENUE',
-      pct: [cogsPct], source: `${statementSource} — ex-depreciação` },
+      pct: [cogsPct], source: `${statementSource} — custo caixa implícito no resultado operacional, ex-depreciação` },
     { key: 'sga', label: 'Despesas gerais, administrativas e P&D', block: 'SGA', kind: 'PCT_REVENUE',
-      pct: [sgaPct], source: statementSource },
+      pct: [sgaPct], source: `${statementSource} — custo caixa implícito no resultado operacional, ex-depreciação` },
   ];
 
   /* --- capex and the asset base ------------------------------------ */
@@ -463,13 +532,21 @@ export async function buildProjectionContext(
    */
   const amortisingBase = ppe + (latest.balance.intangibles ?? 0);
   const averageRemainingLife = daAmount > 0 ? amortisingBase / daAmount : 6.5;
-  const impliedLife = Math.round(2 * averageRemainingLife - 1);
+  const impliedLife = Math.max(3, Math.min(120, Math.round(2 * averageRemainingLife - 1)));
 
   const daPct = Math.abs(mean(annuals.map((p) =>
     ratio(isNum(p.income.da) ? Math.abs(p.income.da as number) : null, p.income.revenue))) ?? 0.05);
   const tangibleShare = ppe + intangibles > 0 ? ppe / (ppe + intangibles) : 1;
   const maintenanceCapexPct = maintenanceCapex(capexPct, daPct, tangibleShare, longRun);
-  const capexPath = capexFadePath(capexPct, maintenanceCapexPct);
+  // How much asset base the business carries per unit of revenue, which is what
+  // enlarging it at the growth rate costs.
+  const assetIntensity = baseRevenue > 0 ? (ppe + intangibles) / baseRevenue : 0;
+  const growthPath = fadeGrowth(historicalGrowth);
+  const capexPath = capexFadePath(capexPct, maintenanceCapexPct).map((c, i) => Math.min(
+    c,
+    capexCeiling(daPct, assetIntensity, growthPath[i] ?? longRun, maintenanceCapexPct),
+  ));
+  const capexIsCapped = capexPath.some((c, i) => c < capexFadePath(capexPct, maintenanceCapexPct)[i] - 1e-9);
 
   /* --- debt --------------------------------------------------------- */
   const grossDebt = (latest.balance.shortTermDebt ?? 0) + (latest.balance.longTermDebt ?? 0)
@@ -526,8 +603,12 @@ export async function buildProjectionContext(
       inventory: latest.balance.inventory ?? 0,
       otherCurrentAssets: latest.balance.otherCurrentAssets ?? 0,
       tangibleAssets: ppe,
-      intangibleAssets: intangibles,
-      otherNonCurrentAssets: latest.balance.otherAssets ?? 0,
+      // Goodwill is deliberately not here. It is never amortised — it is tested
+      // for impairment — so putting it in the schedule charges a business for
+      // consuming something that does not wear out. It carried on the balance
+      // sheet below, where it belongs.
+      intangibleAssets: latest.balance.intangibles ?? 0,
+      otherNonCurrentAssets: (latest.balance.otherAssets ?? 0) + (latest.balance.goodwill ?? 0),
       payables: latest.balance.accountsPayable ?? 0,
       shortTermDebt: latest.balance.shortTermDebt ?? 0,
       longTermDebt: (latest.balance.longTermDebt ?? 0) + (latest.balance.leaseLiabilities ?? 0),
@@ -545,7 +626,7 @@ export async function buildProjectionContext(
       key: 'capex', label: 'Investimentos',
       pctRevenue: capexPath,
       tangibleShare: ppe + intangibles > 0 ? ppe / (ppe + intangibles) : 1,
-      usefulLife: Math.max(3, Math.min(40, impliedLife)),
+      usefulLife: impliedLife,
       source: `Fluxo de caixa, média de ${annuals.length} anos`,
     }],
     workingCapital: {
@@ -603,6 +684,11 @@ export async function buildProjectionContext(
     { path: 'costs.cogs', label: 'Custo % da receita', value: cogsPct, source: `${statementSource} — ex-depreciação` },
     { path: 'costs.sga', label: 'Despesas % da receita', value: sgaPct, source: statementSource },
     { path: 'capex.pct', label: 'Capex % da receita (ano 1)', value: capexPath[0], source: `Fluxo de caixa, média de ${annuals.length} anos` },
+    { path: 'capex.teto', label: 'Teto de capex % da receita (ano 1)',
+      value: capexCeiling(daPct, assetIntensity, growthPath[0] ?? longRun, maintenanceCapexPct),
+      source: capexIsCapped
+        ? `Depreciação mais o crescimento aplicado a uma base de ${assetIntensity.toFixed(1)}x a receita — o capex reportado excede o que o crescimento projetado justifica e foi limitado`
+        : `Depreciação mais o crescimento aplicado a uma base de ${assetIntensity.toFixed(1)}x a receita — o capex reportado está abaixo do teto e não foi limitado` },
     { path: 'capex.maintenance', label: 'Capex de manutenção % da receita', value: maintenanceCapexPct, source: 'Depreciação a repor mais o crescimento de longo prazo, limitada ao que a empresa sustenta — o nível que o crescimento projetado exige' },
     { path: 'capex.life', label: 'Vida útil implícita', value: impliedLife,
       source: `Base amortizável sobre a depreciação do período dá ${averageRemainingLife.toFixed(1)} anos de vida média remanescente; a vida útil é o dobro menos um` },

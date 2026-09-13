@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { project } from '@/lib/finance/projection/engine';
+import { BLUEPRINTS } from '@/lib/data-providers/mock/blueprints';
+import { buildAnnualPeriods } from '@/lib/data-providers/mock/generator';
 import { valueProjection } from '@/lib/finance/projection/valuation';
 import { buildDebtSchedule, buildVintageSchedule } from '@/lib/finance/projection/schedule';
 import {
-  capexFadePath, growthFadePath, maintenanceCapex, shrinkGrowth,
+  capexCeiling, capexFadePath, growthFadePath, maintenanceCapex, shrinkGrowth,
   CROSS_SECTIONAL_GROWTH_SPREAD, GROWTH_PRIOR_EXCESS, SECTOR_GROWTH_EXCESS,
 } from '@/server/services/projection';
 import { deriveGrowthPrior, deriveSectorPriors, yearlyGrowthOf } from '../scripts/audit-growth';
@@ -935,5 +937,205 @@ describe('an asset base in steady state charges a steady depreciation', () => {
     const last = schedule.rows[schedule.rows.length - 1];
     expect(last.closing / steadyStateBook).toBeGreaterThan(0.90);
     expect(last.closing / steadyStateBook).toBeLessThan(1.02);
+  });
+});
+
+describe('capex cannot outrun the growth it is supposed to buy', () => {
+  it('caps a build-out that would raise capital intensity forever', () => {
+    // NextEra: 93% of revenue on capex, an asset base 5.1x revenue, D&A 29% of
+    // revenue and 8.3% growth. The spending is real, but compounding the base
+    // at 15% against 8% revenue growth means capital intensity rises every year
+    // without end, and the implied return on the money is 3.9%.
+    const ceiling = capexCeiling(0.29, 5.1, 0.083);
+    expect(ceiling).toBeCloseTo(0.29 + 0.083 * 5.1, 6);
+    expect(ceiling).toBeLessThan(0.93);
+    expect(Math.min(0.93, ceiling)).toBe(ceiling);
+  });
+
+  it('leaves a genuine growth investor alone', () => {
+    // Equinix spends 35% of revenue building data centres, on a base 4x revenue
+    // with D&A at 26% and 9% growth. That spending is consistent with the
+    // growth it is forecast to produce, so nothing binds.
+    expect(capexCeiling(0.26, 4.0, 0.09)).toBeGreaterThan(0.35);
+    // Verizon and Tesla likewise.
+    expect(capexCeiling(0.13, 2.1, 0.011)).toBeGreaterThan(0.128);
+    expect(capexCeiling(0.048, 0.8, 0.087)).toBeGreaterThan(0.098);
+  });
+
+  it('is a ceiling and not a target', () => {
+    // A company spending below what its growth would justify keeps spending
+    // below it — the constraint never pushes investment up.
+    const ceiling = capexCeiling(0.07, 1.5, 0.05);
+    expect(Math.min(0.03, ceiling)).toBeCloseTo(0.03, 10);
+  });
+
+  it('still allows replacement when growth is zero or negative', () => {
+    // A shrinking company does not stop replacing what wears out.
+    expect(capexCeiling(0.09, 2.0, 0)).toBeCloseTo(0.09, 10);
+    expect(capexCeiling(0.09, 2.0, -0.03)).toBeCloseTo(0.09, 10);
+  });
+
+  it('never falls below the maintenance level passed to it', () => {
+    // The floor is what the business must spend to stand still; the ceiling is
+    // what growth justifies on top. They must not cross.
+    expect(capexCeiling(0.02, 0.5, 0.01, 0.06)).toBeCloseTo(0.06, 10);
+  });
+});
+
+describe('the first projected year continues from the last reported one', () => {
+  /* The engine charges depreciation from a schedule, not as a percentage of
+     revenue, so year one's charge has to land on the last reported charge. If
+     it does not, every projected operating margin is wrong from the start —
+     and it was, in one direction, for 48 of the 117 companies: Realty Income's
+     modelled margin came out at -32% against 39% reported, NextEra's at 17%
+     against 50%, AMD's at -4% against 17%.
+
+     Two causes, both charging for consumption that does not happen. Goodwill
+     was in the amortising base, and goodwill is never amortised — which is why
+     the worst cases were the acquirers. And the useful life was capped at 40
+     years, so a base the data says lasts longer was written off too fast,
+     which is why the rest were REITs, towers and utilities. */
+  const cases = BLUEPRINTS.map((bp) => {
+    const annuals = buildAnnualPeriods(bp);
+    const last = annuals[annuals.length - 1];
+    const ppe = last.balance.ppe ?? 0;
+    const intangibles = last.balance.intangibles ?? 0;
+    const da = Math.abs(last.income.da ?? 0);
+    return { ticker: bp.profile.ticker, base: ppe + intangibles, da };
+  }).filter((c) => c.da > 0 && c.base > 0);
+
+  it('covers the universe', () => {
+    expect(cases.length).toBeGreaterThan(100);
+  });
+
+  it('charges what the company last reported, for every company', () => {
+    // A vintage schedule is annual cohorts, so the life is an integer and the
+    // charge moves in steps of roughly 1/(L+1). That granularity is the whole
+    // tolerance here: anything outside it is a real break, not rounding.
+    const off: string[] = [];
+    const ratios: number[] = [];
+    for (const c of cases) {
+      const exactLife = (2 * c.base) / c.da - 1;
+      const life = Math.max(3, Math.min(120, Math.round(exactLife)));
+      const schedule = buildVintageSchedule({
+        baseYear: 2025, years: 10,
+        openingBalance: c.base, openingLife: life,
+        additions: new Array(10).fill(0), lifeFor: () => life,
+      });
+      const ratio = schedule.rows[0].charge / c.da;
+      ratios.push(ratio);
+      const granularity = 1 / (Math.min(exactLife, life) + 1);
+      if (Math.abs(ratio - 1) > granularity * 1.05) off.push(`${c.ticker} ${ratio.toFixed(2)}x`);
+    }
+    expect(off).toEqual([]);
+
+    // And no company is off by a margin that granularity could explain away:
+    // the 40-year cap had Realty Income charging 1.5x its reported depreciation.
+    for (const r of ratios) expect(r).toBeGreaterThan(0.85);
+    for (const r of ratios) expect(r).toBeLessThan(1.15);
+    const sorted = [...ratios].sort((a, b) => a - b);
+    expect(sorted[Math.floor(sorted.length / 2)]).toBeCloseTo(1, 2);
+  });
+
+  it('does not charge a company for consuming its goodwill', () => {
+    // Goodwill is tested for impairment, not amortised. Charging it made AMD —
+    // 24bn of Xilinx goodwill against 1.7bn of plant — look like it was
+    // consuming a fab every year.
+    const withGoodwill = 21.7 + 24;
+    const withoutGoodwill = 21.7;
+    const da = 4.5;
+    const life = (b: number) => Math.max(3, Math.min(120, Math.round((2 * b) / da - 1)));
+    const chargeFor = (b: number, l: number) => buildVintageSchedule({
+      baseYear: 2025, years: 5, openingBalance: b, openingLife: l,
+      additions: new Array(5).fill(0), lifeFor: () => l,
+    }).rows[0].charge;
+
+    // Reconciles on the amortising base alone.
+    expect(chargeFor(withoutGoodwill, life(withoutGoodwill)) / da).toBeCloseTo(1, 1);
+    // And the life read off a goodwill-inflated base is not the same number.
+    expect(life(withGoodwill)).toBeGreaterThan(life(withoutGoodwill) * 2);
+  });
+});
+
+describe('operating margin reconciles with the statement it was read from', () => {
+  /* The engine charges depreciation from its own schedule, so the cost ratios
+     it is handed must be free of it. Taking the whole D&A charge out of COGS
+     assumes that is where it sits — true for a manufacturer, false for a REIT,
+     a utility or a services business, where it sits in operating expenses. Then
+     SG&A carries its depreciation and is charged again from the schedule, while
+     COGS has a charge removed that was never in it. Where D&A exceeded COGS the
+     subtraction went negative and an abs turned it back into a cost, inventing
+     expense out of the sign: Realty Income came out at -25.5% against the 39%
+     it reports. */
+  function ratiosFrom(p: {
+    revenue: number; ebit: number; da: number; cogs: number; sga: number;
+  }): { cogsPct: number; sgaPct: number } {
+    const cashCost = p.revenue - p.ebit - p.da;
+    const reported = p.cogs + p.sga;
+    const cogsShare = reported > 0 ? p.cogs / reported : 1;
+    return {
+      cogsPct: (cashCost * cogsShare) / p.revenue,
+      sgaPct: (cashCost * (1 - cogsShare)) / p.revenue,
+    };
+  }
+
+  const modelledMargin = (p: { revenue: number; ebit: number; da: number; cogs: number; sga: number }) => {
+    const { cogsPct, sgaPct } = ratiosFrom(p);
+    // What the engine computes: revenue less the cost ratios, less its own D&A.
+    return (p.revenue * (1 - cogsPct - sgaPct) - p.da) / p.revenue;
+  };
+
+  it('reconciles for a manufacturer, where depreciation sits in cost of sales', () => {
+    const p = { revenue: 100, ebit: 31, da: 3, cogs: 55, sga: 13 };
+    expect(modelledMargin(p)).toBeCloseTo(p.ebit / p.revenue, 10);
+  });
+
+  it('reconciles for a property owner, where depreciation dwarfs cost of sales', () => {
+    // Realty Income: 6.3bn of rent, 2.35bn of depreciation, almost no COGS.
+    // The old subtraction went negative here and came back as a 35% cost.
+    const p = { revenue: 6.3, ebit: 2.46, da: 2.35, cogs: 0.2, sga: 1.29 };
+    expect(modelledMargin(p)).toBeCloseTo(p.ebit / p.revenue, 10);
+    const { cogsPct } = ratiosFrom(p);
+    expect(cogsPct).toBeGreaterThanOrEqual(0);
+    expect(cogsPct).toBeLessThan(0.05);
+  });
+
+  it('reconciles for a utility, where depreciation sits in operating expenses', () => {
+    // NextEra: charging SG&A its own depreciation and then the schedule's put
+    // the margin at 17.8% against the 50.1% reported.
+    const p = { revenue: 27.1, ebit: 13.6, da: 7.5, cogs: 3.2, sga: 11.6 };
+    expect(modelledMargin(p)).toBeCloseTo(p.ebit / p.revenue, 10);
+  });
+
+  it('reconciles across the universe, not just the easy shapes', () => {
+    const off: string[] = [];
+    for (const bp of BLUEPRINTS) {
+      const annuals = buildAnnualPeriods(bp);
+      const last = annuals[annuals.length - 1];
+      const revenue = last.income.revenue ?? 0;
+      const ebit = last.income.ebit;
+      if (revenue <= 0 || ebit == null) continue;
+      const p = {
+        revenue,
+        ebit,
+        da: Math.abs(last.income.da ?? 0),
+        cogs: Math.abs(last.income.cogs ?? 0),
+        sga: Math.abs(last.income.sga ?? 0) + Math.abs(last.income.rnd ?? 0),
+      };
+      if (p.revenue - p.ebit - p.da < 0) continue;
+      const gap = Math.abs(modelledMargin(p) - p.ebit / p.revenue);
+      if (gap > 1e-9) off.push(`${bp.profile.ticker} ${(gap * 100).toFixed(1)}pts`);
+    }
+    expect(off).toEqual([]);
+  });
+
+  it('never turns a missing cost line into an invented one', () => {
+    // The failure mode was a sign flip, so the ratios must stay non-negative
+    // whatever the statement looks like.
+    const p = { revenue: 10, ebit: 4, da: 5, cogs: 0, sga: 1 };
+    const { cogsPct, sgaPct } = ratiosFrom(p);
+    expect(cogsPct).toBeGreaterThanOrEqual(0);
+    expect(sgaPct).toBeGreaterThanOrEqual(0);
+    expect(cogsPct + sgaPct).toBeCloseTo(0.1, 10);
   });
 });
