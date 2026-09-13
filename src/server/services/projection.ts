@@ -87,6 +87,45 @@ const FADE_FACTOR = 0.85;
 /** The explicit forecast horizon. */
 const PROJECTION_YEARS = 10;
 
+/**
+ * The capex a business needs once it is only growing at the long-run rate:
+ * replace what wears out, and equip the increment.
+ *
+ * Only the TANGIBLE part of depreciation demands replacement. Amortisation of
+ * an acquired intangible is a charge against a price already paid — nothing has
+ * to be rebuilt when it runs off. AMD is 13% tangible against 87% Xilinx
+ * amortisation; treating its whole D&A as a spending requirement would have
+ * made a fabless designer invest like a foundry.
+ */
+export function maintenanceCapex(daPct: number, tangibleShare: number, longRun: number): number {
+  return daPct * tangibleShare * (1 + longRun);
+}
+
+/**
+ * Capex converges on the level the forecast growth actually requires.
+ *
+ * The trailing ratio used to be applied to all ten years, so whatever
+ * investment phase a company happened to be in became permanent. The error was
+ * systematic and one-directional: of the fourteen companies furthest from
+ * market value, every one the model read low was spending above depreciation
+ * and every one it read high was spending below it. Tesla at 1.8x depreciation
+ * came out at 6% of its market enterprise value; AMD at 0.3x came out high on
+ * cash it was not reinvesting.
+ *
+ * Reinvestment has to be consistent with growth. A business growing 12% needs
+ * capex well above depreciation; the same business growing 4% needs only
+ * maintenance. So capex fades on the same schedule the growth fades, and the
+ * two stay coupled instead of being assumed independently.
+ */
+export function capexFadePath(
+  capexPct: number,
+  maintenancePct: number,
+  years = PROJECTION_YEARS,
+  fade = FADE_FACTOR,
+): number[] {
+  return Array.from({ length: years }, (_, i) => maintenancePct + (capexPct - maintenancePct) * fade ** i);
+}
+
 export async function buildProjectionContext(
   workspaceId: string,
   ticker: string,
@@ -228,6 +267,12 @@ export async function buildProjectionContext(
   // Implied life: the asset base divided by what is charged against it.
   const impliedLife = daAmount > 0 ? Math.round((ppe + intangibles) / daAmount) : 12;
 
+  const daPct = Math.abs(mean(annuals.map((p) =>
+    ratio(isNum(p.income.da) ? Math.abs(p.income.da as number) : null, p.income.revenue))) ?? 0.05);
+  const tangibleShare = ppe + intangibles > 0 ? ppe / (ppe + intangibles) : 1;
+  const maintenanceCapexPct = maintenanceCapex(daPct, tangibleShare, longRun);
+  const capexPath = capexFadePath(capexPct, maintenanceCapexPct);
+
   /* --- debt --------------------------------------------------------- */
   const grossDebt = (latest.balance.shortTermDebt ?? 0) + (latest.balance.longTermDebt ?? 0)
     + (latest.balance.leaseLiabilities ?? 0);
@@ -300,7 +345,7 @@ export async function buildProjectionContext(
     costs,
     capex: [{
       key: 'capex', label: 'Investimentos',
-      pctRevenue: [capexPct],
+      pctRevenue: capexPath,
       tangibleShare: ppe + intangibles > 0 ? ppe / (ppe + intangibles) : 1,
       usefulLife: Math.max(3, Math.min(40, impliedLife)),
       source: `Fluxo de caixa, média de ${annuals.length} anos`,
@@ -355,7 +400,8 @@ export async function buildProjectionContext(
       : { path: 'revenue.segments', label: 'Divisão por segmento', value: segments.length, source: `Divulgação de segmentos, FY${baseYear}` },
     { path: 'costs.cogs', label: 'Custo % da receita', value: cogsPct, source: `${statementSource} — ex-depreciação` },
     { path: 'costs.sga', label: 'Despesas % da receita', value: sgaPct, source: statementSource },
-    { path: 'capex.pct', label: 'Capex % da receita', value: capexPct, source: `Fluxo de caixa, média de ${annuals.length} anos` },
+    { path: 'capex.pct', label: 'Capex % da receita (ano 1)', value: capexPath[0], source: `Fluxo de caixa, média de ${annuals.length} anos` },
+    { path: 'capex.maintenance', label: 'Capex de manutenção % da receita', value: maintenanceCapexPct, source: 'Depreciação tangível mais o crescimento de longo prazo — o nível que o crescimento projetado exige' },
     { path: 'capex.life', label: 'Vida útil implícita', value: impliedLife, source: 'Base de ativos dividida pela depreciação do período' },
     { path: 'debt.opening', label: 'Dívida bruta', value: grossDebt, source: statementSource },
     { path: 'debt.cost', label: 'Custo da dívida implícito', value: impliedKd, source: `Resultado financeiro sobre a dívida bruta, FY${baseYear}` },

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { project } from '@/lib/finance/projection/engine';
 import { valueProjection } from '@/lib/finance/projection/valuation';
 import { buildDebtSchedule, buildVintageSchedule } from '@/lib/finance/projection/schedule';
+import { capexFadePath, maintenanceCapex } from '@/server/services/projection';
 import type { ProjectionInput } from '@/lib/finance/projection/types';
 
 /* A concession, modelled the way the reference model does it: a toll
@@ -668,5 +669,55 @@ describe('financials funded by their own balance sheet', () => {
     m.balanceSheetFunded = false;
     const out = valueProjection(m, project(m));
     expect(out.warnings.join(' ')).not.toMatch(/deposit- or float-funded/);
+  });
+});
+
+describe('reinvestment is consistent with the growth that is forecast', () => {
+  it('fades capex from what the company spends now toward what growth requires', () => {
+    // A heavy investor: 12% of revenue against 7% depreciation, all tangible.
+    const maintenance = maintenanceCapex(0.07, 1, 0.04);
+    const path = capexFadePath(0.12, maintenance);
+
+    expect(path[0]).toBeCloseTo(0.12, 6);
+    for (let i = 1; i < path.length; i += 1) expect(path[i]).toBeLessThan(path[i - 1]);
+    expect(path[path.length - 1]).toBeGreaterThan(maintenance);
+    expect(path[path.length - 1]).toBeLessThan(0.09);
+  });
+
+  it('fades a company spending below depreciation upward, not downward', () => {
+    // The old behaviour froze the trailing ratio, so a company in a capex
+    // trough was assumed never to replace its assets and the model read the
+    // shortfall as free cash flow.
+    const maintenance = maintenanceCapex(0.07, 1, 0.04);
+    const path = capexFadePath(0.03, maintenance);
+
+    expect(path[0]).toBeCloseTo(0.03, 6);
+    for (let i = 1; i < path.length; i += 1) expect(path[i]).toBeGreaterThan(path[i - 1]);
+    expect(path[path.length - 1]).toBeLessThan(maintenance);
+  });
+
+  it('does not demand replacement capex for amortisation of an acquired intangible', () => {
+    // AMD is 13% tangible against 87% Xilinx amortisation. Charging its whole
+    // D&A as a spending requirement would make a fabless designer invest like
+    // a foundry.
+    const fabless = maintenanceCapex(0.09, 0.13, 0.04);
+    const foundry = maintenanceCapex(0.09, 1, 0.04);
+
+    expect(fabless).toBeCloseTo(0.09 * 0.13 * 1.04, 6);
+    expect(fabless).toBeLessThan(foundry / 5);
+  });
+
+  it('covers replacement plus the increment the long-run growth needs', () => {
+    // Maintenance is not depreciation: a business still growing at the
+    // long-run nominal rate has to equip that growth as well as replace.
+    const m = maintenanceCapex(0.07, 1, 0.055);
+    expect(m).toBeGreaterThan(0.07);
+    expect(m).toBeCloseTo(0.07 * 1.055, 6);
+  });
+
+  it('leaves a company already at maintenance flat', () => {
+    const maintenance = maintenanceCapex(0.07, 1, 0.04);
+    const path = capexFadePath(maintenance, maintenance);
+    for (const p of path) expect(p).toBeCloseTo(maintenance, 10);
   });
 });
