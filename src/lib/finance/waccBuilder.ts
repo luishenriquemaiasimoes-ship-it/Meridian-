@@ -49,6 +49,12 @@ export interface WaccBuildInput {
   riskFree: RiskFreeInput;
   equityRiskPremium: SourcedInput;
   countryRiskPremium?: SourcedInput | null;
+  /**
+   * True when the risk-free instrument is a bond issued by the same sovereign
+   * whose spread is being added as the country premium. The two then overlap
+   * and the builder removes the overlap rather than charging it twice.
+   */
+  riskFreeIsLocalSovereign?: boolean;
   sizePremium?: SourcedInput | null;
 
   betaMethod: BetaMethod;
@@ -208,6 +214,39 @@ export function buildWaccInstitutional(input: WaccBuildInput): WaccBuildResult {
         remedy: 'Supply expected inflation, or quote a nominal instrument instead.',
       });
     }
+  }
+
+  /* --------- Sovereign spread already inside a local government bond -------- */
+  //
+  // A country risk premium taken from a sovereign spread (EMBI+ and its kin)
+  // measures what the market charges that government over a mature-market
+  // benchmark. If the risk-free rate is that same government's own bond, the
+  // spread is already inside the yield, and adding it again to the cost of
+  // equity charges the country twice.
+  //
+  // Damodaran's prescription for a local-currency valuation is to strip the
+  // default spread out of the government bond yield to recover a risk-free
+  // rate, and then carry the country premium separately. That is what this
+  // does — the premium stays a visible line in the build rather than being
+  // silently netted, and the risk-free stops pretending to be risk-free.
+  const sovereignSpread = isNum(input.countryRiskPremium?.value)
+    ? (input.countryRiskPremium as SourcedInput).value
+    : null;
+  let riskFreeBeforeSpread: number | null = null;
+  if (input.riskFreeIsLocalSovereign && isNum(riskFreeNominal) && isNum(sovereignSpread) && (sovereignSpread as number) > 0) {
+    riskFreeBeforeSpread = riskFreeNominal as number;
+    riskFreeNominal = (riskFreeNominal as number) - (sovereignSpread as number);
+    checks.push({
+      id: 'rf-sovereign-spread-removed',
+      severity: 'INFO',
+      title: 'Sovereign spread removed from the risk-free rate',
+      detail:
+        `${input.riskFree?.instrument ?? 'The quoted instrument'} yields ` +
+        `${((riskFreeBeforeSpread as number) * 100).toFixed(2)}% and is issued by the same sovereign whose ` +
+        `${((sovereignSpread as number) * 100).toFixed(2)}% spread is carried as the country premium. ` +
+        `The spread was removed once, leaving ${((riskFreeNominal as number) * 100).toFixed(2)}%, so the country is charged once rather than twice.`,
+      remedy: 'If the country premium is meant to capture something the sovereign spread does not, say so and set the flag off.',
+    });
   }
 
   if (!isNum(riskFreeNominal)) {

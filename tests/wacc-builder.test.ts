@@ -221,3 +221,42 @@ describe('WACC diff', () => {
     expect(waccDelta).toBeNull();
   });
 });
+
+describe('sovereign spread double counting', () => {
+  // A Brazilian model built from an NTN-F yield plus an EMBI+ spread charges
+  // the country twice: the spread is already inside the government's own bond.
+  const base = {
+    currency: 'BRL',
+    erpIsDevelopedMarket: true,
+    riskFree: { value: 0.1218, source: 'NTN-F 2033', asOf: null, basis: 'NOMINAL' as const, inflation: null, instrument: 'NTN-F 2033' },
+    equityRiskPremium: { value: 0.046, source: 'mature market', asOf: null },
+    countryRiskPremium: { value: 0.0208, source: 'EMBI+ Brazil', asOf: null },
+    betaMethod: 'OBSERVED' as const,
+    observedBeta: { value: 0.76, source: 'regression', asOf: null, window: '3y daily', benchmark: 'IBOV' },
+    peerBetas: [],
+    targetDebtToEquity: 0.5,
+    costOfDebt: { value: 0.1228, source: 'implied', asOf: null, basis: 'REPORTED' as const },
+    taxRate: { value: 0.26, source: 'effective', asOf: null },
+  };
+
+  it('removes the spread once when the risk-free is that sovereign\'s own bond', () => {
+    const built = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: true } as never);
+    // 12.18% - 2.08% = 10.10% risk-free, then + 0.76 x 4.60% + 2.08%
+    expect(built.costOfEquity as number).toBeCloseTo(0.1010 + 0.76 * 0.046 + 0.0208, 6);
+    expect(built.checks.map((c) => c.id)).toContain('rf-sovereign-spread-removed');
+  });
+
+  it('leaves the risk-free alone when it is not the same sovereign', () => {
+    // A US Treasury risk-free with a Brazil premium is the global construction
+    // and carries no overlap, so nothing should be stripped.
+    const built = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: false } as never);
+    expect(built.costOfEquity as number).toBeCloseTo(0.1218 + 0.76 * 0.046 + 0.0208, 6);
+    expect(built.checks.map((c) => c.id)).not.toContain('rf-sovereign-spread-removed');
+  });
+
+  it('costs exactly the sovereign spread', () => {
+    const withFix = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: true } as never);
+    const without = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: false } as never);
+    expect((without.costOfEquity as number) - (withFix.costOfEquity as number)).toBeCloseTo(0.0208, 8);
+  });
+});

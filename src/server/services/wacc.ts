@@ -121,6 +121,9 @@ export async function getWaccBuildContext(
       source: erpInstrument ? `${erpInstrument.name} (MockMarketDataProvider)` : '',
       asOf: erpInstrument?.asOf ?? null,
     },
+    // The Brazilian risk-free instruments above are issued by the same
+    // sovereign whose EMBI+ spread is used as the country premium below.
+    riskFreeIsLocalSovereign: isLocal,
     countryRiskPremium: crpInstrument
       ? { value: crpInstrument.value, source: `${crpInstrument.name} (MockMarketDataProvider)`, asOf: crpInstrument.asOf }
       : null,
