@@ -20,7 +20,8 @@
     "db:reset": "node scripts/reset-db.mjs && npm run db:push && npm run db:generate && npm run db:seed",
     "setup": "npm run db:generate && npm run db:push && npm run db:seed",
     "audit:roic": "tsx scripts/audit-roic.ts",
-    "audit:growth": "tsx scripts/audit-growth.ts"
+    "audit:growth": "tsx scripts/audit-growth.ts",
+    "data:check": "tsx scripts/data-check.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
