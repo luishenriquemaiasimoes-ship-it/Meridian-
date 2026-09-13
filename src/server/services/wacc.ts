@@ -144,7 +144,21 @@ export async function buildContextFromDossier(
     countryRiskPremium: crpInstrument
       ? { value: crpInstrument.value, source: `${crpInstrument.name} (MockMarketDataProvider)`, asOf: crpInstrument.asOf }
       : null,
-    betaMethod: 'OBSERVED',
+    /**
+     * A peer-built beta where there are enough peers to build one.
+     *
+     * A regression beta is one stock against one index over one window, and the
+     * estimate carries the noise of all three: Tesla's came out near two and
+     * AMD's above 1.6, which put a 13.2% cost of capital on a carmaker and
+     * 12.4% on a chip designer. Re-levering the peer median to the company's own
+     * capital structure keeps the business risk and drops most of that noise,
+     * which is why it is the institutional default — and the comparison against
+     * the observed figure stays on the WACC screen either way.
+     *
+     * With fewer than three peers the median is not measuring much, and there
+     * the company's own regression is the better of two weak estimates.
+     */
+    betaMethod: peers.length >= 3 ? 'BOTTOM_UP' : 'OBSERVED',
     observedBeta: isNum(m.beta)
       ? { value: m.beta as number, source: 'Regression against the market benchmark', asOf, window: '3y daily', benchmark: isLocal ? 'IBOV' : 'SPX' }
       : null,

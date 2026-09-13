@@ -297,3 +297,57 @@ describe('the beta floor', () => {
     expect(built.checks.map((c) => c.id)).not.toContain('beta-floored');
   });
 });
+
+describe('which beta a company is discounted at', () => {
+  /* A regression beta is one stock against one index over one window, and it
+     carries the noise of all three. Re-levering a peer median to the company's
+     own capital structure keeps the business risk and drops most of that noise,
+     which is why it is the institutional default. But the median needs peers to
+     be a median, and the choice has to reflect that. */
+  const peer = (ticker: string, leveredBeta: number) => ({
+    ticker, leveredBeta, debtToEquity: 0.4, taxRate: 0.34,
+  });
+
+  it('separates a noisy regression from the risk of the business it measures', () => {
+    // Tesla's observed beta came out near two, which put a 13.2% cost of
+    // capital on a carmaker. Its peers do not carry that.
+    const peers = [peer('F', 1.05), peer('GM', 1.10), peer('TM', 0.95), peer('RIVN', 1.20)];
+    const { relevered } = bottomUpBeta(peers, 0.4, 0.34);
+    expect(relevered).not.toBeNull();
+    expect(relevered as number).toBeLessThan(1.9);
+    expect(relevered as number).toBeGreaterThan(0.8);
+  });
+
+  it('keeps both figures visible whichever one is used', () => {
+    // The analyst has to be able to see what the choice cost: the comparison
+    // stays on the screen either way.
+    const peers = [peer('A', 1.05), peer('B', 1.10), peer('C', 0.95)];
+    for (const method of ['OBSERVED', 'BOTTOM_UP'] as const) {
+      const r = buildWaccInstitutional({
+        ...baseInput(),
+        betaMethod: method,
+        observedBeta: { value: 1.9, source: 'Regression', asOf: null },
+        peerBetas: peers,
+        targetDebtToEquity: 0.4,
+      });
+      expect(r.beta.observed).toBe(1.9);
+      expect(r.beta.bottomUp).not.toBeNull();
+      expect(r.beta.spread).toBeCloseTo(1.9 - (r.beta.bottomUp as number), 10);
+      expect(r.beta.usedMethod).toBe(method);
+    }
+  });
+
+  it('says so when a bottom-up beta rests on too few peers to be a median', () => {
+    // Below three the median is not measuring much, and the service falls back
+    // to the company's own regression as the better of two weak estimates.
+    const r = buildWaccInstitutional({
+      ...baseInput(),
+      betaMethod: 'BOTTOM_UP',
+      observedBeta: { value: 1.2, source: 'Regression', asOf: null },
+      peerBetas: [peer('A', 1.05), peer('B', 1.10)],
+      targetDebtToEquity: 0.4,
+    });
+    expect(r.beta.peerCount).toBeLessThan(3);
+    expect(r.checks.some((c) => /peer/i.test(c.title) || /peer/i.test(c.detail))).toBe(true);
+  });
+});
