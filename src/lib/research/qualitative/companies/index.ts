@@ -4,6 +4,7 @@ import { CONSUMER_DISCRETIONARY } from './consumer';
 import { CONSUMER_STAPLES } from './staples';
 import { ENERGY } from './energy';
 import { FINANCIALS } from './financials';
+import { FINANCIALS_US } from './financials-us';
 import { HEALTH_CARE } from './healthcare';
 import { INDUSTRIALS } from './industrials';
 import { REAL_ESTATE } from './realestate';
@@ -30,6 +31,7 @@ export const COMPANY_QUALITATIVE: CompanyQualitative[] = [
   ...CONSUMER_STAPLES,
   ...ENERGY,
   ...FINANCIALS,
+  ...FINANCIALS_US,
   ...HEALTH_CARE,
   ...INDUSTRIALS,
   ...REAL_ESTATE,

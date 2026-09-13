@@ -152,9 +152,19 @@ describe('company profiles', () => {
     }
   });
 
-  it('returns null rather than a shell for a company not yet researched', () => {
-    const unresearched = BLUEPRINTS.find((b) => !findCompanyQualitative(b.profile.ticker));
-    if (unresearched) expect(findCompanyQualitative(unresearched.profile.ticker)).toBeNull();
+  it('profiles every company in the universe', () => {
+    // The universe is fully researched, and it stays that way: adding a company
+    // to the blueprints without writing its research fails here rather than
+    // rendering an empty Business tab in the product.
+    const unresearched = BLUEPRINTS
+      .filter((b) => !findCompanyQualitative(b.profile.ticker))
+      .map((b) => `${b.profile.ticker} (${b.profile.sector})`);
+    expect(unresearched).toEqual([]);
+  });
+
+  it('returns null rather than a shell for a company it does not hold', () => {
+    // The UI branches on this: null means the page says so instead of
+    // rendering a finished-looking empty shell.
     expect(findCompanyQualitative('NOTATICKER')).toBeNull();
   });
 });
