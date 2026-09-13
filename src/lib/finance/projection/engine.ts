@@ -173,18 +173,39 @@ function projectCosts(
 
 /* ---------------------------- Capex ---------------------------- */
 
-function projectCapex(input: ProjectionInput, baseRevenue: number): {
+function projectCapex(
+  input: ProjectionInput,
+  baseRevenue: number,
+  operatingRevenueByYear?: number[],
+): {
   byLine: number[][];
   total: number[];
 } {
-  // Capex expressed as a share of revenue needs revenue, which needs capex
-  // when a construction line exists. The base year's revenue breaks the
-  // circularity: the programme is sized on the business as it stands.
+  // Capex quoted as a share of revenue is applied to that year's revenue.
+  //
+  // It used to be applied to the base year for every year, to break a
+  // circularity: a construction line books the capex programme as revenue, so
+  // revenue needs capex which needs revenue. Freezing the denominator did break
+  // the loop, and it also turned a 7.5%-of-revenue programme into 2.7% by year
+  // ten while revenue grew 151%. On a business whose assets are laboratories
+  // and imaging equipment, capex then ran at roughly half of depreciation for a
+  // decade and the tangible base fell from 64% of revenue to 18% while volumes
+  // rose. That is not a conservative model, it is a company liquidating itself
+  // into free cash flow.
+  //
+  // The loop is cut at the right place instead: the programme is sized on
+  // OPERATING revenue, excluding any construction line. A concessionaire does
+  // not decide how much to invest by looking at the accounting revenue its own
+  // investment creates — it invests what the contract obliges, and books the
+  // work as revenue and an equal cost. Excluding that line leaves no feedback
+  // to iterate against, so this stays a single pass with no convergence to
+  // argue about.
+  const denominator = (i: number) => operatingRevenueByYear?.[i] ?? baseRevenue;
   const byLine = input.capex.map((c) =>
     Array.from({ length: input.years }, (_, i) =>
       isNum(c.amounts?.[i])
         ? (c.amounts as number[])[Math.min(i, (c.amounts as number[]).length - 1)]
-        : baseRevenue * at(c.pctRevenue, i, 0),
+        : denominator(i) * at(c.pctRevenue, i, 0),
     ),
   );
   const total = Array.from({ length: input.years }, (_, i) =>
@@ -386,7 +407,18 @@ export function project(input: ProjectionInput): ProjectionResult {
     ? (input.baseNetRevenue as number)
     : input.revenue.reduce((s, l) => s + (l.baseRevenue ?? (l.baseVolume ?? 0) * (l.basePrice ?? 0)), 0);
 
-  const { byLine: capexByLine, total: capexTotal } = projectCapex(input, baseNetRevenue);
+  // Operating revenue first, with no capex programme, so a construction line
+  // contributes nothing to the denominator the programme is sized against.
+  // Capex is then sized on it, and revenue re-run with the programme in place.
+  const operatingOnly = projectRevenue(
+    { ...input, revenue: input.revenue.filter((l) => l.kind !== 'CONSTRUCTION') },
+    new Array(input.years).fill(0),
+  );
+  const { byLine: capexByLine, total: capexTotal } = projectCapex(
+    input,
+    baseNetRevenue,
+    operatingOnly.map((r) => r.netRevenue),
+  );
   const revenue = projectRevenue(input, capexTotal);
   const costRows = projectCosts(input, revenue, capexTotal);
 

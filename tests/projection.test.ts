@@ -143,7 +143,10 @@ describe('the projected balance sheet', () => {
 
   it('closes in every projected year', () => {
     for (const b of r.balance) {
-      expect(`${b.year}: gap ${b.balanceGap.toFixed(6)}`).toBe(`${b.year}: gap ${(0).toFixed(6)}`);
+      // Math.abs because the sign of a 1e-13 residue is not information, and
+      // a negative zero formats as "-0.000000" and fails a string comparison
+      // that is only here to name the year in the message.
+      expect(`${b.year}: gap ${Math.abs(b.balanceGap).toFixed(6)}`).toBe(`${b.year}: gap ${(0).toFixed(6)}`);
     }
     expect(r.balance.every((b) => b.balances)).toBe(true);
   });
@@ -557,5 +560,51 @@ describe('a volume-and-price line', () => {
     };
     const line = project(frozen).revenue[4].lines.find((l) => l.key === 'toll')!;
     expect(line.price).toBeCloseTo(6.2, 9);
+  });
+});
+
+describe('capex scales with the revenue it is quoted against', () => {
+  it('applies a percentage of revenue to each year, not to the base year', () => {
+    // A 7.5%-of-revenue programme frozen on the base year becomes 2.7% by year
+    // ten when revenue grows. The share is the assumption; holding it is the
+    // whole point of quoting capex that way.
+    const m = concession();
+    m.years = 10;
+    // No construction line, so operating revenue is all the revenue and the
+    // quoted share should hold exactly against the reported figure.
+    m.revenue = m.revenue.filter((l) => l.kind !== 'CONSTRUCTION');
+    m.costs = m.costs.filter((c) => c.kind !== 'CONSTRUCTION');
+    m.capex = [{ key: 'capex', label: 'Capex', pctRevenue: [0.075], tangibleShare: 0.5, usefulLife: 10 } as never];
+    const out = project(m);
+    for (let i = 0; i < out.income.length; i += 1) {
+      const share = out.capexTotal[i] / out.income[i].netRevenue;
+      expect(share, `year ${i}`).toBeCloseTo(0.075, 6);
+    }
+  });
+
+  it('sizes the programme on operating revenue, not on the revenue it creates', () => {
+    // A concessionaire books its own construction as revenue and an equal cost.
+    // Sizing the programme against that is circular, so it is excluded — and
+    // the reported share therefore sits below the quoted one by exactly the
+    // construction line's contribution.
+    const m = concession();
+    const out = project(m);
+    const quoted = 0.165;
+    const reported = out.capexTotal[0] / out.income[0].netRevenue;
+    expect(reported).toBeLessThan(quoted);
+    expect(reported).toBeGreaterThan(quoted * 0.5);
+  });
+
+  it('does not let the asset base shrink while revenue grows', () => {
+    // Capex below depreciation every year for a decade is a company liquidating
+    // itself, and it reads as free cash flow if nothing checks the balance sheet.
+    const m = concession();
+    m.years = 10;
+    m.capex = [{ key: 'capex', label: 'Capex', pctRevenue: [0.075], tangibleShare: 0.5, usefulLife: 10 }];
+    const out = project(m);
+    const first = out.balance[0].tangibleAssets;
+    const last = out.balance[out.balance.length - 1].tangibleAssets;
+    const revGrew = out.income[out.income.length - 1].netRevenue > out.income[0].netRevenue;
+    if (revGrew) expect(last).toBeGreaterThan(first * 0.9);
   });
 });
