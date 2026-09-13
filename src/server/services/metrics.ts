@@ -82,6 +82,10 @@ export interface CompanyMetrics {
   fcfMargin: number | null;
 
   roic: number | null;
+  /** ROIC on capital that excludes goodwill and acquired intangibles. */
+  roicExGoodwill: number | null;
+  /** Goodwill and acquired intangibles as a share of invested capital. */
+  acquiredShareOfCapital: number | null;
   roicNote: string | null;
   roe: number | null;
   roa: number | null;
@@ -350,6 +354,8 @@ export function computeCompanyMetrics(input: MetricsInputs): CompanyMetrics {
     // Invested capital is not a meaningful denominator for a bank: its
     // "operating assets" are the loan book funded by deposits.
     roic: roicNotMeaningful ? null : roicResult?.roic ?? null,
+    roicExGoodwill: roicNotMeaningful ? null : roicResult?.roicExGoodwill ?? null,
+    acquiredShareOfCapital: roicNotMeaningful ? null : roicResult?.acquiredShareOfCapital ?? null,
     roicNote: bankLike
       ? 'ROIC is not meaningful for a deposit-funded institution — return on equity is used instead.'
       : propertyLike

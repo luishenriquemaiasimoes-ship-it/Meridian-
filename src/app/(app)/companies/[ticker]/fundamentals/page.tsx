@@ -149,7 +149,9 @@ export default async function FundamentalsPage({ params }: { params: Promise<{ t
           ) : (
             <>
               <StatRow label="NOPAT" hint="EBIT × (1 − effective tax rate)" value={<Num value={roicNow.nopat} format="currencyMillions" currency={currency} />} />
-              <StatRow label="Invested capital" hint="Net working capital + PP&E + intangibles + goodwill + other assets. Cash is excluded." value={<Num value={roicNow.investedCapital} format="currencyMillions" currency={currency} />} />
+              <StatRow label="Invested capital" hint="Net working capital + PP&E + intangibles + goodwill + other assets, less non-current operating liabilities. Cash is excluded." value={<Num value={roicNow.investedCapital} format="currencyMillions" currency={currency} />} />
+              <StatRow label="…excluding goodwill and acquired intangibles" hint="What the operating business runs on, before the price paid to acquire it." value={<Num value={roicNow.investedCapitalExGoodwill} format="currencyMillions" currency={currency} />} />
+              <StatRow label="Acquired share of capital" hint="Goodwill and acquired intangibles over invested capital. The higher this is, the more the two ROIC figures diverge." value={<Num value={roicNow.acquiredShareOfCapital} format="percent" />} />
               <StatRow label="Tax rate used" value={<Num value={roicNow.taxRateUsed} format="percent" />} />
               <div className="my-2 border-t border-line" />
               <StatRow label="NOPAT margin" value={<Num value={roicNow.nopatMargin} format="percent" />} />
@@ -158,6 +160,16 @@ export default async function FundamentalsPage({ params }: { params: Promise<{ t
               <div className="my-2 border-t border-line" />
               <StatRow label="− WACC" value={<Num value={m.wacc} format="percent" />} />
               <StatRow label="= Spread" value={<Bps value={m.roicSpread} />} />
+              <div className="my-2 border-t border-line" />
+              <StatRow
+                label="ROIC excluding goodwill"
+                hint="The same NOPAT over the capital the operating business runs on. Practice reports both: the figure above judges the capital allocation, this one judges the business."
+                value={<Num value={roicNow.roicExGoodwill} format="percent" className="font-semibold" />}
+              />
+              <StatRow
+                label="= Spread, excluding goodwill"
+                value={<Bps value={roicNow.roicExGoodwill !== null && m.wacc !== null ? roicNow.roicExGoodwill - m.wacc : null} />}
+              />
               <StatRow
                 label="Economic profit"
                 hint="Spread × invested capital — the value created above the cost of the capital employed."

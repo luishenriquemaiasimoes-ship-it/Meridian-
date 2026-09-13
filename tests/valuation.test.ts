@@ -45,6 +45,29 @@ describe('ROIC engine', () => {
     expect(investedCapitalFinancing(FY2024.balance)).toBe(1035);
   });
 
+  it('reports ROIC both with and without goodwill and acquired intangibles', () => {
+    // Practice reports both because they answer different questions: the first
+    // judges the capital allocation including what was paid for acquisitions,
+    // the second judges the operating business. On a company with no goodwill
+    // they are the same number, which is the property worth pinning.
+    const r = calculateRoic(FY2024, FY2023);
+    expect(r.roicExGoodwill).not.toBeNull();
+    expect(r.roicExGoodwill as number).toBeGreaterThan(r.roic as number);
+    expect(r.investedCapitalExGoodwill as number).toBeLessThan(r.investedCapital as number);
+    expect(r.acquiredShareOfCapital as number).toBeGreaterThan(0);
+  });
+
+  it('collapses to a single figure when nothing was acquired', () => {
+    const clean = makePeriod({
+      label: 'P', fiscalYear: 2024, endDate: '2024-12-31',
+      income: { revenue: 1000, ebit: 200, ebt: 200, taxes: 50 },
+      balance: { accountsReceivable: 100, ppe: 400, goodwill: 0, intangibles: 0, accountsPayable: 50 },
+    });
+    const r = calculateRoic(clean);
+    expect(r.roicExGoodwill).toBeCloseTo(r.roic as number, 10);
+    expect(r.acquiredShareOfCapital).toBe(0);
+  });
+
   it('reconciles the two invested-capital definitions exactly', () => {
     // They are one quantity read off opposite sides of a balance sheet that
     // balances. This assertion previously did not exist, and the two figures

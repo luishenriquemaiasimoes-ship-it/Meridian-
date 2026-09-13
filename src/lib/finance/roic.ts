@@ -35,6 +35,26 @@ export function investedCapital(b: BalanceSheet): number | null {
 }
 
 /**
+ * Invested capital excluding goodwill and acquired intangibles.
+ *
+ * The two versions answer different questions and serious practice reports
+ * both. Including them measures the return on everything shareholders put in,
+ * the acquisition premiums included, which is what belongs against a WACC when
+ * judging capital allocation. Excluding them measures the operating business on
+ * the assets it actually runs, which is what tells you whether the business is
+ * good and what an incremental unit of investment should earn.
+ *
+ * The gap between the two is the price paid for growth, and it is the single
+ * most informative number about a company built by acquisition.
+ */
+export function investedCapitalExGoodwill(b: BalanceSheet): number | null {
+  const full = investedCapital(b);
+  if (!isNum(full)) return null;
+  const acquired = sum(b.goodwill, b.intangibles) ?? 0;
+  return full - acquired;
+}
+
+/**
  * Financing-side cross-check: total debt + equity - cash.
  *
  * On a balance sheet that balances this equals investedCapital above. The two
@@ -51,8 +71,13 @@ export function investedCapitalFinancing(b: BalanceSheet): number | null {
 
 export interface RoicResult {
   roic: number | null;
+  /** Same NOPAT over capital that excludes goodwill and acquired intangibles. */
+  roicExGoodwill: number | null;
   nopat: number | null;
   investedCapital: number | null;
+  investedCapitalExGoodwill: number | null;
+  /** Goodwill and acquired intangibles as a share of invested capital. */
+  acquiredShareOfCapital: number | null;
   /** NOPAT / Revenue */
   nopatMargin: number | null;
   /** Revenue / Invested capital */
@@ -79,14 +104,21 @@ export function calculateRoic(
   const eff = effectiveTaxRate(p.income);
   const taxRateUsed = isNum(eff) && eff >= 0 && eff < 0.7 ? eff : statutoryTaxRate;
 
+  const icExCurrent = investedCapitalExGoodwill(p.balance);
+  const icExPrior = prior ? investedCapitalExGoodwill(prior.balance) : null;
+  const icEx = isNum(icExPrior) ? mean([icExCurrent, icExPrior]) : icExCurrent;
+
   const roic = safeDiv(np, ic);
   const nopatMargin = safeDiv(np, p.income.revenue);
   const capitalTurnover = safeDiv(p.income.revenue, ic);
 
   return {
     roic,
+    roicExGoodwill: safeDiv(np, icEx),
     nopat: np,
     investedCapital: ic,
+    investedCapitalExGoodwill: icEx,
+    acquiredShareOfCapital: isNum(ic) && isNum(icEx) && ic !== 0 ? (ic - icEx) / ic : null,
     nopatMargin,
     capitalTurnover,
     taxRateUsed,
