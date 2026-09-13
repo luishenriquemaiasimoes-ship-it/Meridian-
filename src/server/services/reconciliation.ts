@@ -93,7 +93,7 @@ export async function getModelReconciliation(
   // one, from the full projection. Reconciling a different model's output
   // against the street would compare the analyst's view to a number the
   // product does not quote anywhere else.
-  const published = await getPublishedValuation(ticker, { workspaceId, modelId: model?.id ?? null });
+  const published = await getPublishedValuation(ticker, { workspaceId });
   const modelTarget = published?.valuePerShare ?? null;
   const price = dossier.metrics.price;
 

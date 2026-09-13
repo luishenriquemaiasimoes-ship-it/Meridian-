@@ -58,6 +58,7 @@ export function ValuationWorkbench(props: {
   published: {
     valuePerShare: number | null; upside: number | null;
     enterpriseValue: number | null; equityValue: number | null;
+    impliedEvEbitda: number | null; marketEvEbitda: number | null;
   } | null;
   peerMedianPe: number | null;
   targetPrice: number | null;
@@ -320,8 +321,9 @@ export function ValuationWorkbench(props: {
           sublabel="after net debt and minority interest" />
         <MetricCard label="Terminal value share" value={result.terminalValuePctOfEv} format="percent"
           sublabel="of enterprise value" tooltip="A high share means the valuation rests on perpetuity assumptions rather than the explicit forecast." />
-        <MetricCard label="Implied exit multiple" value={result.impliedExitMultiple} format="multiple"
-          sublabel={props.peerMedianEvEbitda ? `peer median ${formatMultiple(props.peerMedianEvEbitda)}` : undefined} />
+        <MetricCard label="Implied EV/EBITDA" value={props.published?.impliedEvEbitda ?? null} format="multiple"
+          sublabel={props.published?.marketEvEbitda ? `market pays ${formatMultiple(props.published.marketEvEbitda)}` : undefined}
+          tooltip="What multiple of current EBITDA this model's enterprise value implies, against what the market is paying for the same EBITDA. A discounted cash flow is supposed to disagree with the market — this is the size of the disagreement." />
         <MetricCard label="Expected return" value={expected.totalReturn} format="percentSigned"
           sublabel={`incl. ${formatPercent(props.dividendYield)} dividend`} />
       </div>

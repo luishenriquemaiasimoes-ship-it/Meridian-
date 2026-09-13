@@ -67,8 +67,21 @@ export interface ProjectionContext {
 /** Long-run nominal growth by currency: real growth plus the inflation the currency runs at. */
 const LONG_RUN_NOMINAL_GROWTH: Record<string, number> = { BRL: 0.055, USD: 0.040, EUR: 0.030 };
 
-/** Geometric decay per year toward long-run growth — a half-life near two years. */
-const FADE_FACTOR = 0.7;
+/**
+ * Geometric decay per year toward long-run growth — a half-life near four years.
+ *
+ * The first version used 0.7, a two-year half-life, and it fixed the companies
+ * that were extrapolating impossible growth by breaking the ones that are
+ * genuinely compounding. Amazon, WEG and Equinix came out at roughly a third of
+ * their market enterprise value, because excess growth was gone by year five.
+ *
+ * Competition does erode returns, but not that fast: the empirical work on
+ * fade rates puts the half-life of excess growth in the four-to-seven year
+ * range for businesses with a real advantage. 0.85 sits at the conservative end
+ * of that and still removes the impossible cases — a company off a 100% year
+ * is under 20% by year ten rather than being assumed to stay there.
+ */
+const FADE_FACTOR = 0.85;
 
 /** The explicit forecast horizon. */
 const PROJECTION_YEARS = 10;
@@ -239,7 +252,15 @@ export async function buildProjectionContext(
     : 0.12;
 
   /* --- the discount rates from the WACC build ----------------------- */
-  const waccContext = await getWaccBuildContext(workspaceId, symbol, modelId ?? null);
+  // The cost of capital belongs to the company, not to a model.
+  //
+  // This used to pass modelId through, so the discount rate came from whichever
+  // model the caller happened to name — and the valuation page, which names the
+  // DCF model, discounted Embraer at a different rate from every other screen
+  // and published a different fair value because of it. A saved WACC build is
+  // still editable on the WACC tab; it just cannot make the published number
+  // depend on the route the reader took.
+  const waccContext = await getWaccBuildContext(workspaceId, symbol, null);
   const built = waccContext ? buildWaccInstitutional(waccContext.saved ?? waccContext.suggested) : null;
 
   const terms = termsFrom(annuals);
@@ -387,7 +408,7 @@ export type { ProjectionInput, ProjectionResult, ProjectionValuation };
  */
 export async function getPublishedValuation(
   ticker: string,
-  opts?: { workspaceId?: string | null; modelId?: string | null },
+  opts?: { workspaceId?: string | null },
 ): Promise<{
   valuePerShare: number | null;
   upside: number | null;
@@ -396,18 +417,49 @@ export async function getPublishedValuation(
   equityValue: number | null;
   wacc: number | null;
   costOfEquity: number | null;
+  /** What multiple of current EBITDA the model's enterprise value implies. */
+  impliedEvEbitda: number | null;
+  /** What the market is paying, on the same EBITDA. */
+  marketEvEbitda: number | null;
   warnings: string[];
 } | null> {
-  const context = await buildProjectionContext(
-    opts?.workspaceId ?? '',
-    ticker,
-    opts?.modelId ?? null,
-  );
+  // No modelId. Deliberately.
+  //
+  // Passing one made the published value depend on which screen asked: the
+  // valuation page passed the DCF model's id, which loaded that model's saved
+  // WACC build and returned 17.87 for Embraer, while every other screen asked
+  // without an id, got the default build, and returned 18.54. A company cannot
+  // have a fair value that changes with the route the reader took to reach it.
+  //
+  // A saved model still belongs on the valuation page as the analyst's own
+  // working copy. It just does not get to be the published number.
+  const context = await buildProjectionContext(opts?.workspaceId ?? '', ticker, null);
   if (!context) return null;
   const input = context.saved ?? context.suggested;
   const run = runProjection(input);
   const v = run.valuation;
+
+  // The cross-check every practitioner does by hand: what multiple does the
+  // model imply, and what is the market paying?
+  //
+  // A discounted cash flow will disagree with market multiples, and the
+  // disagreement is the output — it is why anyone builds one. What is not
+  // acceptable is publishing the disagreement without its size. The model puts
+  // Embraer at 3.7x EBITDA against a market at 10.8x; stated that way a reader
+  // can weigh it, and stated as "fair value R$18.54" alone they cannot.
+  const dossier = await getCompanyDossier(ticker);
+  const baseEbitda = dossier?.metrics.ebitda ?? null;
+  const marketEv = dossier?.metrics.enterpriseValue ?? null;
+  const impliedEvEbitda = isNum(v.enterpriseValue) && isNum(baseEbitda) && (baseEbitda as number) > 0
+    ? (v.enterpriseValue as number) / (baseEbitda as number)
+    : null;
+  const marketEvEbitda = isNum(marketEv) && isNum(baseEbitda) && (baseEbitda as number) > 0
+    ? (marketEv as number) / (baseEbitda as number)
+    : null;
+
   return {
+    impliedEvEbitda,
+    marketEvEbitda,
     valuePerShare: v.valuePerShare,
     upside: v.upside,
     currentPrice: v.currentPrice,

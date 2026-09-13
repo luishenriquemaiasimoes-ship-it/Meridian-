@@ -35,7 +35,7 @@ export default async function ValuationPage({ params }: { params: Promise<{ tick
   ]);
 
   const dcfModel = models.find((mm) => mm.kind === 'DCF') ?? null;
-  const published = await getPublishedValuation(ticker, { workspaceId: ctx.workspaceId, modelId: dcfModel?.id ?? null });
+  const published = await getPublishedValuation(ticker, { workspaceId: ctx.workspaceId });
   const savedAssumptions = dcfModel ? (dcfModel.assumptions as unknown as DcfAssumptions) : null;
   const savedScenarios = dcfModel?.scenarios as ScenarioDefinition[] | null;
 
