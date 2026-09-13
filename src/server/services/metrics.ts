@@ -3,7 +3,7 @@ import {
   listCompanyRecords, loadPriceHistory, loadStatements,
   type CompanyRecord, type SecurityRecord,
 } from '../repositories/company';
-import { isBankLike } from '@/lib/data-providers/mock/blueprints';
+import { isBankLike, isPropertyLike } from '@/lib/data-providers/mock/blueprints';
 import { cagr, growth, isNum, safeDiv } from '@/lib/finance/core';
 import { computeLTM, findYoYComparable } from '@/lib/finance/statements';
 import {
@@ -200,6 +200,10 @@ export function computeCompanyMetrics(input: MetricsInputs): CompanyMetrics {
   const basis = ltm ?? latestAnnual;
 
   const bankLike = isBankLike(company.industry);
+  // Separate from bankLike on purpose: a property owner keeps its EV multiples,
+  // which are standard for the sector. It is only the ROIC block that misleads.
+  const propertyLike = isPropertyLike(company.industry);
+  const roicNotMeaningful = bankLike || propertyLike;
 
   const price = security?.lastPrice ?? null;
   const previousClose = security?.previousClose ?? null;
@@ -345,19 +349,21 @@ export function computeCompanyMetrics(input: MetricsInputs): CompanyMetrics {
 
     // Invested capital is not a meaningful denominator for a bank: its
     // "operating assets" are the loan book funded by deposits.
-    roic: bankLike ? null : roicResult?.roic ?? null,
+    roic: roicNotMeaningful ? null : roicResult?.roic ?? null,
     roicNote: bankLike
       ? 'ROIC is not meaningful for a deposit-funded institution — return on equity is used instead.'
-      : null,
+      : propertyLike
+        ? 'ROIC understates a property owner: EBIT is charged depreciation on buildings that hold value, and invested capital carries them at depreciated book rather than market. Funds from operations and the cap-rate spread are the measures the sector uses.'
+        : null,
     roe: snapshot.roe,
     roa: snapshot.roa,
-    roce: bankLike ? null : snapshot.roce,
-    nopatMargin: bankLike ? null : roicResult?.nopatMargin ?? null,
-    capitalTurnover: bankLike ? null : roicResult?.capitalTurnover ?? null,
+    roce: roicNotMeaningful ? null : snapshot.roce,
+    nopatMargin: roicNotMeaningful ? null : roicResult?.nopatMargin ?? null,
+    capitalTurnover: roicNotMeaningful ? null : roicResult?.capitalTurnover ?? null,
     wacc: waccResult.wacc,
     costOfEquity: waccResult.impliedCostOfEquity,
     costOfDebt: waccResult.costOfDebt,
-    roicSpread: bankLike || !isNum(roicResult?.roic) || !isNum(waccResult.wacc)
+    roicSpread: roicNotMeaningful || !isNum(roicResult?.roic) || !isNum(waccResult.wacc)
       ? null
       : (roicResult!.roic as number) - (waccResult.wacc as number),
 

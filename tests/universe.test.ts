@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BLUEPRINTS, isBankLike } from '../src/lib/data-providers/mock/blueprints';
+import { BLUEPRINTS, isBankLike, isPropertyLike } from '../src/lib/data-providers/mock/blueprints';
 import {
   buildAnnualPeriods, buildQuarterlyPeriods, buildPriceHistory,
   MARKET_DAILY_VOL, marketFactorFor, marketShocks, PRICE_HISTORY_DAYS, tradingDays,
@@ -136,5 +136,32 @@ describe('generated price series', () => {
     // The same call returns the same series, or two companies would load on
     // different "markets" and the correlation matrix would be meaningless.
     expect(marketShocks('IBOV')[10]).toBe(shocks[10]);
+  });
+});
+
+describe('ROIC applicability', () => {
+  it('excludes property owners, whose EBIT carries depreciation on assets that hold value', () => {
+    for (const t of ['PLD', 'AMT', 'SPG', 'EQIX', 'O', 'MULT3', 'ALOS3']) {
+      const bp = BLUEPRINTS.find((b) => b.profile.ticker === t);
+      expect(bp, t).toBeDefined();
+      expect(isPropertyLike(bp!.profile.industry), t).toBe(true);
+    }
+  });
+
+  it('keeps homebuilders inside the ROIC definition', () => {
+    // They turn inventory rather than hold property, so the metric means what
+    // it means anywhere else. Sweeping them in with the REITs would hide a
+    // real result behind a caveat that does not apply to them.
+    for (const t of ['CYRE3', 'MRVE3']) {
+      const bp = BLUEPRINTS.find((b) => b.profile.ticker === t);
+      expect(isPropertyLike(bp!.profile.industry), t).toBe(false);
+    }
+  });
+
+  it('leaves every non-real-estate company inside the ROIC definition', () => {
+    const wrong = BLUEPRINTS
+      .filter((b) => b.profile.sector !== 'Real Estate' && isPropertyLike(b.profile.industry))
+      .map((b) => b.profile.ticker);
+    expect(wrong).toEqual([]);
   });
 });

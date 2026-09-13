@@ -5823,3 +5823,23 @@ export function findBlueprint(ticker: string): CompanyBlueprint | undefined {
 export function isBankLike(industry: string): boolean {
   return industry === 'Banks';
 }
+
+/**
+ * Property owners, where ROIC computed from EBIT is systematically misleading.
+ *
+ * Two things break it at once. EBIT is charged depreciation on buildings that
+ * do not economically wear out, so NOPAT understates what the asset earns; and
+ * invested capital carries those buildings at depreciated historical cost,
+ * which drifts from what they are worth. The result is a "return" that is
+ * really a yield on stale book, and comparing it to a WACC reports value
+ * destruction that is an accounting artifact. The industry uses funds from
+ * operations and a cap-rate spread for exactly this reason, and the research
+ * layer for these companies says so — the metrics layer should not contradict it.
+ *
+ * Homebuilders are deliberately excluded: they turn inventory rather than hold
+ * property, so ROIC means for them what it means anywhere else.
+ */
+export function isPropertyLike(industry: string): boolean {
+  return industry.includes('REITs') || industry === 'Real Estate Management & Development';
+}
+
