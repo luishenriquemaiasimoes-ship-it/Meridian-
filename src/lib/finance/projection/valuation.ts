@@ -80,11 +80,51 @@ export interface ProjectionValuation {
   warnings: string[];
 }
 
-function terminalGrowthFrom(input: ProjectionInput): number | null {
+/**
+ * Long-run nominal growth by currency.
+ *
+ * A single number cannot serve both: 3% nominal in dollars is roughly 1% real,
+ * which is a fair perpetuity for a mature economy; 3% nominal in reais is
+ * NEGATIVE real growth against Brazilian inflation, which quietly assumes every
+ * Brazilian company shrinks forever. The figure here is long-run nominal GDP —
+ * real growth plus the inflation the currency actually runs at.
+ */
+const LONG_RUN_NOMINAL_GROWTH: Record<string, number> = { BRL: 0.055, USD: 0.040, EUR: 0.030 };
+
+/**
+ * The minimum gap between the discount rate and perpetuity growth.
+ *
+ * The terminal multiple is 1/(wacc - g), so the gap is the whole valuation for
+ * a mature company. At a 5.2% cost of capital — which is what CAPM returns for
+ * a defensive US telecom with a 0.4 beta — a 3% perpetuity is a 45x multiple on
+ * terminal cash flow, and the model valued Verizon at over five times its
+ * market price on inputs that were otherwise right. Whether the error is in the
+ * beta or in the growth, capitalising a 2.2% spread is not a view anyone holds.
+ *
+ * Four points caps the multiple at 25x, which is still generous for a business
+ * growing at inflation.
+ */
+const MIN_TERMINAL_SPREAD = 0.04;
+
+function terminalGrowthFrom(input: ProjectionInput, explicitExitGrowth: number | null): number | null {
   // A concession with a stated end has no perpetuity: the asset stops.
   const ends = input.capex.find((c) => isNum(c.amortiseToYear));
   if (ends) return null;
-  return 0.03;
+
+  const currency = (input.currency ?? 'USD') as string;
+  let g = LONG_RUN_NOMINAL_GROWTH[currency] ?? 0.03;
+
+  // A model that fades a company to 1% and then capitalises it at 4% is
+  // manufacturing the difference in the terminal year. Perpetuity growth is
+  // capped at the rate the explicit forecast actually ends on.
+  if (isNum(explicitExitGrowth)) g = Math.min(g, Math.max(0, explicitExitGrowth as number));
+
+  // And capped again so the perpetuity multiple stays finite in the sense that
+  // matters: a spread of a point or two makes the terminal value swamp
+  // everything the analyst actually forecast.
+  if (isNum(input.wacc)) g = Math.min(g, (input.wacc as number) - MIN_TERMINAL_SPREAD);
+
+  return g > 0 ? g : 0;
 }
 
 export function valueProjection(
@@ -131,7 +171,10 @@ export function valueProjection(
     ? cashFlows.reduce((s, c) => s + (c.pvFcff ?? 0), 0)
     : null;
 
-  const g = opts.terminalGrowth !== undefined ? opts.terminalGrowth : terminalGrowthFrom(input);
+  const exitGrowth = projected.income.length
+    ? projected.income[projected.income.length - 1].revenueGrowth ?? null
+    : null;
+  const g = opts.terminalGrowth !== undefined ? opts.terminalGrowth : terminalGrowthFrom(input, exitGrowth);
   let terminalValue: number | null = null;
   let pvTerminalValue: number | null = null;
   if (isNum(g) && isNum(wacc) && cashFlows.length) {

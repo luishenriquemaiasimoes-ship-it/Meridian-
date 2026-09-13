@@ -64,6 +64,15 @@ export interface ProjectionContext {
   provenance: { path: string; label: string; value: number | null; source: string }[];
 }
 
+/** Long-run nominal growth by currency: real growth plus the inflation the currency runs at. */
+const LONG_RUN_NOMINAL_GROWTH: Record<string, number> = { BRL: 0.055, USD: 0.040, EUR: 0.030 };
+
+/** Geometric decay per year toward long-run growth — a half-life near two years. */
+const FADE_FACTOR = 0.7;
+
+/** The explicit forecast horizon. */
+const PROJECTION_YEARS = 10;
+
 export async function buildProjectionContext(
   workspaceId: string,
   ticker: string,
@@ -95,6 +104,38 @@ export async function buildProjectionContext(
   ) ?? 0.04;
 
   /**
+   * Growth fades toward long-run nominal growth; it is not held at the trailing
+   * average for ten years.
+   *
+   * The trailing mean was being written into a one-element array, and the
+   * engine repeats the last entry, so every company grew at its own recent rate
+   * for the whole horizon. For a mature telecom that is nearly harmless. For a
+   * company coming off two years above 100% it forecasts sixty percent a year
+   * for a decade, and the model valued NVIDIA at three times its market price
+   * on a revenue line that reached numbers no market is that large.
+   *
+   * Nothing grows faster than the economy forever — that is what a perpetuity
+   * assumption means, and a ten-year explicit period that ignores it just moves
+   * the impossibility inside the forecast. The decay here is geometric with a
+   * half-life near two years, which is the shape excess returns actually take
+   * as competition arrives.
+   */
+  const longRun = LONG_RUN_NOMINAL_GROWTH[dossier.company.currency] ?? 0.04;
+  /**
+   * The fade only ever slows a company down.
+   *
+   * Converging toward long-run growth from BELOW would forecast a mature
+   * telecom growing 1.5% today accelerating to 4% by year ten, which is not
+   * mean reversion, it is an assumption that maturity reverses. Where the
+   * starting rate is already at or under the long-run rate the path is flat;
+   * the decay applies only to growth that is above what an economy can sustain.
+   */
+  const fadeGrowth = (start: number, target = longRun): number[] => {
+    const floor = Math.min(target, start);
+    return Array.from({ length: PROJECTION_YEARS }, (_, i) => floor + (start - floor) * FADE_FACTOR ** i);
+  };
+
+  /**
    * Where the business has one natural unit, the top line is built from it:
    * a volume and a price, each with its own path, so an analyst can hold
    * traffic flat while the tariff follows inflation. Where it does not —
@@ -109,7 +150,11 @@ export async function buildProjectionContext(
         {
           key: 'volume', label: `Receita de ${driver.unit}`, kind: 'VOLUME_PRICE' as const,
           baseVolume: driver.volume,
-          volumeGrowth: [driver.volumeGrowth],
+          // Volume fades toward population-and-economy growth for the same
+          // reason revenue does: a unit count cannot compound above the economy
+          // forever. Price is left on its own path — it is indexed to inflation
+          // and inflation does not fade.
+          volumeGrowth: fadeGrowth(driver.volumeGrowth, longRun * 0.5),
           // The price is recomputed from the reported top line so the two
           // reconcile: an anchor that has drifted from the statements would
           // otherwise show a build-up that does not add up to the revenue.
@@ -132,12 +177,12 @@ export async function buildProjectionContext(
           label: s.segment,
           kind: 'GROWTH' as const,
           baseRevenue: (s.revenue ?? 0) / segmentTotal * baseRevenue,
-          revenueGrowth: [historicalGrowth],
-          source: `Divulgação de segmentos, FY${baseYear}`,
+          revenueGrowth: fadeGrowth(historicalGrowth),
+          source: `Divulgação de segmentos, FY${baseYear} — crescimento convergindo ao nominal de longo prazo`,
         }))
       : [{
           key: 'revenue', label: 'Receita', kind: 'GROWTH' as const,
-          baseRevenue, revenueGrowth: [historicalGrowth], source: statementSource,
+          baseRevenue, revenueGrowth: fadeGrowth(historicalGrowth), source: statementSource,
         }];
 
   /* --- costs: from the reported cost structure --------------------- */
@@ -207,7 +252,7 @@ export async function buildProjectionContext(
     ticker: symbol,
     currency: dossier.company.currency,
     baseYear,
-    years: 10,
+    years: PROJECTION_YEARS,
     opening: {
       cash: latest.balance.cash ?? 0,
       shortTermInvestments: 0,

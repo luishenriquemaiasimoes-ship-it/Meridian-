@@ -232,7 +232,9 @@ describe('sovereign spread double counting', () => {
     equityRiskPremium: { value: 0.046, source: 'mature market', asOf: null },
     countryRiskPremium: { value: 0.0208, source: 'EMBI+ Brazil', asOf: null },
     betaMethod: 'OBSERVED' as const,
-    observedBeta: { value: 0.76, source: 'regression', asOf: null, window: '3y daily', benchmark: 'IBOV' },
+    // Above the 0.80 beta floor on purpose: this case is about the sovereign
+    // spread, and a floored beta would make the arithmetic test two things.
+    observedBeta: { value: 1.10, source: 'regression', asOf: null, window: '3y daily', benchmark: 'IBOV' },
     peerBetas: [],
     targetDebtToEquity: 0.5,
     costOfDebt: { value: 0.1228, source: 'implied', asOf: null, basis: 'REPORTED' as const },
@@ -241,8 +243,8 @@ describe('sovereign spread double counting', () => {
 
   it('removes the spread once when the risk-free is that sovereign\'s own bond', () => {
     const built = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: true } as never);
-    // 12.18% - 2.08% = 10.10% risk-free, then + 0.76 x 4.60% + 2.08%
-    expect(built.costOfEquity as number).toBeCloseTo(0.1010 + 0.76 * 0.046 + 0.0208, 6);
+    // 12.18% - 2.08% = 10.10% risk-free, then + 1.10 x 4.60% + 2.08%
+    expect(built.costOfEquity as number).toBeCloseTo(0.1010 + 1.10 * 0.046 + 0.0208, 6);
     expect(built.checks.map((c) => c.id)).toContain('rf-sovereign-spread-removed');
   });
 
@@ -250,7 +252,7 @@ describe('sovereign spread double counting', () => {
     // A US Treasury risk-free with a Brazil premium is the global construction
     // and carries no overlap, so nothing should be stripped.
     const built = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: false } as never);
-    expect(built.costOfEquity as number).toBeCloseTo(0.1218 + 0.76 * 0.046 + 0.0208, 6);
+    expect(built.costOfEquity as number).toBeCloseTo(0.1218 + 1.10 * 0.046 + 0.0208, 6);
     expect(built.checks.map((c) => c.id)).not.toContain('rf-sovereign-spread-removed');
   });
 
@@ -258,5 +260,40 @@ describe('sovereign spread double counting', () => {
     const withFix = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: true } as never);
     const without = buildWaccInstitutional({ ...base, riskFreeIsLocalSovereign: false } as never);
     expect((without.costOfEquity as number) - (withFix.costOfEquity as number)).toBeCloseTo(0.0208, 8);
+  });
+});
+
+describe('the beta floor', () => {
+  const base = {
+    currency: 'USD',
+    erpIsDevelopedMarket: true,
+    riskFree: { value: 0.0412, source: 'US10Y', asOf: null, basis: 'NOMINAL' as const, inflation: null, instrument: 'US 10Y' },
+    equityRiskPremium: { value: 0.046, source: 'mature market', asOf: null },
+    countryRiskPremium: null,
+    betaMethod: 'OBSERVED' as const,
+    peerBetas: [],
+    targetDebtToEquity: 0.5,
+    costOfDebt: { value: 0.05, source: 'implied', asOf: null, basis: 'REPORTED' as const },
+    taxRate: { value: 0.21, source: 'statutory', asOf: null },
+  };
+
+  it('lifts a defensive beta to the floor and says so', () => {
+    // A 0.4 beta returns a cost of equity below the company's own dividend
+    // yield, which cannot be the required return on a levered equity.
+    const built = buildWaccInstitutional({
+      ...base,
+      observedBeta: { value: 0.40, source: 'regression', asOf: null, window: '3y daily', benchmark: 'SPX' },
+    } as never);
+    expect(built.costOfEquity as number).toBeCloseTo(0.0412 + 0.8 * 0.046, 6);
+    expect(built.checks.map((c) => c.id)).toContain('beta-floored');
+  });
+
+  it('leaves a beta above the floor exactly where the regression put it', () => {
+    const built = buildWaccInstitutional({
+      ...base,
+      observedBeta: { value: 1.25, source: 'regression', asOf: null, window: '3y daily', benchmark: 'SPX' },
+    } as never);
+    expect(built.costOfEquity as number).toBeCloseTo(0.0412 + 1.25 * 0.046, 6);
+    expect(built.checks.map((c) => c.id)).not.toContain('beta-floored');
   });
 });

@@ -280,7 +280,7 @@ export function buildWaccInstitutional(input: WaccBuildInput): WaccBuildResult {
   const bu = bottomUpBeta(input.peerBetas ?? [], targetDe ?? NaN, taxRate ?? NaN);
   const observed = isNum(input.observedBeta?.value) ? (input.observedBeta as SourcedInput).value : null;
 
-  const usedBeta = input.betaMethod === 'OBSERVED' ? observed : bu.relevered;
+  let usedBeta = input.betaMethod === 'OBSERVED' ? observed : bu.relevered;
   const beta: BetaComparison = {
     observed,
     bottomUp: bu.relevered,
@@ -355,6 +355,36 @@ export function buildWaccInstitutional(input: WaccBuildInput): WaccBuildResult {
       title: 'Country premium above 800 bps',
       detail: `${((crp as number) * 100).toFixed(0)} bps is a large addition to the cost of equity.`,
       remedy: 'Check whether the premium is being applied twice — once here and once inside a locally-quoted equity risk premium.',
+    });
+  }
+
+  /* ------------------------- Floor on the beta ---------------------------- */
+  //
+  // CAPM understates the return required from defensive equities, and the
+  // effect is large enough to break a DCF. A large US telecom regresses to a
+  // 0.4 beta and comes out at a 6% cost of equity — below its own dividend
+  // yield, which cannot be the required return on a levered equity. Discounting
+  // a mature company at 6% valued it at roughly twice its market enterprise
+  // value on inputs that were otherwise correct.
+  //
+  // The low-beta anomaly is among the most replicated results in the
+  // literature. Practitioners handle it with a floor rather than by pretending
+  // the regression is right. The floor is applied to the beta rather than to
+  // the cost of equity so that it scales with the equity risk premium and with
+  // the currency: a fixed premium floor that is sensible against a 4% US
+  // risk-free is a large and arbitrary addition against a 10% Brazilian one.
+  const BETA_FLOOR = 0.8;
+  const betaBeforeFloor = usedBeta;
+  if (isNum(usedBeta) && (usedBeta as number) < BETA_FLOOR) {
+    usedBeta = BETA_FLOOR;
+    checks.push({
+      id: 'beta-floored',
+      severity: 'INFO',
+      title: 'Beta raised to the floor',
+      detail:
+        `The regression returned ${(betaBeforeFloor as number).toFixed(2)}, below the ${BETA_FLOOR.toFixed(2)} floor.`,
+      remedy:
+        'A beta this low implies an equity less risky than the company\'s own debt. Override it with a bottom-up estimate, or state why the business really carries that little market risk.',
     });
   }
 
