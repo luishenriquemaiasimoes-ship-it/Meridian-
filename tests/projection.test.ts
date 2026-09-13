@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { project } from '@/lib/finance/projection/engine';
 import { valueProjection } from '@/lib/finance/projection/valuation';
 import { buildDebtSchedule, buildVintageSchedule } from '@/lib/finance/projection/schedule';
-import { capexFadePath, maintenanceCapex } from '@/server/services/projection';
+import {
+  capexFadePath, maintenanceCapex, shrinkGrowth,
+  CROSS_SECTIONAL_GROWTH_SPREAD, GROWTH_PRIOR_EXCESS,
+} from '@/server/services/projection';
+import { deriveGrowthPrior, yearlyGrowthOf } from '../scripts/audit-growth';
 import type { ProjectionInput } from '@/lib/finance/projection/types';
 
 /* A concession, modelled the way the reference model does it: a toll
@@ -675,7 +679,7 @@ describe('financials funded by their own balance sheet', () => {
 describe('reinvestment is consistent with the growth that is forecast', () => {
   it('fades capex from what the company spends now toward what growth requires', () => {
     // A heavy investor: 12% of revenue against 7% depreciation, all tangible.
-    const maintenance = maintenanceCapex(0.07, 1, 0.04);
+    const maintenance = maintenanceCapex(0.12, 0.07, 1, 0.04);
     const path = capexFadePath(0.12, maintenance);
 
     expect(path[0]).toBeCloseTo(0.12, 6);
@@ -688,7 +692,7 @@ describe('reinvestment is consistent with the growth that is forecast', () => {
     // The old behaviour froze the trailing ratio, so a company in a capex
     // trough was assumed never to replace its assets and the model read the
     // shortfall as free cash flow.
-    const maintenance = maintenanceCapex(0.07, 1, 0.04);
+    const maintenance = maintenanceCapex(0.03, 0.07, 1, 0.04);
     const path = capexFadePath(0.03, maintenance);
 
     expect(path[0]).toBeCloseTo(0.03, 6);
@@ -699,25 +703,127 @@ describe('reinvestment is consistent with the growth that is forecast', () => {
   it('does not demand replacement capex for amortisation of an acquired intangible', () => {
     // AMD is 13% tangible against 87% Xilinx amortisation. Charging its whole
     // D&A as a spending requirement would make a fabless designer invest like
-    // a foundry.
-    const fabless = maintenanceCapex(0.09, 0.13, 0.04);
-    const foundry = maintenanceCapex(0.09, 1, 0.04);
+    // a foundry — so the tangible share holds the requirement down.
+    const fabless = maintenanceCapex(0.004, 0.09, 0.13, 0.04);
+    const foundry = maintenanceCapex(0.004, 0.09, 1, 0.04);
 
-    expect(fabless).toBeCloseTo(0.09 * 0.13 * 1.04, 6);
+    expect(fabless).toBeCloseTo(0.09 * 1.04 * 0.13, 6);
     expect(fabless).toBeLessThan(foundry / 5);
   });
 
   it('covers replacement plus the increment the long-run growth needs', () => {
     // Maintenance is not depreciation: a business still growing at the
     // long-run nominal rate has to equip that growth as well as replace.
-    const m = maintenanceCapex(0.07, 1, 0.055);
+    const m = maintenanceCapex(0.20, 0.07, 1, 0.055);
     expect(m).toBeGreaterThan(0.07);
     expect(m).toBeCloseTo(0.07 * 1.055, 6);
   });
 
   it('leaves a company already at maintenance flat', () => {
-    const maintenance = maintenanceCapex(0.07, 1, 0.04);
+    const maintenance = maintenanceCapex(0.0728, 0.07, 1, 0.04);
     const path = capexFadePath(maintenance, maintenance);
     for (const p of path) expect(p).toBeCloseTo(maintenance, 10);
+  });
+
+  it('never fades a company below what it has been spending all along', () => {
+    // Verizon reads as 38% tangible because spectrum and goodwill sit in the
+    // asset base and neither is amortised. Taking 38% of its depreciation as
+    // the requirement set maintenance capex at 5.2% of revenue against the
+    // 12.8% Verizon has actually spent every year for a decade. A company
+    // already spending at or below its depreciation charge is not in an
+    // investment phase — there is nothing to fade away.
+    const m = maintenanceCapex(0.128, 0.130, 0.383, 0.04);
+    expect(m).toBeCloseTo(0.128, 6);
+
+    const path = capexFadePath(0.128, m);
+    for (const p of path) expect(p).toBeCloseTo(0.128, 10);
+  });
+
+  it('fades a genuine investment phase down to the depreciation it must replace', () => {
+    // Spending well above depreciation is the case the fade exists for, and
+    // there the floor is the whole replacement charge, not a share of it.
+    const m = maintenanceCapex(0.38, 0.25, 0.85, 0.04);
+    expect(m).toBeCloseTo(0.25 * 1.04, 6);
+    expect(m).toBeLessThan(0.38);
+  });
+});
+
+describe('a trailing growth rate is weighted by how much of it is signal', () => {
+  it('passes a steady compounder through untouched', () => {
+    // Visa's revenue has grown 9.8% a year with a spread under a point. There
+    // is nothing to shrink toward: the window is measuring the business.
+    const steady = [0.098, 0.096, 0.100, 0.097, 0.099];
+    const s = shrinkGrowth(steady, 0.04);
+    expect(s.weight).toBeGreaterThan(0.99);
+    expect(s.growth).toBeCloseTo(0.098, 3);
+  });
+
+  it('pulls a rate that is mostly noise back toward the population', () => {
+    // NVIDIA's mean is 65% with a 54-point standard deviation. It clears any
+    // significance bar you care to set — it is large AND uncertain, which is
+    // why a threshold cannot handle it and a weight can.
+    const boom = [1.26, 0.61, 0.00, 0.61, 0.78];
+    const s = shrinkGrowth(boom, 0.04);
+    expect(s.weight).toBeLessThan(0.2);
+    expect(s.growth).toBeLessThan(0.20);
+    expect(s.growth).toBeGreaterThan(0.04);
+    // Far nearer the population than the boom it was measured in.
+    expect(Math.abs(s.growth - s.prior)).toBeLessThan(Math.abs(s.growth - 0.652) / 5);
+  });
+
+  it('does not read a cyclical trough as permanent decline', () => {
+    // ConocoPhillips averages -4.8% a year against an 11-point spread. Held
+    // for a decade that shrinks an oil major by a third because the window
+    // happened to open at a peak.
+    const cyclical = [-0.20, 0.12, -0.15, 0.05, -0.06];
+    const raw = cyclical.reduce((a, b) => a + b, 0) / cyclical.length;
+    const s = shrinkGrowth(cyclical, 0.04);
+    expect(raw).toBeLessThan(0);
+    expect(s.growth).toBeGreaterThan(raw);
+    expect(s.weight).toBeLessThan(0.8);
+  });
+
+  it('keeps a measured decline when the decline is what the data shows', () => {
+    // A steadily shrinking top line is not noise, and must not be shrunk away
+    // into growth the company is not delivering.
+    const declining = [-0.010, -0.008, -0.012, -0.009, -0.011];
+    const s = shrinkGrowth(declining, 0.04);
+    expect(s.weight).toBeGreaterThan(0.99);
+    expect(s.growth).toBeLessThan(0);
+  });
+
+  it('falls back to the population when there is nothing to measure', () => {
+    expect(shrinkGrowth([], 0.04).growth).toBeCloseTo(0.04 + GROWTH_PRIOR_EXCESS, 10);
+    expect(shrinkGrowth([0.12], 0.04).growth).toBeCloseTo(0.04 + GROWTH_PRIOR_EXCESS, 10);
+  });
+
+  it('shrinks toward where large companies actually sit, not toward the economy', () => {
+    // These are large listed companies and they have outgrown their economies
+    // by 4.5 points a year. Shrinking an uncertain one toward the economy's
+    // growth instead is the wrong centre, and it biases every uncertain
+    // company downward — the universe's median model value fell from 1.03x
+    // market to 0.91x when it was tried that way.
+    const noisy = [0.40, -0.10, 0.35, 0.05, 0.20];
+    const toPopulation = shrinkGrowth(noisy, 0.04);
+    const toEconomy = shrinkGrowth(noisy, 0.04, CROSS_SECTIONAL_GROWTH_SPREAD, 0);
+    expect(toPopulation.growth).toBeGreaterThan(toEconomy.growth);
+    expect(toPopulation.prior).toBeCloseTo(0.04 + GROWTH_PRIOR_EXCESS, 10);
+  });
+
+  it('pins the prior to what the universe actually shows', () => {
+    // The weight needs two numbers a single company cannot supply: where the
+    // population sits, and how far apart its members genuinely are. Both are
+    // derived from the cross-section, not chosen, so the constants have to
+    // track the derivation.
+    const derived = deriveGrowthPrior();
+    expect(derived.excess).toBeCloseTo(GROWTH_PRIOR_EXCESS, 3);
+    expect(derived.spread).toBeCloseTo(CROSS_SECTIONAL_GROWTH_SPREAD, 3);
+  });
+
+  it('shrinks the companies whose own window is noisiest, and only those', () => {
+    const nvda = shrinkGrowth(yearlyGrowthOf('NVDA'), 0.04);
+    const visa = shrinkGrowth(yearlyGrowthOf('V'), 0.04);
+    expect(nvda.weight).toBeLessThan(0.2);
+    expect(visa.weight).toBeGreaterThan(0.99);
   });
 });

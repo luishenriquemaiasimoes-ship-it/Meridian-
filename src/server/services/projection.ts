@@ -91,14 +91,42 @@ const PROJECTION_YEARS = 10;
  * The capex a business needs once it is only growing at the long-run rate:
  * replace what wears out, and equip the increment.
  *
- * Only the TANGIBLE part of depreciation demands replacement. Amortisation of
+ * The starting point is the depreciation charge grown at the long-run rate.
+ * Two adjustments sit on top of it, and they pull in opposite directions.
+ *
+ * Downward: only the TANGIBLE part of D&A demands replacement. Amortisation of
  * an acquired intangible is a charge against a price already paid — nothing has
  * to be rebuilt when it runs off. AMD is 13% tangible against 87% Xilinx
- * amortisation; treating its whole D&A as a spending requirement would have
+ * amortisation; charging its whole D&A as a spending requirement would have
  * made a fabless designer invest like a foundry.
+ *
+ * Upward: the tangible share is measured off the balance sheet, and the balance
+ * sheet is a poor proxy for what actually depreciates. Goodwill is never
+ * amortised at all, and neither is an indefinite-lived licence, so both sit in
+ * the denominator contributing nothing to the numerator. That read Verizon as
+ * 38% tangible and set its maintenance capex at 5.2% of revenue — against the
+ * 12.8% Verizon has spent every year for a decade, and a 13.0% depreciation
+ * charge. The model was manufacturing seven points of revenue as free cash flow
+ * the company has never had. Comcast, AT&T, Merck, Pfizer and SLB all carried
+ * the same error, and all five valued out at more than twice their market price.
+ *
+ * The guard is what the company itself has demonstrated. A business already
+ * spending at or below its own depreciation charge is not in an investment
+ * phase — there is nothing to fade away, and its own sustained spending is the
+ * better evidence of what it needs. So the tangible haircut can only ever apply
+ * to a company spending LESS than it depreciates, which is the case it was
+ * written for.
  */
-export function maintenanceCapex(daPct: number, tangibleShare: number, longRun: number): number {
-  return daPct * tangibleShare * (1 + longRun);
+export function maintenanceCapex(
+  capexPct: number,
+  daPct: number,
+  tangibleShare: number,
+  longRun: number,
+): number {
+  const replacement = daPct * (1 + longRun);
+  const tangibleFloor = replacement * tangibleShare;
+  const sustained = Math.min(capexPct, replacement);
+  return Math.max(tangibleFloor, sustained);
 }
 
 /**
@@ -126,6 +154,75 @@ export function capexFadePath(
   return Array.from({ length: years }, (_, i) => maintenancePct + (capexPct - maintenancePct) * fade ** i);
 }
 
+/**
+ * The growth prior, measured from the universe rather than chosen.
+ *
+ * A single company's five-year window gives a growth mean with a large standard
+ * error, so it is weighted against what companies in general do. That needs two
+ * numbers the company itself cannot supply, and both are derived by
+ * `npm run audit:growth` from the cross-section, with a test pinning these
+ * constants to what the derivation returns.
+ *
+ * EXCESS is where the population sits: these are large listed companies, and
+ * they have grown 4.5 points a year faster than their currencies' long-run
+ * nominal rate. Shrinking a noisy company toward the economy's growth instead
+ * of toward its own population is the wrong centre and biases every uncertain
+ * company downward — it moved the universe's median model value from 1.03x
+ * market to 0.91x when it was tried that way.
+ *
+ * SPREAD is how far apart the underlying rates genuinely are: the cross-section
+ * of trailing means has a standard deviation of 9.1 points, the average
+ * sampling noise inside one company's window is 4.9, and what is left —
+ * sqrt(9.1² - 4.9²) — is 7.6 points.
+ */
+export const GROWTH_PRIOR_EXCESS = 0.045;
+export const CROSS_SECTIONAL_GROWTH_SPREAD = 0.076;
+
+/**
+ * The trailing growth rate, weighted by how much of it is signal.
+ *
+ * Five years of revenue give four or five growth observations, and for a
+ * cyclical their dispersion swamps their mean: ConocoPhillips averages -4.8% a
+ * year against a standard deviation of 11 points, NVIDIA 65% against 54. Taken
+ * literally, the first forecasts an oil major shrinking by a third over the
+ * decade and the second a revenue line twenty times its own market. Neither
+ * mean is wrong as arithmetic; neither is measuring a durable rate.
+ *
+ * A binary test — trend or no trend — was tried first and does not work, because
+ * NVIDIA's mean does clear any reasonable significance bar. It is large AND
+ * uncertain, and a threshold has to call it one or the other.
+ *
+ * So the mean is weighted against the prior in proportion to its own
+ * reliability, which is the standard treatment of a noisy estimate. The weight
+ * is tau2 / (tau2 + se2): where a company's own window is tight the trailing
+ * rate passes through untouched — Visa's 9.8% carries a 0.4-point standard
+ * error and keeps 99.8% of its weight — and where the window is mostly noise
+ * the population takes over.
+ *
+ * It reproduces, without being fitted to them, the judgement calls that had been
+ * hand-written into the blueprints — Booking, Lilly, PRIO, Azzas all land within
+ * a few points of their hand-set rates — while correcting the ones that had been
+ * set in the wrong direction entirely, AT&T at 3.5% on a top line that has been
+ * shrinking for five years.
+ */
+export function shrinkGrowth(
+  yearly: number[],
+  longRun: number,
+  tau = CROSS_SECTIONAL_GROWTH_SPREAD,
+  priorExcess = GROWTH_PRIOR_EXCESS,
+): { growth: number; weight: number; standardError: number; prior: number } {
+  const prior = longRun + priorExcess;
+  const m = mean(yearly);
+  if (!isNum(m) || yearly.length < 2) {
+    return { growth: prior, weight: 0, standardError: Infinity, prior };
+  }
+
+  const variance = yearly.reduce((s, g) => s + (g - (m as number)) ** 2, 0) / (yearly.length - 1);
+  const standardError = Math.sqrt(variance / yearly.length);
+  const weight = tau ** 2 / (tau ** 2 + standardError ** 2);
+  return { growth: weight * (m as number) + (1 - weight) * prior, weight, standardError, prior };
+}
+
 export async function buildProjectionContext(
   workspaceId: string,
   ticker: string,
@@ -134,6 +231,17 @@ export async function buildProjectionContext(
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) return null;
   const symbol = dossier.company.ticker;
+  /**
+   * Ratios read off the recent window; growth read off all of it.
+   *
+   * A cost structure from six years ago is not the cost structure the company
+   * runs on now, so margins, payment terms and capital intensity come from the
+   * last four years. A growth rate is the opposite problem: it is estimated
+   * from differences, and three differences is not enough to tell a rate from
+   * the window it was measured in. Nike's last three years average -5.0% and
+   * its last five average +1.2% — the same company, and the shorter window put
+   * a decade of 3% decline into the model.
+   */
   const annuals = dossier.annuals.slice(-4);
   const latest = annuals[annuals.length - 1];
   if (!latest) return null;
@@ -147,14 +255,14 @@ export async function buildProjectionContext(
   const segments = dossier.segments.filter((s) => s.fiscalYear === baseYear && s.kind === 'BUSINESS');
   const segmentTotal = segments.reduce((s, x) => s + (x.revenue ?? 0), 0);
 
-  const historicalGrowth = mean(
-    annuals.slice(1).map((p, i) => {
-      const prior = annuals[i].income.revenue;
-      return isNum(p.income.revenue) && isNum(prior) && (prior as number) !== 0
-        ? (p.income.revenue as number) / Math.abs(prior as number) - 1
-        : null;
-    }),
-  ) ?? 0.04;
+  const growthYears = dossier.annuals;
+  const yearlyGrowth = growthYears.slice(1).map((p, i) => {
+    const prior = growthYears[i].income.revenue;
+    return isNum(p.income.revenue) && isNum(prior) && (prior as number) !== 0
+      ? (p.income.revenue as number) / Math.abs(prior as number) - 1
+      : null;
+  }).filter((g): g is number => g !== null);
+  const trailingGrowth = mean(yearlyGrowth) ?? 0.04;
 
   /**
    * Growth fades toward long-run nominal growth; it is not held at the trailing
@@ -174,6 +282,9 @@ export async function buildProjectionContext(
    * as competition arrives.
    */
   const longRun = LONG_RUN_NOMINAL_GROWTH[dossier.company.currency] ?? 0.04;
+
+  const shrunk = shrinkGrowth(yearlyGrowth, longRun);
+  const historicalGrowth = shrunk.growth;
   /**
    * The fade only ever slows a company down.
    *
@@ -197,24 +308,39 @@ export async function buildProjectionContext(
    */
   const driver = findBlueprint(symbol)?.driver ?? null;
   const driverShare = driver?.shareOfRevenue ?? 1;
+  const driverPriceGrowth = driver?.priceGrowth ?? 0;
 
+  /**
+   * The build-up reconciles with the statements in growth as well as in level.
+   *
+   * The unit and its price were carried as independent constants, so the
+   * revenue they compounded to owed nothing to the company's own top line.
+   * Across the universe ninety companies are built this way and sixty-four of
+   * them disagreed with their own reported growth by more than 1.5 points a
+   * year: AT&T was given 3.5% against a top line that has shrunk 0.9% a year,
+   * Comcast 3.0% against 0.9%, ConocoPhillips 4.0% against -4.8%. Over ten
+   * years that is a different company.
+   *
+   * The price path is the half that is genuinely observable — an inflation
+   * index, a tariff formula, a contracted escalator — so it keeps its own path
+   * and the volume is solved for. That is also the order an analyst works in:
+   * revenue grew 1.1%, the tariff was indexed at 2.0%, so units fell 0.9%.
+   */
+  const impliedVolumeGrowth = (total: number): number =>
+    (1 + total) / (1 + driverPriceGrowth) - 1;
   const revenue: RevenueLine[] = driver
     ? [
         {
           key: 'volume', label: `Receita de ${driver.unit}`, kind: 'VOLUME_PRICE' as const,
           baseVolume: driver.volume,
-          // Volume fades toward population-and-economy growth for the same
-          // reason revenue does: a unit count cannot compound above the economy
-          // forever. Price is left on its own path — it is indexed to inflation
-          // and inflation does not fade.
-          volumeGrowth: fadeGrowth(driver.volumeGrowth, longRun * 0.5),
+          volumeGrowth: fadeGrowth(historicalGrowth).map(impliedVolumeGrowth),
           // The price is recomputed from the reported top line so the two
           // reconcile: an anchor that has drifted from the statements would
           // otherwise show a build-up that does not add up to the revenue.
           basePrice: driver.volume > 0 ? (baseRevenue * driverShare) / driver.volume : driver.price,
-          priceGrowth: [driver.priceGrowth],
+          priceGrowth: [driverPriceGrowth],
           priceIndex: driver.priceIndex ?? null,
-          source: `${driver.unit} reportado, FY${baseYear}`,
+          source: `${driver.unit} reportado, FY${baseYear} — volume conciliado à receita reportada`,
         },
         ...(driverShare < 0.999
           ? [{
@@ -270,7 +396,7 @@ export async function buildProjectionContext(
   const daPct = Math.abs(mean(annuals.map((p) =>
     ratio(isNum(p.income.da) ? Math.abs(p.income.da as number) : null, p.income.revenue))) ?? 0.05);
   const tangibleShare = ppe + intangibles > 0 ? ppe / (ppe + intangibles) : 1;
-  const maintenanceCapexPct = maintenanceCapex(daPct, tangibleShare, longRun);
+  const maintenanceCapexPct = maintenanceCapex(capexPct, daPct, tangibleShare, longRun);
   const capexPath = capexFadePath(capexPct, maintenanceCapexPct);
 
   /* --- debt --------------------------------------------------------- */
@@ -398,10 +524,14 @@ export async function buildProjectionContext(
     driver
       ? { path: 'revenue.driver', label: `Volume (${driver.unit})`, value: driver.volume, source: `Operacional reportado, FY${baseYear}` }
       : { path: 'revenue.segments', label: 'Divisão por segmento', value: segments.length, source: `Divulgação de segmentos, FY${baseYear}` },
+    { path: 'revenue.growth', label: 'Crescimento ano 1', value: fadeGrowth(historicalGrowth)[0],
+      source: `Média de ${yearlyGrowth.length} anos reportados (${(trailingGrowth * 100).toFixed(1)}%), `
+        + `com peso de ${(shrunk.weight * 100).toFixed(0)}% dado o erro padrão de `
+        + `${(shrunk.standardError * 100).toFixed(1)} pontos — o restante converge ao nominal de longo prazo` },
     { path: 'costs.cogs', label: 'Custo % da receita', value: cogsPct, source: `${statementSource} — ex-depreciação` },
     { path: 'costs.sga', label: 'Despesas % da receita', value: sgaPct, source: statementSource },
     { path: 'capex.pct', label: 'Capex % da receita (ano 1)', value: capexPath[0], source: `Fluxo de caixa, média de ${annuals.length} anos` },
-    { path: 'capex.maintenance', label: 'Capex de manutenção % da receita', value: maintenanceCapexPct, source: 'Depreciação tangível mais o crescimento de longo prazo — o nível que o crescimento projetado exige' },
+    { path: 'capex.maintenance', label: 'Capex de manutenção % da receita', value: maintenanceCapexPct, source: 'Depreciação a repor mais o crescimento de longo prazo, limitada ao que a empresa sustenta — o nível que o crescimento projetado exige' },
     { path: 'capex.life', label: 'Vida útil implícita', value: impliedLife, source: 'Base de ativos dividida pela depreciação do período' },
     { path: 'debt.opening', label: 'Dívida bruta', value: grossDebt, source: statementSource },
     { path: 'debt.cost', label: 'Custo da dívida implícito', value: impliedKd, source: `Resultado financeiro sobre a dívida bruta, FY${baseYear}` },
