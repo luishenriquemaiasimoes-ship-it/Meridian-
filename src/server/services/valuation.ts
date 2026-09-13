@@ -2,6 +2,7 @@ import { prisma, parseJson } from '@/lib/db';
 import { getCompanyDossier } from './company';
 import { ratesForCurrency } from './metrics';
 import { buildDefaultDcfAssumptions } from '@/lib/finance/modelDefaults';
+import { resolveInstitutionalWacc } from './wacc';
 import {
   axisRange, buildSensitivity, calculateDcf, normalizeAssumptions, reverseDcf,
   type DcfAssumptions, type DcfResult, type SensitivityAxis,
@@ -50,9 +51,15 @@ export async function listValuationModels(workspaceId: string, ticker?: string):
 }
 
 /** Builds a starting DCF for a company from its own reported history. */
-export async function defaultAssumptionsFor(ticker: string): Promise<DcfAssumptions | null> {
+export async function defaultAssumptionsFor(
+  ticker: string,
+  opts?: { workspaceId?: string | null; modelId?: string | null },
+): Promise<DcfAssumptions | null> {
   const dossier = await getCompanyDossier(ticker);
   if (!dossier || !dossier.security) return null;
+  // One cost of capital per company. When the institutional build cannot be
+  // produced the CAPM fallback inside buildDefaultDcfAssumptions still runs.
+  const published = await resolveInstitutionalWacc(ticker, opts);
   return buildDefaultDcfAssumptions(
     dossier.periods,
     {
@@ -61,6 +68,8 @@ export async function defaultAssumptionsFor(ticker: string): Promise<DcfAssumpti
       beta: dossier.security.beta ?? 1,
     },
     ratesForCurrency(dossier.company.currency),
+    5,
+    published?.wacc ?? null,
   );
 }
 

@@ -28,6 +28,13 @@ export function buildDefaultDcfAssumptions(
   market: CompanyMarketState,
   rates: MarketAssumptions,
   forecastYears = 5,
+  /**
+   * The cost of capital the product publishes for this company, when one has
+   * been resolved. Supplied rather than rebuilt here so that the DCF discounts
+   * at the same rate as everything else; the CAPM fallback below runs only when
+   * the institutional build could not be produced.
+   */
+  publishedWacc?: number | null,
 ): DcfAssumptions {
   const annuals = periods
     .filter((p) => p.periodType === 'FY')
@@ -115,7 +122,7 @@ export function buildDefaultDcfAssumptions(
     capexPctRevenue: capexPath,
     nwcPctRevenue: [round4(nwcPct)],
     taxRate,
-    wacc: round4(wacc.wacc ?? rates.riskFreeRate + market.beta * rates.equityRiskPremium),
+    wacc: round4(publishedWacc ?? wacc.wacc ?? rates.riskFreeRate + market.beta * rates.equityRiskPremium),
     terminalMethod: 'GORDON',
     terminalGrowth,
     exitMultiple,

@@ -579,6 +579,7 @@ export function ValuationWorkbench(props: {
           modelId={props.modelId}
           currency={currency}
           canEdit={props.canEdit}
+          dcfFairValue={result.fairValuePerShare}
         />
       ) : null}
 

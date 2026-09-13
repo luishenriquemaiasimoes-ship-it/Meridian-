@@ -52,19 +52,36 @@ function pickInstrument(instruments: MacroInput[], preferred: string[]): MacroIn
 }
 
 export async function getWaccBuildContext(
-  workspaceId: string,
+  workspaceId: string | null,
   ticker: string,
   modelId?: string | null,
 ): Promise<WaccBuildContext | null> {
   const dossier = await getCompanyDossier(ticker);
   if (!dossier) return null;
+  return buildContextFromDossier(dossier, workspaceId, modelId ?? null);
+}
+
+/**
+ * The build input assembled from a dossier that is already in hand.
+ *
+ * Split out so the dossier loader can produce its own cost of capital without
+ * re-entering getCompanyDossier, which is memoised and would deadlock on the
+ * in-flight promise. Nothing below reads the dossier's WACC — only the beta,
+ * the capital structure and the cost of debt, none of which depend on it.
+ */
+export async function buildContextFromDossier(
+  dossier: NonNullable<Awaited<ReturnType<typeof getCompanyDossier>>>,
+  workspaceId: string | null,
+  modelId: string | null,
+): Promise<WaccBuildContext | null> {
+  const ticker = dossier.company.ticker;
 
   const [indicatorRows, comps, universe, workspace, model] = await Promise.all([
     prisma.marketIndicator.findMany({ where: { category: { in: ['RATE', 'MACRO'] } }, orderBy: { code: 'asc' } }),
     getComps(ticker),
     getUniverseMetrics(),
-    prisma.workspace.findUnique({ where: { id: workspaceId } }),
-    modelId ? prisma.valuationModel.findFirst({ where: { id: modelId, workspaceId } }) : Promise.resolve(null),
+    workspaceId ? prisma.workspace.findUnique({ where: { id: workspaceId } }) : Promise.resolve(null),
+    modelId && workspaceId ? prisma.valuationModel.findFirst({ where: { id: modelId, workspaceId } }) : Promise.resolve(null),
   ]);
 
   const instruments: MacroInput[] = indicatorRows.map((i) => ({
@@ -192,3 +209,38 @@ export function runWaccBuild(input: WaccBuildInput, previous: WaccBuildInput | n
 
 export { buildWaccInstitutional };
 export type { WaccBuildInput, WaccBuildResult };
+
+/**
+ * The one cost of capital the product publishes for a company.
+ *
+ * Everything that discounts — the DCF tab, the full projection model, the ROIC
+ * spread on the fundamentals page — reads this. Before it existed the same
+ * company carried three different WACCs in three places, which is not a
+ * methodological disagreement a reader can adjudicate, it is the product
+ * contradicting itself.
+ *
+ * The institutional build wins because it is the most complete: it carries the
+ * country premium, the size premium and a beta the user can see and override,
+ * each as a sourced line. It returns null only when the inputs are not there,
+ * and the caller then falls back to whatever it did before rather than
+ * discounting at nothing.
+ */
+export async function resolveInstitutionalWacc(
+  ticker: string,
+  opts?: { workspaceId?: string | null; modelId?: string | null },
+): Promise<{ wacc: number; costOfEquity: number | null; costOfDebt: number | null } | null> {
+  // The workspace is optional on purpose. Requiring it would mean threading an
+  // id through every caller, and any caller that forgot would silently fall
+  // back to a different cost of capital — which is the bug this function
+  // exists to remove. Without a workspace the suggested build is used; with
+  // one, a saved override wins.
+  const context = await getWaccBuildContext(opts?.workspaceId ?? null, ticker, opts?.modelId ?? null);
+  if (!context) return null;
+  const built = buildWaccInstitutional(context.saved ?? context.suggested);
+  if (!isNum(built.wacc)) return null;
+  return {
+    wacc: built.wacc as number,
+    costOfEquity: isNum(built.costOfEquity) ? (built.costOfEquity as number) : null,
+    costOfDebt: isNum(built.costOfDebtPreTax) ? (built.costOfDebtPreTax as number) : null,
+  };
+}

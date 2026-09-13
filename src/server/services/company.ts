@@ -70,6 +70,7 @@ export async function getCompanyDossier(ticker: string): Promise<CompanyDossier 
   return memo(`dossier:${ticker.toUpperCase()}`, DEFAULT_TTL_MS, () => loadCompanyDossier(ticker));
 }
 
+
 async function loadCompanyDossier(ticker: string): Promise<CompanyDossier | null> {
   const row = await findCompanyByTicker(ticker);
   if (!row) return null;
@@ -108,12 +109,25 @@ async function loadCompanyDossier(ticker: string): Promise<CompanyDossier | null
   const annuals = periods.filter((p) => p.periodType === 'FY');
   const quarters = periods.filter((p) => p.periodType === 'Q');
 
+  const bootstrap = computeCompanyMetrics({
+    company, security, periods, prices, rates: ratesForCurrency(company.currency),
+  });
+
+  // The metrics engine builds a plain CAPM WACC, because the institutional
+  // build needs the beta, the cost of debt and the capital structure that
+  // engine produces. That bootstrap must not reach a screen: a company has one
+  // cost of capital, and a fundamentals page quoting a different one from the
+  // valuation tab is the product disagreeing with itself. Published here so
+  // every consumer of the dossier inherits it without threading an argument.
+  const metrics = await publishWacc(
+    { company, security, metrics: bootstrap, periods, prices } as unknown as CompanyDossier,
+    bootstrap,
+  );
+
   return {
     company,
     security,
-    metrics: computeCompanyMetrics({
-      company, security, periods, prices, rates: ratesForCurrency(company.currency),
-    }),
+    metrics,
     periods,
     annuals,
     quarters,
@@ -269,3 +283,32 @@ export async function getNormalizationAdjustments(
 }
 
 export { computeLTM, findQoQComparable, findYoYComparable, normalizePeriod, roicSeries, getMetricsMap };
+
+/**
+ * Replaces the bootstrap CAPM WACC with the institutional build and recomputes
+ * the ROIC spread against it. Falls back to the bootstrap when the build cannot
+ * be produced — discounting at the wrong rate beats discounting at nothing, and
+ * the WACC build page says which inputs are missing.
+ */
+async function publishWacc(
+  partial: CompanyDossier,
+  bootstrap: CompanyMetrics,
+): Promise<CompanyMetrics> {
+  try {
+    const { buildContextFromDossier } = await import('./wacc');
+    const { buildWaccInstitutional } = await import('@/lib/finance/waccBuilder');
+    const context = await buildContextFromDossier(partial, null, null);
+    if (!context) return bootstrap;
+    const built = buildWaccInstitutional(context.saved ?? context.suggested);
+    if (typeof built.wacc !== 'number' || !Number.isFinite(built.wacc)) return bootstrap;
+    return {
+      ...bootstrap,
+      wacc: built.wacc,
+      costOfEquity: typeof built.costOfEquity === 'number' ? built.costOfEquity : bootstrap.costOfEquity,
+      costOfDebt: typeof built.costOfDebtPreTax === 'number' ? built.costOfDebtPreTax : bootstrap.costOfDebt,
+      roicSpread: typeof bootstrap.roic === 'number' ? bootstrap.roic - built.wacc : null,
+    };
+  } catch {
+    return bootstrap;
+  }
+}

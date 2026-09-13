@@ -39,6 +39,8 @@ export function FullModel(props: {
   modelId: string | null;
   currency: Currency;
   canEdit: boolean;
+  /** The DCF tab's fair value, so the two can be reconciled where they differ. */
+  dcfFairValue?: number | null;
 }) {
   const toast = useToast();
   const [tab, setTab] = useState<Tab>('income');
@@ -161,6 +163,27 @@ export function FullModel(props: {
           <Stat label="TIR desalavancada" value={valuation.unleveredIrr} format="percent" />
           <Stat label="TIR alavancada" value={valuation.leveredIrr} format="percent" />
         </div>
+        {isNum(props.dcfFairValue) && isNum(valuation.valuePerShare) ? (
+          <div className="mt-3 rounded border border-line bg-sunken p-2.5 text-xs leading-relaxed text-ink-2">
+            <span className="font-medium text-ink-1">Por que este número difere do DCF na aba Model.</span>{' '}
+            O DCF chega a{' '}
+            <Num value={props.dcfFairValue} format="currency" currency={props.currency} decimals={2} />{' '}
+            e este modelo a{' '}
+            <Num value={valuation.valuePerShare} format="currency" currency={props.currency} decimals={2} />
+            {', '}
+            uma diferença de{' '}
+            <Num
+              value={(valuation.valuePerShare as number) / (props.dcfFairValue as number) - 1}
+              format="percent"
+            />
+            . Três razões, nenhuma delas um erro: o DCF projeta cinco anos e este projeta dez; o DCF
+            desce de EV para equity subtraindo a dívida líquida, enquanto este desconta o fluxo ao
+            acionista (FCFE) e multiplica pela participação; e um modelo salvo congela a taxa de
+            desconto da data em que foi salvo, enquanto este usa a construção corrente. Onde as duas
+            rotas deste modelo divergem entre si, a diferença aparece como{' '}
+            <span className="font-medium text-ink-1">routeGap</span> na ponte de equity abaixo.
+          </div>
+        ) : null}
         {valuation.warnings.length ? (
           <div className="space-y-1.5 p-3">
             {valuation.warnings.map((w) => <InlineNote key={w} tone="warn">{w}</InlineNote>)}

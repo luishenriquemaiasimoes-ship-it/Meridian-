@@ -5,6 +5,7 @@ import { BLUEPRINTS, findBlueprint } from '../src/lib/data-providers/mock/bluepr
 import { MockMarketDataProvider, MARKET_INDICATORS } from '../src/lib/data-providers/mock/provider';
 import { AS_OF, LATEST_FISCAL_YEAR, buildConsensusTargets } from '../src/lib/data-providers/mock/generator';
 import { buildDefaultDcfAssumptions } from '../src/lib/finance/modelDefaults';
+import { buildWaccInstitutional } from '../src/lib/finance/waccBuilder';
 import { calculateDcf } from '../src/lib/finance/dcf';
 import { deriveScenarioSet, runScenarios } from '../src/lib/finance/scenarios';
 import { computeLTM } from '../src/lib/finance/statements';
@@ -455,14 +456,12 @@ async function seedWorkspaceContent(ctx: Ctx) {
     const bp = findBlueprint(ticker)!;
       // A DCF anchored to the company's own reported history.
       const periods = await financialsFor(ticker);
-      const assumptions = buildDefaultDcfAssumptions(
-        periods,
-        { price: bp.anchors.price, sharesOutstanding: bp.anchors.shares, beta: bp.anchors.beta },
-        { riskFreeRate: bp.profile.currency === 'BRL' ? 0.105 : 0.042, equityRiskPremium: bp.profile.currency === 'BRL' ? 0.055 : 0.05, statutoryTaxRate: bp.anchors.taxRate, countryRiskPremium: bp.profile.currency === 'BRL' ? 0 : 0 },
-      );
-      const result = calculateDcf(assumptions);
-      const scenarioDefs = deriveScenarioSet(assumptions);
-      const scenarioResult = runScenarios(scenarioDefs, bp.anchors.price);
+      // Net debt read straight off the latest balance sheet, so the discount
+      // rate build does not depend on the assumption set it feeds.
+      const latestBalance = periods.filter((x) => x.periodType === 'FY').sort((a, b) => a.endDate.localeCompare(b.endDate)).at(-1)?.balance ?? null;
+      const seedNetDebt = latestBalance
+        ? (latestBalance.shortTermDebt ?? 0) + (latestBalance.longTermDebt ?? 0) + (latestBalance.leaseLiabilities ?? 0) - (latestBalance.cash ?? 0)
+        : 0;
 
       // The discount rate as a build, with a source on every component. One of
       // the demo models deliberately carries the inflation-linked instrument and
@@ -472,6 +471,10 @@ async function seedWorkspaceContent(ctx: Ctx) {
       const waccBuild = {
         currency: bp.profile.currency,
         erpIsDevelopedMarket: true,
+        // The Brazilian instruments below are issued by the same sovereign whose
+        // EMBI+ spread is carried as the country premium; the builder removes
+        // the overlap so the country is charged once.
+        riskFreeIsLocalSovereign: isBrl,
         riskFree: usesRealRate
           ? { value: 0.0642, source: 'NTN-B 2035 real yield (MockMarketDataProvider)', asOf: AS_OF, basis: 'REAL', inflation: 0.0418, instrument: 'NTN-B 2035 real yield' }
           : isBrl
@@ -488,13 +491,29 @@ async function seedWorkspaceContent(ctx: Ctx) {
         costOfDebt: { value: bp.anchors.costOfDebt, source: 'Weighted average cost of debt in the notes', asOf: AS_OF, basis: 'REPORTED' },
         taxRate: { value: bp.anchors.taxRate, source: 'Statutory rate', asOf: AS_OF },
         marketValueEquity: { value: bp.anchors.shares * bp.anchors.price, source: 'Market price x shares outstanding', asOf: AS_OF },
-        debt: { value: assumptions.netDebt, source: `Net debt on ${LATEST_FISCAL_YEAR} reported balance sheet`, asOf: AS_OF, basis: 'NET_DEBT' },
+        debt: { value: seedNetDebt, source: `Net debt on ${LATEST_FISCAL_YEAR} reported balance sheet`, asOf: AS_OF, basis: 'NET_DEBT' },
         cash: null,
         targetEquityWeight: null,
         rationale: usesRealRate
           ? null
           : 'Observed beta over three years covers a full cycle; country premium taken from the sovereign spread because the revenue is domestic.',
       };
+      // The discount rate is built first, so the DCF discounts at the rate the
+      // build produces. Seeding a model whose stored WACC disagrees with its own
+      // stored build is how the product ended up quoting two costs of capital
+      // for one company.
+      const publishedWacc = buildWaccInstitutional(waccBuild as never).wacc;
+      const assumptions = buildDefaultDcfAssumptions(
+        periods,
+        { price: bp.anchors.price, sharesOutstanding: bp.anchors.shares, beta: bp.anchors.beta },
+        { riskFreeRate: bp.profile.currency === 'BRL' ? 0.105 : 0.042, equityRiskPremium: bp.profile.currency === 'BRL' ? 0.055 : 0.05, statutoryTaxRate: bp.anchors.taxRate, countryRiskPremium: 0 },
+        5,
+        typeof publishedWacc === 'number' && Number.isFinite(publishedWacc) ? publishedWacc : null,
+      );
+      const result = calculateDcf(assumptions);
+      const scenarioDefs = deriveScenarioSet(assumptions);
+      const scenarioResult = runScenarios(scenarioDefs, bp.anchors.price);
+
 
       const model = await prisma.valuationModel.create({
         data: {
