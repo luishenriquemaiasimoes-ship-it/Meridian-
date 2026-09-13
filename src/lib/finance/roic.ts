@@ -17,16 +17,31 @@ export function nopat(p: FinancialPeriod, statutoryTaxRate = 0.34): number | nul
 /**
  * Invested capital, operating (asset-side) definition:
  *   net working capital + net PP&E + intangibles + goodwill + other assets
+ *   - non-current operating liabilities
  * Cash is deliberately excluded — it is not capital employed in operations.
+ *
+ * The last term is the one that is easy to forget. Provisions, deferred tax and
+ * other non-current operating liabilities fund part of the asset base at no
+ * cost, exactly as trade payables do in working capital, and they are not debt —
+ * debt has its own lines. Omitting them overstates the capital employed and so
+ * understates ROIC, and it breaks the reconciliation against the financing-side
+ * definition below by precisely that amount, which is how this was found.
  */
 export function investedCapital(b: BalanceSheet): number | null {
   const nwc = netWorkingCapital(b);
   const fixed = sum(b.ppe, b.intangibles, b.goodwill, b.otherAssets);
   if (!isNum(nwc) && !isNum(fixed)) return null;
-  return (nwc ?? 0) + (fixed ?? 0);
+  return (nwc ?? 0) + (fixed ?? 0) - (isNum(b.otherLiabilities) ? b.otherLiabilities : 0);
 }
 
-/** Financing-side cross-check: total debt + equity - cash. */
+/**
+ * Financing-side cross-check: total debt + equity - cash.
+ *
+ * On a balance sheet that balances this equals investedCapital above. The two
+ * are kept as separate functions so that the identity can be asserted rather
+ * than assumed — a gap between them means a line has been classified as neither
+ * operating nor financing, which is a data-integrity failure, not a rounding one.
+ */
 export function investedCapitalFinancing(b: BalanceSheet): number | null {
   const debt = sum(b.shortTermDebt, b.longTermDebt, b.leaseLiabilities);
   const eq = b.totalEquity;

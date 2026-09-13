@@ -6,6 +6,9 @@ import {
   interestCoverage, inventoryTurnover, netDebt, netDebtToEbitda, netMargin,
   netWorkingCapital, nwcChange, receivablesTurnover, roa, roce, roe, totalDebt,
 } from '@/lib/finance/ratios';
+import { investedCapital, investedCapitalFinancing } from '@/lib/finance/roic';
+import { BLUEPRINTS } from '@/lib/data-providers/mock/blueprints';
+import { buildAnnualPeriods } from '@/lib/data-providers/mock/generator';
 import { EMPTY_BALANCE } from '@/lib/finance/statements';
 import { FY2023, FY2024, makePeriod } from './fixtures';
 
@@ -185,5 +188,27 @@ describe('a snapshot without statements', () => {
     const s = fundamentalSnapshot(null);
     expect(Object.values(s).every((v) => v === null)).toBe(true);
     expect(Object.keys(s).length).toBeGreaterThan(20);
+  });
+});
+
+describe('invested capital reconciliation', () => {
+  it('agrees between the operating and financing definitions across the universe', () => {
+    // The two are the same quantity read off opposite sides of the balance
+    // sheet. A gap means a line was classified as neither operating nor
+    // financing, which changes ROIC for every company that carries it.
+    const gaps: string[] = [];
+    for (const bp of BLUEPRINTS) {
+      for (const p of buildAnnualPeriods(bp)) {
+        const a = investedCapital(p.balance);
+        const f = investedCapitalFinancing(p.balance);
+        if (a == null || f == null) continue;
+        // Tolerance scales with size: these are cent-rounded source lines.
+        const tol = Math.max(1, Math.abs(a) * 1e-6);
+        if (Math.abs(a - f) > tol) {
+          gaps.push(`${bp.profile.ticker} ${p.fiscalYear}: ${a.toFixed(0)} vs ${f.toFixed(0)}`);
+        }
+      }
+    }
+    expect(gaps.slice(0, 10)).toEqual([]);
   });
 });

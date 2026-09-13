@@ -32,8 +32,12 @@ describe('ROIC engine', () => {
   });
 
   it('computes invested capital on the operating definition', () => {
-    expect(investedCapital(FY2024.balance)).toBe(1110);
-    expect(investedCapital(FY2023.balance)).toBe(1020);
+    // Operating assets less BOTH the current operating liabilities and the
+    // non-current ones. Omitting the second was a real defect: it overstated
+    // capital by exactly otherLiabilities and understated ROIC for every
+    // company carrying provisions or deferred tax.
+    expect(investedCapital(FY2024.balance)).toBe(1035);
+    expect(investedCapital(FY2023.balance)).toBe(950);
   });
 
   it('cross-checks invested capital from the financing side', () => {
@@ -41,24 +45,33 @@ describe('ROIC engine', () => {
     expect(investedCapitalFinancing(FY2024.balance)).toBe(1035);
   });
 
+  it('reconciles the two invested-capital definitions exactly', () => {
+    // They are one quantity read off opposite sides of a balance sheet that
+    // balances. This assertion previously did not exist, and the two figures
+    // disagreed by 75 with nothing to catch it.
+    for (const p of [FY2024, FY2023]) {
+      expect(investedCapital(p.balance)).toBe(investedCapitalFinancing(p.balance));
+    }
+  });
+
   it('computes ROIC on average invested capital', () => {
     const r = calculateRoic(FY2024, FY2023);
-    expect(r.investedCapital).toBe(1065);
-    expect(r.roic).toBeCloseTo(0.1945915, 6);
+    expect(r.investedCapital).toBe(992.5);
+    expect(r.roic).toBeCloseTo(0.2088060, 6);
     expect(r.averageCapitalUsed).toBe(true);
   });
 
   it('decomposes into NOPAT margin x capital turnover', () => {
     const r = calculateRoic(FY2024, FY2023);
     expect(r.nopatMargin).toBeCloseTo(0.1802087, 6);
-    expect(r.capitalTurnover).toBeCloseTo(1.0798122, 6);
+    expect(r.capitalTurnover).toBeCloseTo(1.1586902, 6);
     expect((r.nopatMargin as number) * (r.capitalTurnover as number)).toBeCloseTo(r.roic as number, 10);
   });
 
   it('uses closing capital when no prior period is given', () => {
     const r = calculateRoic(FY2024);
     expect(r.averageCapitalUsed).toBe(false);
-    expect(r.roic).toBeCloseTo(207.24 / 1110, 8);
+    expect(r.roic).toBeCloseTo(207.24 / 1035, 8);
   });
 
   it('identifies value creation versus the cost of capital', () => {
@@ -80,7 +93,7 @@ describe('ROIC engine', () => {
   it('builds a ROIC history', () => {
     const s = roicSeries([FY2023, FY2024]);
     expect(s).toHaveLength(2);
-    expect(s[1].roic).toBeCloseTo(0.1945915, 6);
+    expect(s[1].roic).toBeCloseTo(0.2088060, 6);
   });
 });
 
