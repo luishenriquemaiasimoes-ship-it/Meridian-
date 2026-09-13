@@ -139,8 +139,35 @@ export function valueProjection(
       warnings.push('Perpetuity growth is at or above the WACC, so no terminal value is defined.');
     } else {
       const last = cashFlows[cashFlows.length - 1];
-      terminalValue = (last.fcff * (1 + (g as number))) / ((wacc as number) - (g as number));
+      // Normalise capex to a steady state before capitalising it forever.
+      //
+      // The last explicit year is not a steady state for a company still in a
+      // build cycle. A regulated utility here runs capex at over twice
+      // depreciation, which is right while it is growing its asset base and
+      // impossible in perpetuity: at 3% terminal growth the asset base would
+      // rise without bound against revenue. Capitalising that year's FCFF
+      // treats a construction programme as permanent and produced enterprise
+      // values below net debt — a negative equity value for solvent,
+      // dividend-paying companies.
+      //
+      // In the terminal year capex is therefore set to depreciation grown at
+      // the perpetuity rate, which is the level that keeps the asset base
+      // growing exactly as fast as the business. Where capex was already at or
+      // below that level nothing changes, so a brand owner or a software
+      // company is untouched; only the names actually in a build cycle move.
+      // In this array capex is a negative outflow and da is a positive
+      // add-back, so the steady-state level is the LESS negative of the two and
+      // Math.max is the cap, not Math.min.
+      const steadyStateCapex = Math.max(last.capex, -last.da * (1 + (g as number)));
+      const terminalFcff = last.fcff - last.capex + steadyStateCapex;
+      terminalValue = (terminalFcff * (1 + (g as number))) / ((wacc as number) - (g as number));
       pvTerminalValue = terminalValue * (discountFactor(wacc, last.period) ?? 0);
+      if (steadyStateCapex !== last.capex) {
+        warnings.push(
+          `Terminal capex normalised from ${Math.abs(last.capex).toFixed(0)} to ${Math.abs(steadyStateCapex).toFixed(0)} ` +
+          'so that the asset base grows at the perpetuity rate rather than faster than the business forever.',
+        );
+      }
     }
   }
 
@@ -184,11 +211,70 @@ export function valueProjection(
     ? irr([-(equityValueFromFcfe as number), ...cashFlows.map((c) => c.fcfe)])
     : null;
 
-  const attributable = isNum(equityValueFromFcfe)
-    ? (equityValueFromFcfe as number) * ownership
-    : isNum(equityValueFromFcff) ? (equityValueFromFcff as number) * ownership : null;
+  // The unlevered route is published and the levered one is the cross-check,
+  // not the other way round.
+  //
+  // FCFE is equity cash flow after debt service, so it inherits every
+  // assumption in the debt schedule — amortisation, refinancing, the share of
+  // capex funded by debt. In a capital-intensive business that borrows to
+  // invest, those assumptions can hold the equity stream negative for the whole
+  // explicit period and produce a negative equity value for a solvent,
+  // dividend-paying company. That happened here to seven names, among them two
+  // large regulated utilities and a net-lease REIT.
+  //
+  // Discounting FCFF at the WACC and subtracting net debt reaches the same
+  // answer when the financing assumptions are consistent, and degrades far more
+  // gracefully when they are not. Where the two disagree by more than a tenth
+  // the warning above already says so, and the gap is reported as routeGap: the
+  // disagreement is information, but it should not decide which number the
+  // product publishes.
+  const attributable = isNum(equityValueFromFcff)
+    ? (equityValueFromFcff as number) * ownership
+    : isNum(equityValueFromFcfe) ? (equityValueFromFcfe as number) * ownership : null;
+  // A valuation that has stopped meaning anything is withheld rather than
+  // printed.
+  //
+  // Two conditions end it. A terminal year with negative operating profit means
+  // the projection has the company losing money forever, and capitalising that
+  // produces a negative perpetuity — arithmetic, not a view. An enterprise
+  // value at or below zero says the discounted cash flows do not cover the
+  // business at all, and subtracting net debt from it yields a negative price
+  // per share for companies that are solvent and paying dividends.
+  //
+  // Both are data-integrity failures in the inputs, not bear cases, and the
+  // distinction matters: a bear case is a number a reader can disagree with,
+  // while this is a number that should never have been shown. The warning names
+  // the cause so the assumption that broke it can be found and fixed.
+  const terminalYear = cashFlows[cashFlows.length - 1] ?? null;
+  const negativeTerminalNopat = terminalYear != null && terminalYear.nopat < 0;
+  const nonPositiveEv = isNum(enterpriseValue) && (enterpriseValue as number) <= 0;
+  if (negativeTerminalNopat) {
+    warnings.push(
+      'The terminal year has negative operating profit, so there is no perpetuity to capitalise. ' +
+      'No value per share is published: check the cost and depreciation assumptions against the margin.',
+    );
+  }
+  if (nonPositiveEv) {
+    warnings.push(
+      'Enterprise value is not positive, so no value per share is published. ' +
+      'The discounted cash flows do not cover the business, which is an input problem rather than a view.',
+    );
+  }
+  // Limited liability puts a floor of zero under a share price. A model that
+  // returns a negative one is not forecasting a loss, it is reporting that net
+  // debt exceeds the enterprise value — which makes the equity a claim worth
+  // nothing plus option value, not a number with a minus sign in front of it.
+  const negativeEquity = isNum(attributable) && (attributable as number) <= 0;
+  if (negativeEquity && !nonPositiveEv) {
+    warnings.push(
+      'Net debt exceeds the enterprise value, so the equity has no positive value in this model. ' +
+      'No value per share is published: a share cannot be worth less than nothing.',
+    );
+  }
+
   const shares = input.sharesOutstanding;
-  const valuePerShare = isNum(attributable) && isNum(shares) && (shares as number) > 0
+  const valuePerShare = !negativeTerminalNopat && !nonPositiveEv && !negativeEquity
+    && isNum(attributable) && isNum(shares) && (shares as number) > 0
     ? (attributable as number) / (shares as number)
     : null;
   const upside = isNum(valuePerShare) && isNum(input.currentPrice) && (input.currentPrice as number) > 0

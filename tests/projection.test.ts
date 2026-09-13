@@ -608,3 +608,45 @@ describe('capex scales with the revenue it is quoted against', () => {
     if (revGrew) expect(last).toBeGreaterThan(first * 0.9);
   });
 });
+
+describe('a valuation that has stopped meaning anything', () => {
+  it('withholds a valuation when the terminal year loses money', () => {
+    // Capitalising a negative terminal profit produces a negative perpetuity.
+    // That is arithmetic, not a bear case, and a reader cannot disagree with it
+    // usefully — so it is not published.
+    const m = concession();
+    m.costs = m.costs.map((c) =>
+      c.kind === 'PCT_REVENUE' ? { ...c, pct: [1.4] } : c,
+    );
+    const out = valueProjection(m, project(m));
+    expect(out.valuePerShare).toBeNull();
+    expect(out.warnings.join(' ')).toMatch(/negative operating profit|not positive/);
+  });
+
+  it('withholds rather than printing a negative price per share', () => {
+    // Limited liability puts a floor of zero under a share price, so a negative
+    // one is never a forecast — it means net debt exceeds enterprise value.
+    const m = concession();
+    m.opening = { ...m.opening, longTermDebt: 5_000_000 };
+    m.debt = { ...m.debt, openingBalance: 5_000_000 };
+    const out = valueProjection(m, project(m));
+    expect(out.valuePerShare).toBeNull();
+    expect(out.warnings.join(' ')).toMatch(/worth less than nothing|not positive/);
+  });
+
+  it('still publishes a value for a company that simply looks expensive', () => {
+    // The guard must not swallow an ordinary bad result: a low value with a
+    // negative upside is a view, and withholding it would hide the answer.
+    // A low value with a negative upside is a view a reader can disagree with,
+    // and withholding it would hide the answer rather than protect anyone. Debt
+    // is cut here so the fixture clears the integrity guards and the case being
+    // tested is the ordinary one.
+    const m = concession();
+    m.currentPrice = 10_000;
+    m.opening = { ...m.opening, longTermDebt: 40_000, shortTermDebt: 3_000 };
+    m.debt = { ...m.debt, openingBalance: 43_000 };
+    const out = valueProjection(m, project(m));
+    expect(out.valuePerShare).not.toBeNull();
+    expect(out.upside as number).toBeLessThan(0);
+  });
+});

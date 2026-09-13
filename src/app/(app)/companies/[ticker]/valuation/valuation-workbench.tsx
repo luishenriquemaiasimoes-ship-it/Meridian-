@@ -11,6 +11,7 @@ import { WaccBuilder } from './wacc-builder';
 import { ReconciliationPanel } from './reconciliation-panel';
 import { UnitModel } from './unit-model';
 import { FullModel } from './full-model';
+import { ModelAnalysis } from './model-analysis';
 import { HeatmapTable } from '@/components/ui/table';
 import { Bps, MetricCard, Num, StatRow } from '@/components/ui/values';
 import { BarSeriesChart, WaterfallChart } from '@/components/charts';
@@ -26,7 +27,7 @@ import { downloadText, toCsv } from '@/lib/import/csv';
 import type { Currency } from '@/lib/finance/types';
 import { isNum } from '@/lib/finance/core';
 
-type Tab = 'full' | 'wacc' | 'units' | 'reconcile' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
+type Tab = 'full' | 'wacc' | 'sensitivity' | 'scenarios' | 'reverse' | 'units' | 'reconcile' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
 
 const AXIS_LABELS: Record<SensitivityAxis, string> = {
   WACC: 'WACC', TERMINAL_GROWTH: 'Terminal growth', EXIT_MULTIPLE: 'Exit multiple',
@@ -267,6 +268,9 @@ export function ValuationWorkbench(props: {
     { value: 'wacc', label: 'WACC build' },
     { value: 'units', label: 'Unit model' },
     { value: 'reconcile', label: 'Reconciliation' },
+    { value: 'sensitivity', label: 'Sensitivity' },
+    { value: 'scenarios', label: 'Bull / base / bear' },
+    { value: 'reverse', label: 'Reverse solve' },
     { value: 'sotp', label: 'SOTP by multiples' },
     { value: 'bridge', label: 'Expected return' },
   ];
@@ -364,6 +368,15 @@ export function ValuationWorkbench(props: {
           modelId={props.modelId}
           currency={currency}
           canEdit={props.canEdit}
+        />
+      ) : null}
+
+      {tab === 'sensitivity' || tab === 'scenarios' || tab === 'reverse' ? (
+        <ModelAnalysis
+          ticker={props.ticker}
+          modelId={props.modelId}
+          currency={currency}
+          view={tab}
         />
       ) : null}
 

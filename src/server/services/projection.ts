@@ -383,6 +383,30 @@ export async function getPublishedValuation(
  * a sensitivity of the published value. Every cell here is a full run of the
  * same three-statement projection, with the balance sheet closing in each one.
  */
+
+/**
+ * Moves both discount rates together, keeping the spread between them.
+ *
+ * The published value per share comes from the levered route, discounted at the
+ * cost of equity — so varying the WACC alone moves the unlevered route and
+ * leaves the published number untouched. A sensitivity built that way produces
+ * a grid whose rows are identical, which is worse than no grid: it reads as
+ * evidence that the valuation is insensitive to the cost of capital.
+ *
+ * Shifting both by the same amount keeps the capital structure coherent and
+ * moves both routes, so the axis labelled WACC means something for the number
+ * on the page.
+ */
+function shiftDiscountRates(input: ProjectionInput, targetWacc: number): ProjectionInput {
+  const baseWacc = input.wacc ?? targetWacc;
+  const delta = targetWacc - baseWacc;
+  return {
+    ...input,
+    wacc: targetWacc,
+    costOfEquity: input.costOfEquity != null ? input.costOfEquity + delta : input.costOfEquity,
+  };
+}
+
 export function projectionSensitivity(
   input: ProjectionInput,
   waccPoints: number[],
@@ -396,7 +420,7 @@ export function projectionSensitivity(
   const cells: { row: number; col: number; valuePerShare: number | null; upside: number | null }[] = [];
   for (let r = 0; r < waccPoints.length; r += 1) {
     for (let c = 0; c < growthPoints.length; c += 1) {
-      const variant: ProjectionInput = { ...input, wacc: waccPoints[r] };
+      const variant = shiftDiscountRates(input, waccPoints[r]);
       const projected = project(variant);
       const v = valueProjection(variant, projected, { terminalGrowth: growthPoints[c] });
       cells.push({ row: r, col: c, valuePerShare: v.valuePerShare, upside: v.upside });
@@ -438,4 +462,77 @@ export function projectionScenarios(
     const run = runProjection(variant);
     return { key: d.key, valuePerShare: run.valuation.valuePerShare, upside: run.valuation.upside };
   });
+}
+
+/**
+ * Reverse the projection: what does the current price already assume?
+ *
+ * A forward model answers "what is it worth"; this answers "what would have to
+ * be true for today's price to be right", which is the more useful question
+ * when the two disagree. It solves twice, because the price can be justified by
+ * either half of the equation and the reader should see both: the uniform
+ * revenue growth adjustment that makes the model agree with the price, and the
+ * discount rate that does the same at unchanged growth.
+ *
+ * Bisection rather than a closed form, because the projection is a full
+ * three-statement run with a debt schedule and a tax charge that respond to the
+ * inputs; there is no expression to invert. Both solves are monotonic in their
+ * variable over any sane range, so bisection converges and a failure to bracket
+ * is reported rather than hidden behind a plausible number.
+ */
+export function projectionReverse(
+  input: ProjectionInput,
+  targetPrice: number,
+): {
+  impliedGrowthDelta: number | null;
+  impliedWacc: number | null;
+  baseValuePerShare: number | null;
+  targetPrice: number;
+} {
+  const valueAt = (variant: ProjectionInput): number | null =>
+    runProjection(variant).valuation.valuePerShare;
+
+  const withGrowthDelta = (d: number): ProjectionInput => ({
+    ...input,
+    revenue: input.revenue.map((line) =>
+      line.kind === 'VOLUME_PRICE'
+        ? { ...line, volumeGrowth: (line.volumeGrowth ?? [0]).map((g: number) => g + d) }
+        : line.kind === 'GROWTH'
+          ? { ...line, revenueGrowth: (line.revenueGrowth ?? [0]).map((g: number) => g + d) }
+          : line,
+    ),
+  });
+
+  const solve = (
+    make: (x: number) => ProjectionInput,
+    lo: number,
+    hi: number,
+  ): number | null => {
+    const f = (x: number) => {
+      const v = valueAt(make(x));
+      return v == null ? null : v - targetPrice;
+    };
+    let a = f(lo);
+    let b = f(hi);
+    if (a == null || b == null) return null;
+    // Not bracketed means the price cannot be reached anywhere in the range,
+    // which is itself the answer and should not be rounded into one.
+    if (a > 0 === b > 0) return null;
+    let x = lo;
+    for (let i = 0; i < 60; i += 1) {
+      x = (lo + hi) / 2;
+      const mid = f(x);
+      if (mid == null) return null;
+      if (Math.abs(mid) < 1e-6) break;
+      if ((mid > 0) === (a > 0)) { lo = x; a = mid; } else { hi = x; b = mid; }
+    }
+    return x;
+  };
+
+  return {
+    impliedGrowthDelta: solve(withGrowthDelta, -0.30, 0.30),
+    impliedWacc: solve((w) => shiftDiscountRates(input, w), 0.02, 0.60),
+    baseValuePerShare: valueAt(input),
+    targetPrice,
+  };
 }
