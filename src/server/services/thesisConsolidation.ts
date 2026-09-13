@@ -2,7 +2,8 @@ import { prisma, parseJson } from '@/lib/db';
 import { getComps } from './comps';
 import { getModelReconciliation } from './reconciliation';
 import { defaultAssumptionsFor } from './valuation';
-import { calculateDcf, normalizeAssumptions, type DcfAssumptions } from '@/lib/finance/dcf';
+import { normalizeAssumptions, type DcfAssumptions } from '@/lib/finance/dcf';
+import { getPublishedValuation } from './projection';
 import { deriveScenarioSet, runScenarios } from '@/lib/finance/scenarios';
 import { MULTIPLE_LABELS, MULTIPLE_FORMATS, type MultipleKey } from '@/lib/finance/comps';
 import type { DeckRisk, DeckThesis, StressTest } from '@/lib/research/types';
@@ -132,8 +133,10 @@ export async function getThesisConsolidation(
     ? normalizeAssumptions(parseJson<Partial<DcfAssumptions>>(model.assumptions, {}))
     : await defaultAssumptionsFor(symbol);
 
-  const base = assumptions ? calculateDcf(assumptions) : null;
-  const currentPrice = base?.currentPrice ?? null;
+  // The published valuation, from the full projection. The thesis quotes the
+  // same number the valuation page does; there is no second model to reconcile.
+  const published = await getPublishedValuation(symbol, { workspaceId });
+  const currentPrice = published?.currentPrice ?? null;
 
   let scenarios: ConsolidatedScenario[] = [];
   let expectedValue: number | null = null;

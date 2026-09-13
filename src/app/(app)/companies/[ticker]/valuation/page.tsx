@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation';
+import { getPublishedValuation } from '@/server/services/projection';
 import type { Metadata } from 'next';
 import { requirePageContext } from '@/server/context';
 import { getCompanyDossier } from '@/server/services/company';
@@ -34,6 +35,7 @@ export default async function ValuationPage({ params }: { params: Promise<{ tick
   ]);
 
   const dcfModel = models.find((mm) => mm.kind === 'DCF') ?? null;
+  const published = await getPublishedValuation(ticker, { workspaceId: ctx.workspaceId, modelId: dcfModel?.id ?? null });
   const savedAssumptions = dcfModel ? (dcfModel.assumptions as unknown as DcfAssumptions) : null;
   const savedScenarios = dcfModel?.scenarios as ScenarioDefinition[] | null;
 
@@ -46,6 +48,7 @@ export default async function ValuationPage({ params }: { params: Promise<{ tick
       companyId={dossier.company.id}
       currency={dossier.company.currency as Currency}
       assumptions={savedAssumptions ?? defaults}
+      published={published}
       isSaved={!!dcfModel}
       modelId={dcfModel?.id ?? null}
       modelName={dcfModel?.name ?? `${dossier.company.ticker} — DCF`}

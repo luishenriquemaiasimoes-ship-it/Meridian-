@@ -30,6 +30,11 @@ export function UnitModel(props: {
   canEdit: boolean;
   assumptions: DcfAssumptions;
   /** Value per share the single-stream DCF produces, for comparison. */
+  /**
+   * The published valuation. The unit build is a cross-check against it: if
+   * summing the driver streams lands somewhere else, one of the two has a
+   * driver wrong, and the gap is the thing worth looking at.
+   */
   singleStreamValue: number | null;
 }) {
   const toast = useToast();

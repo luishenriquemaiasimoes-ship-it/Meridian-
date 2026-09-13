@@ -8,6 +8,7 @@ import {
 import { reconcileTerminalValue, type TerminalReconciliation } from '@/lib/finance/terminalValue';
 import { requiredDcfInputs, verifyInputs, type SourceKind, type VerificationReport } from '@/lib/finance/provenance';
 import { calculateDcf, normalizeAssumptions, type DcfAssumptions } from '@/lib/finance/dcf';
+import { getPublishedValuation } from './projection';
 import type { WaccBuildInput } from '@/lib/finance/waccBuilder';
 import { isNum, safeDiv } from '@/lib/finance/core';
 
@@ -88,11 +89,17 @@ export async function getModelReconciliation(
   const stored = model ? parseJson<Partial<DcfAssumptions>>(model.assumptions, {}) : {};
   const assumptions = normalizeAssumptions({ ...stored, ...(override ?? {}) });
   const result = calculateDcf(assumptions);
+  // The model target reconciled against contributed targets is the published
+  // one, from the full projection. Reconciling a different model's output
+  // against the street would compare the analyst's view to a number the
+  // product does not quote anywhere else.
+  const published = await getPublishedValuation(ticker, { workspaceId, modelId: model?.id ?? null });
+  const modelTarget = published?.valuePerShare ?? null;
   const price = dossier.metrics.price;
 
   /* ------------------------------ Consensus ------------------------------ */
   const consensus = reconcileWithConsensus(
-    result.fairValuePerShare,
+    modelTarget,
     targetRows.map((t) => ({ source: t.contributor, targetPrice: t.targetPrice, recommendation: t.recommendation, asOf: t.asOf.toISOString() })),
     price,
   );
@@ -178,7 +185,7 @@ export async function getModelReconciliation(
     currency: dossier.company.currency,
     modelId: model?.id ?? null,
     modelName: model?.name ?? null,
-    targetPrice: result.fairValuePerShare,
+    targetPrice: modelTarget,
     currentPrice: price,
     consensus,
     contributors: targetRows.map((t) => ({

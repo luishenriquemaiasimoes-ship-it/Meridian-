@@ -7,7 +7,7 @@ import { defaultAssumptionsFor } from '@/server/services/valuation';
 import { getFactorProfile } from '@/server/services/screener';
 import { getThesisConsolidation } from '@/server/services/thesisConsolidation';
 import { prisma, parseJson } from '@/lib/db';
-import { calculateDcf } from '@/lib/finance/dcf';
+import { getPublishedValuation } from '@/server/services/projection';
 import { deriveScenarioSet, runScenarios } from '@/lib/finance/scenarios';
 import { ThesisWorkbench } from './thesis-workbench';
 import type { Currency } from '@/lib/finance/types';
@@ -51,10 +51,12 @@ export default async function ThesisPage({ params }: { params: Promise<{ ticker:
   const scenarioAnalysis = assumptions
     ? runScenarios(deriveScenarioSet(assumptions), dossier.metrics.price)
     : null;
-  const baseResult = assumptions ? calculateDcf(assumptions) : null;
+  // The thesis quotes the published valuation, so it cannot disagree with the
+  // valuation page a reader clicks through to.
+  const published = await getPublishedValuation(dossier.company.ticker, { workspaceId: ctx.workspaceId });
 
   const factorProfile = await getFactorProfile(dossier.company.ticker, {
-    upside: thesisHealth?.upside ?? baseResult?.upside ?? null,
+    upside: thesisHealth?.upside ?? published?.upside ?? null,
     catalystCount: thesis?.catalysts.length ?? 0,
     catalystProbabilityAvg: thesis?.catalysts.length
       ? thesis.catalysts.reduce((s, c) => s + c.probability, 0) / thesis.catalysts.length
@@ -69,7 +71,7 @@ export default async function ThesisPage({ params }: { params: Promise<{ ticker:
       companyName={dossier.company.name}
       currency={dossier.company.currency as Currency}
       currentPrice={dossier.metrics.price}
-      modelFairValue={baseResult?.fairValuePerShare ?? null}
+      modelFairValue={published?.valuePerShare ?? null}
       canEdit={ctx.can('thesis:write')}
       consolidation={consolidation}
       thesis={thesis ? {

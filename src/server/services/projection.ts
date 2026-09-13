@@ -321,3 +321,121 @@ export function runProjection(input: ProjectionInput): ProjectionRun {
 
 export { project, valueProjection };
 export type { ProjectionInput, ProjectionResult, ProjectionValuation };
+
+/**
+ * The one fair value the product publishes for a company.
+ *
+ * Everything that quotes a value per share or an upside — the overview, the
+ * screener, the thesis, memos, alerts, the AI answers — reads this. There is
+ * no second valuation to disagree with it.
+ *
+ * It is the full three-statement projection rather than the standalone DCF
+ * because the projection is the model that can be checked: it carries a balance
+ * sheet that has to close, a debt schedule that has to amortise, vintage
+ * depreciation, and both routes to equity with the gap between them reported.
+ * A five-year FCFF sketch cannot be audited the same way, and a product that
+ * published both published two answers to one question.
+ *
+ * Returns null when the projection cannot be built. Callers then show nothing
+ * rather than falling back to a different model, because a fallback is how a
+ * second valuation gets back in.
+ */
+export async function getPublishedValuation(
+  ticker: string,
+  opts?: { workspaceId?: string | null; modelId?: string | null },
+): Promise<{
+  valuePerShare: number | null;
+  upside: number | null;
+  currentPrice: number | null;
+  enterpriseValue: number | null;
+  equityValue: number | null;
+  wacc: number | null;
+  costOfEquity: number | null;
+  warnings: string[];
+} | null> {
+  const context = await buildProjectionContext(
+    opts?.workspaceId ?? '',
+    ticker,
+    opts?.modelId ?? null,
+  );
+  if (!context) return null;
+  const input = context.saved ?? context.suggested;
+  const run = runProjection(input);
+  const v = run.valuation;
+  return {
+    valuePerShare: v.valuePerShare,
+    upside: v.upside,
+    currentPrice: v.currentPrice,
+    enterpriseValue: v.enterpriseValue,
+    equityValue: v.attributableEquityValue,
+    wacc: input.wacc ?? null,
+    costOfEquity: input.costOfEquity ?? null,
+    warnings: v.warnings ?? [],
+  };
+}
+
+/**
+ * Sensitivity and scenarios, run on the projection rather than on a second
+ * engine.
+ *
+ * The point of moving these is not that the grid is better maths — it is that
+ * a sensitivity computed on a different model from the published value is not
+ * a sensitivity of the published value. Every cell here is a full run of the
+ * same three-statement projection, with the balance sheet closing in each one.
+ */
+export function projectionSensitivity(
+  input: ProjectionInput,
+  waccPoints: number[],
+  growthPoints: number[],
+): {
+  waccAxis: number[];
+  growthAxis: number[];
+  cells: { row: number; col: number; valuePerShare: number | null; upside: number | null }[];
+  base: number | null;
+} {
+  const cells: { row: number; col: number; valuePerShare: number | null; upside: number | null }[] = [];
+  for (let r = 0; r < waccPoints.length; r += 1) {
+    for (let c = 0; c < growthPoints.length; c += 1) {
+      const variant: ProjectionInput = { ...input, wacc: waccPoints[r] };
+      const projected = project(variant);
+      const v = valueProjection(variant, projected, { terminalGrowth: growthPoints[c] });
+      cells.push({ row: r, col: c, valuePerShare: v.valuePerShare, upside: v.upside });
+    }
+  }
+  const base = runProjection(input).valuation.valuePerShare;
+  return { waccAxis: waccPoints, growthAxis: growthPoints, cells, base };
+}
+
+/**
+ * Bull, base and bear as three runs of the same model.
+ *
+ * The levers are revenue growth and operating margin, because those are what an
+ * analyst actually disagrees about; the discount rate is held so that the three
+ * cases differ on the business rather than on the arithmetic.
+ */
+export function projectionScenarios(
+  input: ProjectionInput,
+  deltas: { key: 'BULL' | 'BASE' | 'BEAR'; growthDelta: number; costDelta: number }[] = [
+    { key: 'BULL', growthDelta: 0.02, costDelta: -0.01 },
+    { key: 'BASE', growthDelta: 0, costDelta: 0 },
+    { key: 'BEAR', growthDelta: -0.02, costDelta: 0.01 },
+  ],
+): { key: string; valuePerShare: number | null; upside: number | null }[] {
+  return deltas.map((d) => {
+    const variant: ProjectionInput = {
+      ...input,
+      revenue: input.revenue.map((line) =>
+        line.kind === 'VOLUME_PRICE'
+          ? { ...line, volumeGrowth: (line.volumeGrowth ?? [0]).map((g: number) => g + d.growthDelta) }
+          : line.kind === 'GROWTH'
+            ? { ...line, revenueGrowth: (line.revenueGrowth ?? [0]).map((g: number) => g + d.growthDelta) }
+            : line,
+      ),
+      costs: input.costs.map((c) =>
+        c.kind === 'PCT_REVENUE' ? { ...c, pct: (c.pct ?? [0]).map((x: number) => x + d.costDelta) } : c,
+      ),
+    };
+    const run = runProjection(variant);
+    return { key: d.key, valuePerShare: run.valuation.valuePerShare, upside: run.valuation.upside };
+  });
+}

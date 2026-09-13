@@ -26,7 +26,7 @@ import { downloadText, toCsv } from '@/lib/import/csv';
 import type { Currency } from '@/lib/finance/types';
 import { isNum } from '@/lib/finance/core';
 
-type Tab = 'model' | 'full' | 'wacc' | 'units' | 'reconcile' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
+type Tab = 'full' | 'wacc' | 'units' | 'reconcile' | 'sensitivity' | 'reverse' | 'scenarios' | 'sotp' | 'bridge';
 
 const AXIS_LABELS: Record<SensitivityAxis, string> = {
   WACC: 'WACC', TERMINAL_GROWTH: 'Terminal growth', EXIT_MULTIPLE: 'Exit multiple',
@@ -49,6 +49,15 @@ export function ValuationWorkbench(props: {
   sotpInput: SotpInput | null;
   sotpModelId: string | null;
   peerMedianEvEbitda: number | null;
+  /**
+   * The published fair value, from the full three-statement projection. This is
+   * the only valuation the product quotes; the headline reads it rather than
+   * any figure computed on this page.
+   */
+  published: {
+    valuePerShare: number | null; upside: number | null;
+    enterpriseValue: number | null; equityValue: number | null;
+  } | null;
   peerMedianPe: number | null;
   targetPrice: number | null;
   dividendYield: number;
@@ -60,7 +69,7 @@ export function ValuationWorkbench(props: {
   const toast = useToast();
   const { currency } = props;
 
-  const [tab, setTab] = useState<Tab>('model');
+  const [tab, setTab] = useState<Tab>('full');
   const [assumptions, setAssumptions] = useState<DcfAssumptions>(
     () => normalizeAssumptions(props.assumptions ?? {}),
   );
@@ -210,11 +219,11 @@ export function ValuationWorkbench(props: {
   const expected = useMemo(
     () => expectedReturn({
       currentPrice: assumptions.currentPrice ?? 0,
-      targetPrice: props.targetPrice ?? result.fairValuePerShare,
+      targetPrice: props.targetPrice ?? props.published?.valuePerShare ?? null,
       dividendYield: props.dividendYield,
       years: 1,
     }),
-    [assumptions.currentPrice, props.targetPrice, props.dividendYield, result.fairValuePerShare],
+    [assumptions.currentPrice, props.targetPrice, props.dividendYield, props.published?.valuePerShare],
   );
 
   const exportForecastCsv = () => {
@@ -248,20 +257,16 @@ export function ValuationWorkbench(props: {
       rowLabels={grid.rowValues.map(rowFmt)}
       colLabels={grid.colValues.map(colFmt)}
       cells={grid.cells.map((row) => row.map((c) => c.fairValue))}
-      centerValue={result.fairValuePerShare}
+      centerValue={props.published?.valuePerShare ?? null}
       formatCell={(v) => (isNum(v) ? (v as number).toFixed(2) : DASH)}
     />
   );
 
   const tabs: { value: Tab; label: string }[] = [
-    { value: 'model', label: 'Model' },
     { value: 'full', label: 'Full model' },
     { value: 'wacc', label: 'WACC build' },
     { value: 'units', label: 'Unit model' },
     { value: 'reconcile', label: 'Reconciliation' },
-    { value: 'sensitivity', label: 'Sensitivity' },
-    { value: 'reverse', label: 'Reverse DCF' },
-    { value: 'scenarios', label: 'Bull / base / bear' },
     { value: 'sotp', label: 'SOTP by multiples' },
     { value: 'bridge', label: 'Expected return' },
   ];
@@ -303,10 +308,11 @@ export function ValuationWorkbench(props: {
 
       {/* Headline outputs — always visible */}
       <div className="grid gap-2 sm:grid-cols-3 lg:grid-cols-6">
-        <MetricCard label="Fair value / share" value={result.fairValuePerShare} format="currency" currency={currency} decimals={2} accent
-          sublabel={`vs ${formatPercent(result.upside, 1, { signed: true })} to price`} />
-        <MetricCard label="Enterprise value" value={result.enterpriseValue} format="currencyMillions" currency={currency} />
-        <MetricCard label="Equity value" value={result.equityValue} format="currencyMillions" currency={currency}
+        <MetricCard label="Fair value / share" value={props.published?.valuePerShare ?? null} format="currency" currency={currency} decimals={2} accent
+          sublabel={`vs ${formatPercent(props.published?.upside ?? null, 1, { signed: true })} to price`}
+          tooltip="From the full three-statement projection, which is the only valuation this product publishes." />
+        <MetricCard label="Enterprise value" value={props.published?.enterpriseValue ?? null} format="currencyMillions" currency={currency} />
+        <MetricCard label="Equity value" value={props.published?.equityValue ?? null} format="currencyMillions" currency={currency}
           sublabel="after net debt and minority interest" />
         <MetricCard label="Terminal value share" value={result.terminalValuePctOfEv} format="percent"
           sublabel="of enterprise value" tooltip="A high share means the valuation rests on perpetuity assumptions rather than the explicit forecast." />
@@ -330,230 +336,9 @@ export function ValuationWorkbench(props: {
         </InlineNote>
       ) : null}
 
-      {tab === 'model' ? (
-        <ModelTab
-          assumptions={assumptions} result={result} currency={currency}
-          canEdit={props.canEdit}
-          patch={patch} patchArray={patchArray} patchSingle={patchSingle} patchCapexFade={patchCapexFade}
-          addYear={addYear} removeYear={removeYear}
-          peerMedianEvEbitda={props.peerMedianEvEbitda}
-        />
-      ) : null}
 
-      {tab === 'sensitivity' ? (
-        <div className="space-y-4">
-          <InlineNote tone="info">
-            Each grid re-runs the whole model for every cell. The centre cell is the current model; colour is
-            relative to it, and the numbers are fair value per share in {currency}.
-          </InlineNote>
-          <div className="grid gap-4 xl:grid-cols-2">
-            <Panel padded={false}>
-              <div className="p-3 pb-2"><PanelHeader title="WACC × terminal growth" subtitle="The two assumptions the terminal value is most sensitive to" dense /></div>
-              {heat(gridWaccGrowth, (v) => formatPercent(v, 2), (v) => formatPercent(v, 2), 'WACC', 'TERMINAL_GROWTH')}
-            </Panel>
-            <Panel padded={false}>
-              <div className="p-3 pb-2"><PanelHeader title="WACC × exit multiple" subtitle="Terminal value on an exit multiple rather than a perpetuity" dense /></div>
-              {heat(gridWaccExit, (v) => formatPercent(v, 2), (v) => formatMultiple(v), 'WACC', 'EXIT_MULTIPLE')}
-            </Panel>
-          </div>
-          <Panel padded={false}>
-            <div className="p-3 pb-2"><PanelHeader title="Revenue growth × EBITDA margin" subtitle="Operating assumptions held flat across the forecast" dense /></div>
-            {heat(gridGrowthMargin, (v) => formatPercent(v, 1), (v) => formatPercent(v, 1), 'REVENUE_GROWTH', 'EBITDA_MARGIN')}
-          </Panel>
-          <Panel>
-            <PanelHeader title="Upside grid" subtitle="The same WACC × terminal growth grid expressed as upside against the current price" dense />
-            <HeatmapTable
-              rowTitle="WACC" colTitle="Terminal growth"
-              rowLabels={gridWaccGrowth.rowValues.map((v) => formatPercent(v, 2))}
-              colLabels={gridWaccGrowth.colValues.map((v) => formatPercent(v, 2))}
-              cells={gridWaccGrowth.cells.map((row) => row.map((c) => c.upside))}
-              centerValue={0}
-              formatCell={(v) => (isNum(v) ? formatPercent(v, 0, { signed: true }) : DASH)}
-            />
-          </Panel>
-        </div>
-      ) : null}
 
-      {tab === 'reverse' ? (
-        <div className="grid gap-4 lg:grid-cols-[340px_minmax(0,1fr)]">
-          <Panel>
-            <PanelHeader title="What does the price imply?" subtitle="Solve the model backwards from a price you choose." dense />
-            <Field label={`Price (${currency})`} hint="Defaults to the current market price.">
-              <NumberInput value={reversePrice} onValueChange={setReversePrice} step="0.01" />
-            </Field>
-            <div className="mt-2 flex gap-2">
-              <Button size="xs" onClick={() => setReversePrice(assumptions.currentPrice ?? 0)}>Market price</Button>
-              {isNum(result.fairValuePerShare) ? (
-                <Button size="xs" onClick={() => setReversePrice(result.fairValuePerShare as number)}>Model fair value</Button>
-              ) : null}
-              {isNum(props.targetPrice) ? (
-                <Button size="xs" onClick={() => setReversePrice(props.targetPrice as number)}>Target price</Button>
-              ) : null}
-            </div>
-            <div className="mt-4 border-t border-line pt-3">
-              <p className="text-xs leading-relaxed text-ink-3">{reverse.message}</p>
-            </div>
-          </Panel>
 
-          <div className="space-y-4">
-            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-              <MetricCard label="Implied revenue CAGR" value={reverse.impliedRevenueCagr} format="percent"
-                sublabel={`model assumes ${formatPercent(assumptions.revenueGrowth[0])}`} accent />
-              <MetricCard label="Implied EBITDA margin" value={reverse.impliedEbitdaMargin} format="percent"
-                sublabel={`model assumes ${formatPercent(assumptions.ebitdaMargin[0])}`} />
-              <MetricCard label="Implied terminal growth" value={reverse.impliedTerminalGrowth} format="percent"
-                sublabel={`model assumes ${formatPercent(assumptions.terminalGrowth)}`} />
-              <MetricCard label="Implied exit multiple" value={reverse.impliedExitMultiple} format="multiple"
-                sublabel={props.peerMedianEvEbitda ? `peer median ${formatMultiple(props.peerMedianEvEbitda)}` : undefined} />
-            </div>
-
-            <Panel>
-              <PanelHeader title="Reading the result" dense />
-              <ul className="space-y-2 text-base leading-relaxed text-ink-2">
-                {isNum(reverse.impliedRevenueCagr) ? (
-                  <li className="flex gap-2">
-                    <Icon.ArrowRight size={13} className="mt-1 shrink-0 text-accent" />
-                    <span>
-                      Holding every other assumption constant, a price of{' '}
-                      <Num value={reversePrice} format="currency" currency={currency} decimals={2} className="text-base" /> requires
-                      revenue to compound at <strong className="text-ink">{formatPercent(reverse.impliedRevenueCagr)}</strong> across the forecast window.
-                    </span>
-                  </li>
-                ) : null}
-                {isNum(reverse.impliedEbitdaMargin) ? (
-                  <li className="flex gap-2">
-                    <Icon.ArrowRight size={13} className="mt-1 shrink-0 text-accent" />
-                    <span>
-                      Alternatively, at the modelled growth rate the same price requires an EBITDA margin of{' '}
-                      <strong className="text-ink">{formatPercent(reverse.impliedEbitdaMargin)}</strong>.
-                    </span>
-                  </li>
-                ) : null}
-                {isNum(reverse.impliedRoic) ? (
-                  <li className="flex gap-2">
-                    <Icon.ArrowRight size={13} className="mt-1 shrink-0 text-accent" />
-                    <span>
-                      The reinvestment implied by the terminal assumptions corresponds to a return on new capital of{' '}
-                      <strong className="text-ink">{formatPercent(reverse.impliedRoic)}</strong>.
-                    </span>
-                  </li>
-                ) : null}
-                <li className="flex gap-2">
-                  <Icon.Info size={13} className="mt-1 shrink-0 text-ink-4" />
-                  <span className="text-ink-3">
-                    Each figure solves one input at a time. The useful question is not whether the model is right,
-                    but whether the operating performance the price requires is achievable.
-                  </span>
-                </li>
-              </ul>
-            </Panel>
-          </div>
-        </div>
-      ) : null}
-
-      {tab === 'scenarios' ? (
-        <div className="space-y-4">
-          <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
-            {scenarioAnalysis.scenarios.map((s) => (
-              <MetricCard
-                key={s.key}
-                label={s.label}
-                value={s.fairValue} format="currency" currency={currency} decimals={2}
-                delta={s.upside}
-                sublabel={`${formatPercent(s.probability, 0)} probability`}
-                accent={s.key === 'BASE'}
-              />
-            ))}
-            <MetricCard
-              label="Expected value"
-              value={scenarioAnalysis.expectedValue} format="currency" currency={currency} decimals={2}
-              delta={scenarioAnalysis.expectedUpside}
-              sublabel="probability-weighted"
-              accent
-            />
-          </div>
-
-          {!scenarioAnalysis.probabilitiesValid ? (
-            <InlineNote tone="warn">
-              The probabilities sum to {formatPercent(scenarioAnalysis.probabilityTotal, 0)}. The expected value
-              below is renormalised, but the weights should add to 100%.
-            </InlineNote>
-          ) : null}
-
-          <div className="grid gap-4 lg:grid-cols-[320px_minmax(0,1fr)]">
-            <Panel>
-              <PanelHeader title="Probabilities" subtitle="How much weight each case carries." dense />
-              {(['bull', 'base', 'bear'] as const).map((k) => (
-                <Field key={k} label={k === 'bull' ? 'Bull' : k === 'base' ? 'Base' : 'Bear'} className="mb-2">
-                  <PercentInput value={probabilities[k]} step={0.5} decimals={0}
-                onValueChange={(v) => setProbabilities((p) => ({ ...p, [k]: v }))} />
-                </Field>
-              ))}
-              <div className="mt-3 border-t border-line pt-3">
-                <StatRow label="Risk / reward" hint="Upside to the bull case divided by downside to the bear case." value={<Num value={scenarioAnalysis.riskReward} format="ratio" decimals={2} />} />
-                <StatRow label="Dispersion" hint="Bull minus bear, as a share of the current price." value={<Num value={scenarioAnalysis.dispersion} format="percent" />} />
-              </div>
-            </Panel>
-
-            <div className="space-y-4">
-              <BarSeriesChart
-                data={scenarioAnalysis.scenarios.map((s) => ({ label: s.label, fairValue: s.fairValue }))}
-                xKey="label"
-                series={[{ key: 'fairValue', label: 'Fair value per share', format: 'currency', currency }]}
-                title="Fair value by scenario"
-                subtitle="The dashed line marks the current market price"
-                referenceValue={assumptions.currentPrice}
-                yFormat="currency" currency={currency} height={220}
-                footnote="The dashed line is the current market price."
-              />
-              <Panel padded={false}>
-                <div className="p-3 pb-2"><PanelHeader title="Assumptions by scenario" dense /></div>
-                <div className="overflow-auto">
-                  <table className="w-full border-collapse text-base">
-                    <thead>
-                      <tr>
-                        <th className="label border-b border-line px-2.5 py-1.5 text-left">Assumption</th>
-                        {scenarioAnalysis.scenarios.map((s) => (
-                          <th key={s.key} className="label border-b border-line px-2.5 py-1.5 text-right">{s.label}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {([
-                        ['Revenue growth (year 1)', (a: DcfAssumptions) => a.revenueGrowth[0], 'percent'],
-                        ['EBITDA margin (year 1)', (a: DcfAssumptions) => a.ebitdaMargin[0], 'percent'],
-                        ['WACC', (a: DcfAssumptions) => a.wacc, 'percent'],
-                        ['Terminal growth', (a: DcfAssumptions) => a.terminalGrowth, 'percent'],
-                      ] as const).map(([label, pick, fmt]) => (
-                        <tr key={label} className="border-b border-line/50">
-                          <td className="px-2.5 py-1 text-ink-2">{label}</td>
-                          {scenarioAnalysis.scenarios.map((s) => (
-                            <td key={s.key} className="px-2.5 py-1 text-right">
-                              <Num value={pick(s.result.assumptions)} format={fmt} />
-                            </td>
-                          ))}
-                        </tr>
-                      ))}
-                      <tr className="border-b border-line/50 font-medium">
-                        <td className="px-2.5 py-1 text-ink">Fair value per share</td>
-                        {scenarioAnalysis.scenarios.map((s) => (
-                          <td key={s.key} className="px-2.5 py-1 text-right"><Num value={s.fairValue} format="currency" currency={currency} decimals={2} /></td>
-                        ))}
-                      </tr>
-                      <tr>
-                        <td className="px-2.5 py-1 text-ink">Upside</td>
-                        {scenarioAnalysis.scenarios.map((s) => (
-                          <td key={s.key} className="px-2.5 py-1 text-right"><Num value={s.upside} format="percentSigned" /></td>
-                        ))}
-                      </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </Panel>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {tab === 'sotp' ? (
         <SotpTab
@@ -569,7 +354,7 @@ export function ValuationWorkbench(props: {
           currency={currency}
           canEdit={props.canEdit}
           currentModelWacc={assumptions.wacc}
-          onApply={(wacc) => { patch({ wacc }); setTab('model'); }}
+          onApply={(wacc) => { patch({ wacc }); setTab('full'); }}
         />
       ) : null}
 
@@ -579,7 +364,6 @@ export function ValuationWorkbench(props: {
           modelId={props.modelId}
           currency={currency}
           canEdit={props.canEdit}
-          dcfFairValue={result.fairValuePerShare}
         />
       ) : null}
 
@@ -590,7 +374,7 @@ export function ValuationWorkbench(props: {
           currency={currency}
           canEdit={props.canEdit}
           assumptions={assumptions}
-          singleStreamValue={result.fairValuePerShare}
+          singleStreamValue={props.published?.valuePerShare ?? null}
         />
       ) : null}
 

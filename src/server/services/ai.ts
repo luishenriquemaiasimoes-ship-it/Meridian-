@@ -5,6 +5,7 @@ import { getMetricsMap, ratesForCurrency } from './metrics';
 import { getPortfolioAnalytics } from './portfolio';
 import { evaluateThesisHealth } from './alerts';
 import { defaultAssumptionsFor } from './valuation';
+import { getPublishedValuation } from './projection';
 import { calculateDcf, reverseDcf } from '@/lib/finance/dcf';
 import { buildDefaultDcfAssumptions } from '@/lib/finance/modelDefaults';
 import type { AiContext, CompanyContext, PortfolioContext } from '@/lib/ai/context';
@@ -94,6 +95,9 @@ export async function buildCompanyContext(
     );
   }
 
+  // The value the AI quotes is the published one, so an answer never disagrees
+  // with the page the reader is looking at.
+  const publishedValue = await getPublishedValuation(ticker, { workspaceId });
   const dcfResult = assumptions ? calculateDcf(assumptions) : null;
   const rev = assumptions && isNum(m.price) ? reverseDcf(assumptions, m.price as number) : null;
 
@@ -169,8 +173,8 @@ export async function buildCompanyContext(
     dcf: dcfResult && assumptions
       ? {
           name: dcfName,
-          fairValuePerShare: dcfResult.fairValuePerShare,
-          upside: dcfResult.upside,
+          fairValuePerShare: publishedValue?.valuePerShare ?? dcfResult.fairValuePerShare,
+          upside: publishedValue?.upside ?? dcfResult.upside,
           wacc: assumptions.wacc,
           terminalGrowth: assumptions.terminalGrowth,
           revenueGrowth: assumptions.revenueGrowth,
