@@ -192,6 +192,12 @@ export interface OpeningBalance {
 export interface ProjectionInput {
   ticker?: string;
   currency?: Currency;
+  /**
+   * True for banks and insurers. Their balance sheet is the business, so the
+   * enterprise-value bridge below does not apply and no value per share is
+   * published from it.
+   */
+  balanceSheetFunded?: boolean;
   /** Fiscal year of the last reported period. */
   baseYear: number;
   /** Number of years to project. */

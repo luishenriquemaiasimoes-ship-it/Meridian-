@@ -288,6 +288,16 @@ export function valueProjection(
   // distinction matters: a bear case is a number a reader can disagree with,
   // while this is a number that should never have been shown. The warning names
   // the cause so the assumption that broke it can be found and fixed.
+  // A bank or an insurer is not valued this way at all. Deposits and float are
+  // raw material, so subtracting them as net debt subtracts the business from
+  // itself; these are valued on equity, never on free cash flow to the firm.
+  if (input.balanceSheetFunded) {
+    warnings.push(
+      'Enterprise value does not apply to a deposit- or float-funded balance sheet, so no value per share is published. ' +
+      'Banks and insurers are valued on equity — a dividend discount, an excess return over the cost of equity, or a multiple of book.',
+    );
+  }
+
   const terminalYear = cashFlows[cashFlows.length - 1] ?? null;
   const negativeTerminalNopat = terminalYear != null && terminalYear.nopat < 0;
   const nonPositiveEv = isNum(enterpriseValue) && (enterpriseValue as number) <= 0;
@@ -316,7 +326,7 @@ export function valueProjection(
   }
 
   const shares = input.sharesOutstanding;
-  const valuePerShare = !negativeTerminalNopat && !nonPositiveEv && !negativeEquity
+  const valuePerShare = !input.balanceSheetFunded && !negativeTerminalNopat && !nonPositiveEv && !negativeEquity
     && isNum(attributable) && isNum(shares) && (shares as number) > 0
     ? (attributable as number) / (shares as number)
     : null;

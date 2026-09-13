@@ -650,3 +650,23 @@ describe('a valuation that has stopped meaning anything', () => {
     expect(out.upside as number).toBeLessThan(0);
   });
 });
+
+describe('financials funded by their own balance sheet', () => {
+  it('publishes no value per share for a bank or insurer', () => {
+    // Deposits are raw material, not financing. Subtracting them as net debt
+    // subtracts the business from itself, which is how six banks came to carry
+    // upsides between 47% and 115%.
+    const m = concession();
+    m.balanceSheetFunded = true;
+    const out = valueProjection(m, project(m));
+    expect(out.valuePerShare).toBeNull();
+    expect(out.warnings.join(' ')).toMatch(/deposit- or float-funded/);
+  });
+
+  it('leaves an ordinary company alone', () => {
+    const m = concession();
+    m.balanceSheetFunded = false;
+    const out = valueProjection(m, project(m));
+    expect(out.warnings.join(' ')).not.toMatch(/deposit- or float-funded/);
+  });
+});

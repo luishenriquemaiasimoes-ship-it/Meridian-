@@ -5839,6 +5839,26 @@ export function isBankLike(industry: string): boolean {
  * Homebuilders are deliberately excluded: they turn inventory rather than hold
  * property, so ROIC means for them what it means anywhere else.
  */
+/**
+ * Balance-sheet-funded financials, where an enterprise-value DCF is meaningless.
+ *
+ * A bank's deposits are raw material, not financing: it borrows in order to
+ * lend, and the spread is the product. Subtracting "net debt" from an
+ * enterprise value therefore subtracts the business from itself, and capex and
+ * working capital have no meaning on that balance sheet. An insurer's float is
+ * the same thing wearing a different name.
+ *
+ * These are valued on equity — dividend discount, excess return over the cost
+ * of equity, or a multiple of book — never on free cash flow to the firm. The
+ * product already refuses to compute ROIC for them for the same reason; this
+ * extends that refusal to the valuation, where the consequence was larger: six
+ * banks were carrying upsides between 47% and 115% produced by an equity
+ * bridge that does not apply to them.
+ */
+export function isBalanceSheetFunded(industry: string): boolean {
+  return isBankLike(industry) || industry === 'Insurance';
+}
+
 export function isPropertyLike(industry: string): boolean {
   return industry.includes('REITs') || industry === 'Real Estate Management & Development';
 }

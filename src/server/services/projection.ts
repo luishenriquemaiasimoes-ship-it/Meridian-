@@ -8,6 +8,7 @@ import { getWaccBuildContext } from './wacc';
 import { isNum, mean, safeDiv } from '@/lib/finance/core';
 import type { FinancialPeriod } from '@/lib/finance/types';
 import { findBlueprint } from '@/lib/data-providers/mock/blueprints';
+import { isBalanceSheetFunded } from '@/lib/data-providers/mock/blueprints';
 
 /* ==================================================================
    Building a full model from what the company has reported.
@@ -272,6 +273,7 @@ export async function buildProjectionContext(
   const suggested: ProjectionInput = {
     ticker: symbol,
     currency: dossier.company.currency,
+    balanceSheetFunded: isBalanceSheetFunded(dossier.company.industry),
     baseYear,
     years: PROJECTION_YEARS,
     opening: {
