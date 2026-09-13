@@ -145,6 +145,41 @@ export function maintenanceCapex(
  * maintenance. So capex fades on the same schedule the growth fades, and the
  * two stay coupled instead of being assumed independently.
  */
+/**
+ * Growth fades toward the long-run rate, but never upward past where it started
+ * and never downward past zero.
+ *
+ * The trailing mean used to be written into a one-element array and the engine
+ * repeats the last entry, so every company grew at its own recent rate for the
+ * whole horizon — which for a company coming off two years above 100% forecast
+ * sixty percent a year for a decade. Nothing grows faster than the economy
+ * forever; that is what a perpetuity assumption means, and a ten-year explicit
+ * period that ignores it just moves the impossibility inside the forecast.
+ *
+ * Converging from BELOW would be the opposite error: a mature telecom growing
+ * 1.5% today accelerating to 4% by year ten is not mean reversion, it is an
+ * assumption that maturity reverses. So the fade never speeds a company up.
+ *
+ * A decline is the third case and it is not symmetric with maturity. Held flat,
+ * a -4% rate compounds to a third of the revenue gone by year ten, and since
+ * the asset base and its depreciation do not shrink with the top line the model
+ * eventually shows negative operating profit and refuses to publish a value at
+ * all. That is what happened to Shell and Usiminas — both going concerns in a
+ * commodity trough, both unvaluable. Decline rates revert toward zero, since a
+ * business shrinking 4% a year forever does not exist at the end of it, so the
+ * decline decays rather than persisting. It still never turns the corner into
+ * growth the company is not showing.
+ */
+export function growthFadePath(
+  start: number,
+  target: number,
+  years = PROJECTION_YEARS,
+  fade = FADE_FACTOR,
+): number[] {
+  const floor = Math.min(target, Math.max(start, 0));
+  return Array.from({ length: years }, (_, i) => floor + (start - floor) * fade ** i);
+}
+
 export function capexFadePath(
   capexPct: number,
   maintenancePct: number,
@@ -179,6 +214,36 @@ export const GROWTH_PRIOR_EXCESS = 0.045;
 export const CROSS_SECTIONAL_GROWTH_SPREAD = 0.076;
 
 /**
+ * The same measurement one level down: what each sector grows at, in excess of
+ * its currencies' long-run nominal rate.
+ *
+ * A company is more like its sector than like the universe, and the sectors are
+ * genuinely apart — 4.3 points of spread between their means against 2.5 points
+ * of noise inside any one of them. Materials run below their economies' nominal
+ * growth and information technology well above it, so weighting a miner and a
+ * semiconductor designer against the same universe average is shrinking both
+ * toward a population neither belongs to.
+ *
+ * Each figure is itself the sector's own mean weighted against the universe by
+ * how well its members pin it down, so a thin sector does not get to assert a
+ * rate on the strength of nine companies. Derived by `npm run audit:growth` and
+ * pinned by a test.
+ */
+export const SECTOR_GROWTH_EXCESS: Record<string, number> = {
+  Materials: -0.034,
+  'Communication Services': 0.024,
+  'Consumer Staples': 0.027,
+  Energy: 0.031,
+  Financials: 0.040,
+  Industrials: 0.044,
+  Utilities: 0.045,
+  'Health Care': 0.054,
+  'Real Estate': 0.056,
+  'Consumer Discretionary': 0.062,
+  'Information Technology': 0.072,
+};
+
+/**
  * The trailing growth rate, weighted by how much of it is signal.
  *
  * Five years of revenue give four or five growth observations, and for a
@@ -208,10 +273,11 @@ export const CROSS_SECTIONAL_GROWTH_SPREAD = 0.076;
 export function shrinkGrowth(
   yearly: number[],
   longRun: number,
+  sector?: string | null,
   tau = CROSS_SECTIONAL_GROWTH_SPREAD,
-  priorExcess = GROWTH_PRIOR_EXCESS,
 ): { growth: number; weight: number; standardError: number; prior: number } {
-  const prior = longRun + priorExcess;
+  const excess = (sector != null ? SECTOR_GROWTH_EXCESS[sector] : undefined) ?? GROWTH_PRIOR_EXCESS;
+  const prior = longRun + excess;
   const m = mean(yearly);
   if (!isNum(m) || yearly.length < 2) {
     return { growth: prior, weight: 0, standardError: Infinity, prior };
@@ -283,21 +349,9 @@ export async function buildProjectionContext(
    */
   const longRun = LONG_RUN_NOMINAL_GROWTH[dossier.company.currency] ?? 0.04;
 
-  const shrunk = shrinkGrowth(yearlyGrowth, longRun);
+  const shrunk = shrinkGrowth(yearlyGrowth, longRun, dossier.company.sector);
   const historicalGrowth = shrunk.growth;
-  /**
-   * The fade only ever slows a company down.
-   *
-   * Converging toward long-run growth from BELOW would forecast a mature
-   * telecom growing 1.5% today accelerating to 4% by year ten, which is not
-   * mean reversion, it is an assumption that maturity reverses. Where the
-   * starting rate is already at or under the long-run rate the path is flat;
-   * the decay applies only to growth that is above what an economy can sustain.
-   */
-  const fadeGrowth = (start: number, target = longRun): number[] => {
-    const floor = Math.min(target, start);
-    return Array.from({ length: PROJECTION_YEARS }, (_, i) => floor + (start - floor) * FADE_FACTOR ** i);
-  };
+  const fadeGrowth = (start: number, target = longRun): number[] => growthFadePath(start, target);
 
   /**
    * Where the business has one natural unit, the top line is built from it:
@@ -390,8 +444,26 @@ export async function buildProjectionContext(
   const ppe = latest.balance.ppe ?? 0;
   const intangibles = (latest.balance.intangibles ?? 0) + (latest.balance.goodwill ?? 0);
   const daAmount = isNum(latest.income.da) ? Math.abs(latest.income.da as number) : 0;
-  // Implied life: the asset base divided by what is charged against it.
-  const impliedLife = daAmount > 0 ? Math.round((ppe + intangibles) / daAmount) : 12;
+
+  /**
+   * The useful life of what the company buys, backed out of what it owns.
+   *
+   * The book value divided by the annual charge is NOT the useful life. Under
+   * straight line an asset of age `a` still carries (L-a)/L of its cost, so a
+   * base in steady state settles at C*(L+1)/2 against an annual charge of C —
+   * the ratio is the AVERAGE REMAINING life, (L+1)/2, and the useful life is
+   * twice it less one. Reading the ratio as the life halved the life of
+   * everything the company bought next, and the excess charge accumulated: it
+   * took Shell's projected operating margin from 7.3% to zero across ten years
+   * in which revenue fell 11%, and the model then declined to value it at all.
+   *
+   * Goodwill is out of the numerator because it is never amortised — it
+   * contributes nothing to the charge it would be divided by. Left in, it made
+   * AMD's asset base look like it lasted half a century.
+   */
+  const amortisingBase = ppe + (latest.balance.intangibles ?? 0);
+  const averageRemainingLife = daAmount > 0 ? amortisingBase / daAmount : 6.5;
+  const impliedLife = Math.round(2 * averageRemainingLife - 1);
 
   const daPct = Math.abs(mean(annuals.map((p) =>
     ratio(isNum(p.income.da) ? Math.abs(p.income.da as number) : null, p.income.revenue))) ?? 0.05);
@@ -532,7 +604,8 @@ export async function buildProjectionContext(
     { path: 'costs.sga', label: 'Despesas % da receita', value: sgaPct, source: statementSource },
     { path: 'capex.pct', label: 'Capex % da receita (ano 1)', value: capexPath[0], source: `Fluxo de caixa, média de ${annuals.length} anos` },
     { path: 'capex.maintenance', label: 'Capex de manutenção % da receita', value: maintenanceCapexPct, source: 'Depreciação a repor mais o crescimento de longo prazo, limitada ao que a empresa sustenta — o nível que o crescimento projetado exige' },
-    { path: 'capex.life', label: 'Vida útil implícita', value: impliedLife, source: 'Base de ativos dividida pela depreciação do período' },
+    { path: 'capex.life', label: 'Vida útil implícita', value: impliedLife,
+      source: `Base amortizável sobre a depreciação do período dá ${averageRemainingLife.toFixed(1)} anos de vida média remanescente; a vida útil é o dobro menos um` },
     { path: 'debt.opening', label: 'Dívida bruta', value: grossDebt, source: statementSource },
     { path: 'debt.cost', label: 'Custo da dívida implícito', value: impliedKd, source: `Resultado financeiro sobre a dívida bruta, FY${baseYear}` },
     { path: 'debt.amortisation', label: 'Anos de amortização implícitos', value: amortisationYears, source: `Parcela circulante sobre a dívida bruta, FY${baseYear}` },

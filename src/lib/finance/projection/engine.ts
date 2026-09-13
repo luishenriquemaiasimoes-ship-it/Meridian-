@@ -438,19 +438,23 @@ export function project(input: ProjectionInput): ProjectionResult {
     return input.capex[0]?.usefulLife ?? 10;
   };
 
-  const openingTangibleLife = input.capex[0]?.amortiseToYear
+  // A concession's opening base all ends on the contract date; an ordinary
+  // company's is a stack of vintages built up over years of investment.
+  const endsOnADate = isNum(input.capex[0]?.amortiseToYear);
+  const openingTangibleLife = endsOnADate
     ? Math.max(1, (input.capex[0].amortiseToYear as number) - input.baseYear)
     : (input.capex[0]?.usefulLife ?? 10);
+  const openingShape = endsOnADate ? 'TO_DATE' as const : 'STACK' as const;
 
   const depreciationSchedule = buildVintageSchedule({
     baseYear: input.baseYear, years: n,
     openingBalance: opening.tangibleAssets, openingLife: openingTangibleLife,
-    additions: tangibleAdditions, lifeFor,
+    openingShape, additions: tangibleAdditions, lifeFor,
   });
   const amortisationSchedule = buildVintageSchedule({
     baseYear: input.baseYear, years: n,
     openingBalance: opening.intangibleAssets, openingLife: openingTangibleLife,
-    additions: intangibleAdditions, lifeFor,
+    openingShape, additions: intangibleAdditions, lifeFor,
   });
 
   /* --- debt ------------------------------------------------------ */

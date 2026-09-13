@@ -3,10 +3,10 @@ import { project } from '@/lib/finance/projection/engine';
 import { valueProjection } from '@/lib/finance/projection/valuation';
 import { buildDebtSchedule, buildVintageSchedule } from '@/lib/finance/projection/schedule';
 import {
-  capexFadePath, maintenanceCapex, shrinkGrowth,
-  CROSS_SECTIONAL_GROWTH_SPREAD, GROWTH_PRIOR_EXCESS,
+  capexFadePath, growthFadePath, maintenanceCapex, shrinkGrowth,
+  CROSS_SECTIONAL_GROWTH_SPREAD, GROWTH_PRIOR_EXCESS, SECTOR_GROWTH_EXCESS,
 } from '@/server/services/projection';
-import { deriveGrowthPrior, yearlyGrowthOf } from '../scripts/audit-growth';
+import { deriveGrowthPrior, deriveSectorPriors, yearlyGrowthOf } from '../scripts/audit-growth';
 import type { ProjectionInput } from '@/lib/finance/projection/types';
 
 /* A concession, modelled the way the reference model does it: a toll
@@ -79,10 +79,10 @@ function concession(overrides: Partial<ProjectionInput> = {}): ProjectionInput {
 }
 
 describe('vintage schedules', () => {
-  it('keeps charging the opening balance over the life it has left', () => {
+  it('writes a contract-dated base off over the years it has left', () => {
     const s = buildVintageSchedule({
       baseYear: 2025, years: 5, openingBalance: 1000, openingLife: 10,
-      additions: [0, 0, 0, 0, 0], lifeFor: () => 10,
+      openingShape: 'TO_DATE', additions: [0, 0, 0, 0, 0], lifeFor: () => 10,
     });
     expect(s.rows.find((r) => r.year === 2026)?.charge).toBeCloseTo(100, 6);
     expect(s.rows.find((r) => r.year === 2030)?.closing).toBeCloseTo(500, 6);
@@ -804,20 +804,43 @@ describe('a trailing growth rate is weighted by how much of it is signal', () =>
     // company downward — the universe's median model value fell from 1.03x
     // market to 0.91x when it was tried that way.
     const noisy = [0.40, -0.10, 0.35, 0.05, 0.20];
-    const toPopulation = shrinkGrowth(noisy, 0.04);
-    const toEconomy = shrinkGrowth(noisy, 0.04, CROSS_SECTIONAL_GROWTH_SPREAD, 0);
-    expect(toPopulation.growth).toBeGreaterThan(toEconomy.growth);
-    expect(toPopulation.prior).toBeCloseTo(0.04 + GROWTH_PRIOR_EXCESS, 10);
+    const s = shrinkGrowth(noisy, 0.04);
+    expect(s.prior).toBeCloseTo(0.04 + GROWTH_PRIOR_EXCESS, 10);
+    expect(s.growth).toBeGreaterThan(0.04);
   });
 
-  it('pins the prior to what the universe actually shows', () => {
-    // The weight needs two numbers a single company cannot supply: where the
-    // population sits, and how far apart its members genuinely are. Both are
+  it('weights a company against its own sector, not the whole universe', () => {
+    // Materials run below their economies' nominal growth and information
+    // technology well above it. Shrinking a miner and a semiconductor designer
+    // toward the same universe average is using a prior neither belongs to.
+    const noisy = [0.40, -0.10, 0.35, 0.05, 0.20];
+    const miner = shrinkGrowth(noisy, 0.04, 'Materials');
+    const semi = shrinkGrowth(noisy, 0.04, 'Information Technology');
+    expect(miner.prior).toBeLessThan(0.04);
+    expect(semi.prior).toBeGreaterThan(0.10);
+    expect(miner.growth).toBeLessThan(semi.growth);
+  });
+
+  it('falls back to the universe for a sector it has no measurement for', () => {
+    const noisy = [0.40, -0.10, 0.35, 0.05, 0.20];
+    expect(shrinkGrowth(noisy, 0.04, 'Conglomerates').prior)
+      .toBeCloseTo(0.04 + GROWTH_PRIOR_EXCESS, 10);
+  });
+
+  it('pins the priors to what the universe actually shows', () => {
+    // The weight needs numbers a single company cannot supply: where its
+    // population sits, and how far apart the members genuinely are. All are
     // derived from the cross-section, not chosen, so the constants have to
     // track the derivation.
     const derived = deriveGrowthPrior();
     expect(derived.excess).toBeCloseTo(GROWTH_PRIOR_EXCESS, 3);
     expect(derived.spread).toBeCloseTo(CROSS_SECTIONAL_GROWTH_SPREAD, 3);
+
+    const sectors = deriveSectorPriors();
+    expect(Object.keys(sectors).sort()).toEqual(Object.keys(SECTOR_GROWTH_EXCESS).sort());
+    for (const [sector, value] of Object.entries(sectors)) {
+      expect(SECTOR_GROWTH_EXCESS[sector]).toBeCloseTo(value, 3);
+    }
   });
 
   it('shrinks the companies whose own window is noisiest, and only those', () => {
@@ -825,5 +848,92 @@ describe('a trailing growth rate is weighted by how much of it is signal', () =>
     const visa = shrinkGrowth(yearlyGrowthOf('V'), 0.04);
     expect(nvda.weight).toBeLessThan(0.2);
     expect(visa.weight).toBeGreaterThan(0.99);
+  });
+});
+
+describe('growth fades toward what an economy can sustain', () => {
+  it('brings an impossible rate down', () => {
+    // Held flat, a company off two years above 100% forecasts sixty percent a
+    // year for a decade and reaches revenue no market is that large.
+    const path = growthFadePath(0.60, 0.04);
+    expect(path[0]).toBeCloseTo(0.60, 6);
+    for (let i = 1; i < path.length; i += 1) expect(path[i]).toBeLessThan(path[i - 1]);
+    expect(path[path.length - 1]).toBeLessThan(0.20);
+    expect(path[path.length - 1]).toBeGreaterThan(0.04);
+  });
+
+  it('never speeds a mature company up', () => {
+    // Converging from below would forecast a telecom growing 1.5% today
+    // accelerating to 4% by year ten. That is not mean reversion, it is an
+    // assumption that maturity reverses.
+    const path = growthFadePath(0.015, 0.04);
+    for (const g of path) expect(g).toBeCloseTo(0.015, 10);
+  });
+
+  it('lets a decline decay toward zero instead of compounding forever', () => {
+    // Held flat, -4% leaves a third of the revenue gone by year ten while the
+    // asset base and its depreciation stay put, so operating profit goes
+    // negative and the model refuses to publish any value. Shell and Usiminas
+    // are going concerns in a commodity trough; both came out unvaluable.
+    const path = growthFadePath(-0.04, 0.04);
+    expect(path[0]).toBeCloseTo(-0.04, 6);
+    for (let i = 1; i < path.length; i += 1) expect(path[i]).toBeGreaterThan(path[i - 1]);
+    expect(path[path.length - 1]).toBeLessThan(0);
+    expect(path[path.length - 1]).toBeGreaterThan(-0.01);
+
+    const flat = Array.from({ length: 10 }, () => -0.04);
+    const shrink = (p: number[]) => p.reduce((a, g) => a * (1 + g), 1);
+    expect(shrink(path)).toBeGreaterThan(shrink(flat));
+  });
+
+  it('never turns a decline into growth the company is not showing', () => {
+    for (const g of growthFadePath(-0.04, 0.04)) expect(g).toBeLessThanOrEqual(0);
+  });
+});
+
+describe('an asset base in steady state charges a steady depreciation', () => {
+  /* A business that spends exactly what it consumes: annual capex equal to the
+     depreciation charge, on a base whose book value is what that policy leaves
+     behind. Under straight line with a useful life L, net book value settles at
+     C*(L+1)/2 against an annual charge of C — so the book value divided by the
+     charge is (L+1)/2, NOT L. Reading it as L halves the life of everything the
+     company buys next, and the excess charge accumulates year on year. */
+  const LIFE = 17;
+  const CAPEX = 100;
+  const steadyStateBook = Array.from({ length: LIFE }, (_, a) => CAPEX * (LIFE - a) / LIFE)
+    .reduce((a, b) => a + b, 0);
+
+  it('has a book value of (L+1)/2 times its annual charge', () => {
+    expect(steadyStateBook / CAPEX).toBeCloseTo((LIFE + 1) / 2, 6);
+  });
+
+  it('does not let the charge drift while capex matches it', () => {
+    const schedule = buildVintageSchedule({
+      baseYear: 2025,
+      years: 10,
+      openingBalance: steadyStateBook,
+      openingLife: LIFE,
+      additions: new Array(10).fill(CAPEX),
+      lifeFor: () => LIFE,
+    });
+
+    // Year one continues from the last reported charge rather than restarting:
+    // the stack charges the book value over its average remaining life, plus
+    // one year of the new vintage.
+    expect(schedule.rows[0].charge).toBeCloseTo(CAPEX * (1 + 1 / LIFE), 6);
+
+    // And it stays there. This is the invariant that matters — a company
+    // spending exactly what it consumes must not show a rising charge.
+    for (const row of schedule.rows) {
+      expect(row.charge).toBeCloseTo(schedule.rows[0].charge, 6);
+    }
+
+    // The base it is charged against holds too.
+    // The base holds too, to within the one-year convention: an addition here
+    // starts charging in the year it lands rather than the year after, so the
+    // charge runs 1/L above replacement.
+    const last = schedule.rows[schedule.rows.length - 1];
+    expect(last.closing / steadyStateBook).toBeGreaterThan(0.90);
+    expect(last.closing / steadyStateBook).toBeLessThan(1.02);
   });
 });

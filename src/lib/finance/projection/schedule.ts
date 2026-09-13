@@ -42,26 +42,62 @@ export function closingIn(schedule: VintageSchedule, year: number): number | nul
 }
 
 /**
- * Builds the schedule. The opening balance is itself a vintage, written off
- * over the life it has left — which is what makes the first projected year's
- * charge continuous with the last reported one instead of restarting.
+ * Builds the schedule.
+ *
+ * The opening balance is laid out as a STACK, not as one vintage. A base a
+ * company already owns is a mix of assets of every age — some nearly new, some
+ * about to retire — and the difference is not cosmetic. Treated as a single
+ * vintage of one age, nothing retires while new capex piles on top, so the
+ * charge climbs year after year even for a company spending exactly what it
+ * consumes. Shell's projected operating margin fell from 7.3% to zero over ten
+ * years that way, on a revenue line that only declined 11%, and the model then
+ * refused to value it at all.
+ *
+ * Laid out properly the stack retires one vintage a year, which is what offsets
+ * the new capex being added, and a business in steady state shows a steady
+ * charge. `openingLife` is the USEFUL life of that base — not the average life
+ * remaining on it, which is roughly half as long.
  */
 export function buildVintageSchedule(input: {
   baseYear: number;
   years: number;
-  /** The balance already on the books, and the life it has left. */
+  /** The balance already on the books, and the useful life of what is in it. */
   openingBalance: number;
   openingLife: number;
+  /**
+   * How that balance is laid out.
+   *
+   * STACK — the default — is a base built up over years of ordinary investment:
+   * a mix of assets of every age, one cohort retiring each year. TO_DATE is a
+   * base that all ends together on a stated date, which is what a concession
+   * asset does when the contract expires; there `openingLife` is the years left
+   * on the contract rather than a useful life.
+   */
+  openingShape?: 'STACK' | 'TO_DATE';
   /** Additions per projected year, positive, in order from baseYear + 1. */
   additions: number[];
   /** Life applied to each addition. */
   lifeFor: (year: number) => number;
 }): VintageSchedule {
   const { baseYear, years, openingBalance, openingLife, additions, lifeFor } = input;
+  const openingShape = input.openingShape ?? 'STACK';
 
   const vintages: Vintage[] = [];
   if (openingBalance > 0 && openingLife > 0) {
-    vintages.push({ year: baseYear, amount: openingBalance, life: openingLife });
+    if (openingShape === 'TO_DATE') {
+      vintages.push({ year: baseYear, amount: openingBalance, life: openingLife });
+    } else {
+      // Under straight line the vintage with `r` years left still carries `r/L`
+      // of its cost, so the book value splits across remaining lives in
+      // proportion to them. Summed, the stack charges 2 * balance / (L + 1) in
+      // the first year — the balance over its average remaining life, and so
+      // continuous with the last reported charge.
+      const life = Math.max(1, Math.round(openingLife));
+      const weight = (life * (life + 1)) / 2;
+      for (let remaining = 1; remaining <= life; remaining++) {
+        vintages.push({ year: baseYear, amount: (openingBalance * remaining) / weight, life: remaining });
+      }
+    }
   }
   for (let i = 0; i < years; i++) {
     const year = baseYear + i + 1;
