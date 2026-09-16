@@ -17,7 +17,7 @@ import { fromBrapi, fromYahoo } from '../src/lib/data-providers/live/quotes';
 import { cikFor, companyFacts, annualYears, statementsFor, recentFilings } from '../src/lib/data-providers/live/sec';
 import {
   fetchDfpYear, foldRows, incomeFrom, balanceFrom, statementFile,
-  findByDescription, DEPRECIATION_PATTERN, CAPEX_PATTERN,
+  findByDescription, DEPRECIATION_PATTERN, isCapexLine,
 } from '../src/lib/data-providers/live/cvm';
 import { fetchRegistry, resolveCnpj } from '../src/lib/data-providers/live/registry';
 import { findBlueprint } from '../src/lib/data-providers/mock/blueprints';
@@ -160,7 +160,17 @@ async function main(): Promise<void> {
         console.log(`        ativo ${m(balance?.totalAssets)}  PL ${m(balance?.totalEquity)}  imobilizado ${m(balance?.ppe)}`);
         if (dfc) {
           const mine = dfc.filter((r) => r.CNPJ_CIA === found.cnpj && (r.ORDEM_EXERC ?? '').startsWith('\u00DALT'));
-          console.log(`        D&A ${m(findByDescription(mine, '6.01', DEPRECIATION_PATTERN))}  capex ${m(findByDescription(mine, '6.02', CAPEX_PATTERN))}`);
+          const da = findByDescription(mine, '6.01', DEPRECIATION_PATTERN);
+          const capex = findByDescription(mine, '6.02', isCapexLine);
+          console.log(`        D&A ${m(da)}  capex ${m(capex)}`);
+          if (capex === null) {
+            // The investing block is named by the company, so when nothing
+            // matches, show what is actually in there rather than guess again.
+            console.log(`        ${RED}nenhuma linha de capex reconhecida. O bloco 6.02 tem:${OFF}`);
+            for (const r of mine.filter((x) => x.CD_CONTA?.startsWith('6.02'))) {
+              console.log(`        ${DIM}  ${r.CD_CONTA}  ${r.DS_CONTA}${OFF}`);
+            }
+          }
         }
       }
     }

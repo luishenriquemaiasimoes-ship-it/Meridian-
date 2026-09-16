@@ -256,10 +256,11 @@ export function cashFlowFrom(m: Map<string, number>, netIncome: number | null): 
  * so a word appearing in the wrong half cannot be picked up by accident.
  */
 export function findByDescription(
-  rows: Row[], blockPrefix: string, pattern: RegExp,
+  rows: Row[], blockPrefix: string, test: RegExp | ((description: string) => boolean),
 ): number | null {
+  const matches_ = (d: string) => (test instanceof RegExp ? test.test(d) : test(d));
   const matches = rows.filter(
-    (r) => r.CD_CONTA?.startsWith(blockPrefix) && pattern.test(r.DS_CONTA ?? ''),
+    (r) => r.CD_CONTA?.startsWith(blockPrefix) && matches_(r.DS_CONTA ?? ''),
   );
   if (matches.length === 0) return null;
 
@@ -277,7 +278,31 @@ export function findByDescription(
 }
 
 export const DEPRECIATION_PATTERN = /deprecia|amortiza|exaust/i;
-export const CAPEX_PATTERN = /aquisi[çc][ãa]o de imobilizado|aquisi[çc][ãa]o de intang[íi]vel|no imobilizado|em imobilizado|ativo imobilizado e intang/i;
+
+/**
+ * Capital expenditure, identified by what it buys rather than by how it is
+ * phrased.
+ *
+ * The first version listed phrasings — "aquisição de imobilizado" and a few
+ * neighbours — and found nothing for either Petrobras or Vale, because
+ * Brazilian statements overwhelmingly say "Adições ao Imobilizado". Listing
+ * verbs is a losing game: companies name these lines themselves, and there are
+ * as many phrasings as there are filers.
+ *
+ * What does not vary is the asset. Inside the investing block, money moving in
+ * respect of `imobilizado` or `intangível` is capital expenditure — unless it
+ * is moving the other way. Disposals belong to the same assets and must not be
+ * netted into the spend: a company selling a refinery has not invested in one.
+ */
+const CAPEX_ASSET = /imobilizado|intang[íi]vel/i;
+const DISPOSAL = /venda|alienac|aliena[çc]|baixa|recebiment|recebid|desinvest|aliena/i;
+
+export function isCapexLine(description: string): boolean {
+  return CAPEX_ASSET.test(description) && !DISPOSAL.test(description);
+}
+
+/** Retained for callers that want the asset test on its own. */
+export const CAPEX_PATTERN = CAPEX_ASSET;
 
 /** The zipped DFP file for one year. */
 export function dfpUrl(year: number): string {
