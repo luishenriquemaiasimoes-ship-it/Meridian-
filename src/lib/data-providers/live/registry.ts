@@ -49,8 +49,14 @@ export interface RegistryEntry {
 
 export interface Registry {
   entries: RegistryEntry[];
-  /** Normalised legal name to every entry carrying it. */
-  byName: Map<string, RegistryEntry[]>;
+  /**
+   * Normalised name to the DISTINCT companies carrying it, keyed by CNPJ.
+   *
+   * Keyed by CNPJ rather than held as a list because the registry has a row per
+   * registration category, so one company appears several times under the same
+   * name. Two rows are only an ambiguity when they are two companies.
+   */
+  byName: Map<string, Map<string, RegistryEntry>>;
 }
 
 export async function fetchRegistry(): Promise<Fetched<Registry>> {
@@ -76,14 +82,19 @@ export async function fetchRegistry(): Promise<Fetched<Registry>> {
     return failed(REGISTRY, `the registry had ${rows.length} rows but none active with a CNPJ`);
   }
 
-  const byName = new Map<string, RegistryEntry[]>();
+  // The registry carries more than one row per company — one per registration
+  // category — so a name legitimately resolves to several rows that are all the
+  // same filer. Collapsing on CNPJ here is what keeps that from reading as an
+  // ambiguity later: Petrobras appeared twice, with one CNPJ, and was refused.
+  const byName = new Map<string, Map<string, RegistryEntry>>();
   for (const e of entries) {
     for (const name of [e.legalName, e.tradeName]) {
       if (!name) continue;
       const key = normaliseName(name);
       if (!key) continue;
-      const list = byName.get(key);
-      if (list) { if (!list.includes(e)) list.push(e); } else byName.set(key, [e]);
+      const byCnpj = byName.get(key) ?? new Map<string, RegistryEntry>();
+      if (!byCnpj.has(e.cnpj)) byCnpj.set(e.cnpj, e);
+      byName.set(key, byCnpj);
     }
   }
 
@@ -104,23 +115,48 @@ export type Resolution =
  * spells it differently.
  */
 export function resolveCnpj(registry: Registry, legalName: string, tradeName?: string): Resolution {
-  for (const [label, name] of [['razão social', legalName], ['nome de pregão', tradeName]] as const) {
-    if (!name) continue;
-    const key = normaliseName(name);
-    const hits = registry.byName.get(key);
-    if (!hits || hits.length === 0) continue;
+  const attempt = (label: string, hits: RegistryEntry[] | undefined): Resolution | null => {
+    if (!hits || hits.length === 0) return null;
     if (hits.length > 1) {
       return {
         ok: false,
-        reason: `${hits.length} companies share the ${label} "${name}"`,
+        reason: `${hits.length} companies match by ${label}`,
         candidates: hits.map((h) => `${h.legalName} (${h.cnpj})`),
       };
     }
     return { ok: true, cnpj: hits[0].cnpj, matchedOn: label, entry: hits[0] };
+  };
+
+  // Exact, on either name the platform holds.
+  for (const [label, name] of [['razão social', legalName], ['nome de pregão', tradeName]] as const) {
+    if (!name) continue;
+    const key = normaliseName(name);
+    const found = attempt(label, [...(registry.byName.get(key)?.values() ?? [])]);
+    if (found) return found;
+  }
+
+  /**
+   * The registry commonly appends the trading name to the legal one —
+   * "PETROLEO BRASILEIRO S.A. - PETROBRAS" against the "Petróleo Brasileiro
+   * S.A." a filing carries. So a registry name that BEGINS with the whole
+   * normalised name, at a word boundary, is the same company.
+   *
+   * The direction matters and only one of them is safe. Accepting a registry
+   * name that is a prefix of ours would match "BANCO DO BRASIL" to "BANCO", and
+   * the extra words are the ones that identify the company.
+   */
+  const key = normaliseName(legalName);
+  if (key.length >= 8) {
+    const extended = new Map<string, RegistryEntry>();
+    for (const [name, companies] of registry.byName) {
+      if (name === key || !name.startsWith(`${key} `)) continue;
+      for (const [cnpj, entry] of companies) extended.set(cnpj, entry);
+    }
+    const found = attempt('razão social estendida', [...extended.values()]);
+    if (found) return found;
   }
 
   // Nothing matched: offer the closest spellings rather than a bare failure.
-  const key = normaliseName(legalName);
   const first = key.split(' ')[0] ?? '';
   const near = first.length >= 4
     ? registry.entries.filter((e) => normaliseName(e.legalName).startsWith(first)).slice(0, 5)
