@@ -157,3 +157,65 @@ export async function quote(ticker: string, country: string): Promise<Fetched<Li
 
   return failed(second.url, `${first.reason} | then ${second.reason}`);
 }
+
+/* ---------------------------- history ---------------------------- */
+
+export interface PriceBar {
+  date: string;
+  open: number; high: number; low: number; close: number; volume: number;
+}
+
+/**
+ * Daily closes, for the price chart and for the beta regression.
+ *
+ * Yahoo is used for both the stock and the index because a beta is only
+ * meaningful when both legs are measured the same way, on the same calendar,
+ * from the same source.
+ */
+export async function history(
+  symbol: string, range = '3y',
+): Promise<Fetched<PriceBar[]>> {
+  const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}`
+    + `?range=${range}&interval=1d`;
+  const res = await getJson<{
+    chart?: {
+      result?: {
+        timestamp?: number[];
+        indicators?: { quote?: { open?: (number | null)[]; high?: (number | null)[]; low?: (number | null)[]; close?: (number | null)[]; volume?: (number | null)[] }[] };
+      }[];
+      error?: { description?: string };
+    };
+  }>(url);
+  if (!res.ok) return res as Fetched<PriceBar[]>;
+
+  const chart = res.value.chart;
+  if (chart?.error) return failed(url, chart.error.description ?? 'Yahoo returned an error');
+
+  const result = chart?.result?.[0];
+  const stamps = result?.timestamp;
+  const q = result?.indicators?.quote?.[0];
+  if (!stamps || !q?.close) return failed(url, `no price history for ${symbol}`);
+
+  const bars: PriceBar[] = [];
+  for (let i = 0; i < stamps.length; i++) {
+    const close = q.close[i];
+    // Yahoo returns nulls for halted days. A null close is not a zero price.
+    if (typeof close !== 'number' || !Number.isFinite(close)) continue;
+    bars.push({
+      date: new Date(stamps[i] * 1000).toISOString().slice(0, 10),
+      open: q.open?.[i] ?? close,
+      high: q.high?.[i] ?? close,
+      low: q.low?.[i] ?? close,
+      close,
+      volume: q.volume?.[i] ?? 0,
+    });
+  }
+  if (bars.length === 0) return failed(url, `${symbol} returned timestamps but no usable closes`);
+
+  return ok(bars, { source: `Yahoo Finance (${symbol})`, url, asOf: bars[bars.length - 1].date });
+}
+
+/** The index a company's beta is measured against. */
+export function benchmarkSymbol(country: string): string {
+  return country === 'Brazil' ? '^BVSP' : '^GSPC';
+}

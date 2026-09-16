@@ -24,7 +24,9 @@
 import { prisma } from '../src/lib/db';
 import { allSeries, SERIES, type SeriesKey } from '../src/lib/data-providers/live/bcb';
 import { latestCurve } from '../src/lib/data-providers/live/treasury';
-import { quote } from '../src/lib/data-providers/live/quotes';
+import { benchmarkSymbol, history, quote, yahooSymbol } from '../src/lib/data-providers/live/quotes';
+import { latestYields } from '../src/lib/data-providers/live/tesouro';
+import { regressBeta } from '../src/lib/finance/beta';
 import { fetchDfpYear, type DfpYear } from '../src/lib/data-providers/live/cvm';
 import { fetchRegistry, resolveCnpj, type Registry } from '../src/lib/data-providers/live/registry';
 import { annualYears, cikFor, companyFacts, recentFilings } from '../src/lib/data-providers/live/sec';
@@ -44,61 +46,121 @@ const tally: Record<string, Tally> = {
   quotes: { updated: [], skipped: [], failed: [] },
   statements: { updated: [], skipped: [], failed: [] },
   news: { updated: [], skipped: [], failed: [] },
+  prices: { updated: [], skipped: [], failed: [] },
+  beta: { updated: [], skipped: [], failed: [] },
 };
 
 /* ------------------------------ macro ------------------------------ */
 
+/**
+ * The codes the WACC already looks for.
+ *
+ * The valuation reads its rates by code — SELIC, IPCA, US10Y and so on — so
+ * writing real figures under new names would have left them sitting in the
+ * database unused while the discount rate went on reading the simulated ones.
+ * That is the failure nobody would notice from the screen.
+ */
+const INDICATOR_CODES = {
+  selic: 'SELIC', ipca: 'IPCA', usdBrl: 'USDBRL', cdi: 'CDI',
+  ust10y: 'US10Y', ntnf: 'NTNF33', ntnb: 'NTNB35',
+} as const;
+
+async function writeIndicator(
+  code: string, name: string, category: string, value: number,
+  previous: number | null, unit: string, currency: string | null, asOf: string, source: string,
+): Promise<void> {
+  await prisma.marketIndicator.upsert({
+    where: { code },
+    create: {
+      code, name, category, value, previous: previous ?? value,
+      unit, currency, asOf: new Date(asOf), source,
+    },
+    update: { name, value, previous: previous ?? value, asOf: new Date(asOf), source },
+  });
+}
+
 async function syncMacro(): Promise<void> {
-  console.log('\nBanco Central e Tesouro');
+  console.log('\nBanco Central, Tesouro Nacional e US Treasury');
   const series = await allSeries();
+
+  // The platform stores these as percentages; the Bank publishes them that way.
+  const macroTargets: Partial<Record<SeriesKey, { code: string; category: string; currency: string | null }>> = {
+    selicTarget: { code: INDICATOR_CODES.selic, category: 'RATE', currency: null },
+    ipca12m: { code: INDICATOR_CODES.ipca, category: 'MACRO', currency: null },
+    usdBrl: { code: INDICATOR_CODES.usdBrl, category: 'FX', currency: 'BRL' },
+    cdi: { code: INDICATOR_CODES.cdi, category: 'RATE', currency: null },
+  };
 
   for (const key of Object.keys(SERIES) as SeriesKey[]) {
     const f = series[key];
     const meta = SERIES[key];
-    const code = `BCB_${meta.code}`;
+    const target = macroTargets[key];
     if (!f.ok) {
       console.log(`  ${R}falhou${O} ${meta.name} — ${f.reason}`);
       tally.macro.failed.push(meta.name);
       continue;
     }
-    await prisma.marketIndicator.upsert({
-      where: { code },
-      create: {
-        code, name: meta.name, category: meta.unit === 'CURRENCY' ? 'FX' : 'RATE',
-        value: f.value.value, previous: f.value.previous ?? f.value.value,
-        unit: meta.unit, currency: meta.unit === 'CURRENCY' ? 'BRL' : null,
-        asOf: new Date(f.value.asOf), source: f.provenance.source,
-      },
-      update: {
-        value: f.value.value, previous: f.value.previous ?? f.value.value,
-        asOf: new Date(f.value.asOf), source: f.provenance.source,
-      },
-    });
-    console.log(`  ${G}ok${O}     ${meta.name.padEnd(26)} ${f.value.value}  ${D}${f.value.asOf}${O}`);
-    tally.macro.updated.push(meta.name);
+    if (!target) continue;
+    await writeIndicator(
+      target.code, meta.name, target.category, f.value.value, f.value.previous,
+      meta.unit === 'CURRENCY' ? 'RATE' : 'PERCENT', target.currency, f.value.asOf, f.provenance.source,
+    );
+    console.log(`  ${G}ok${O}     ${target.code.padEnd(8)} ${meta.name.padEnd(26)} ${f.value.value}  ${D}${f.value.asOf}${O}`);
+    tally.macro.updated.push(target.code);
+  }
+
+  // The Brazilian risk-free has to be a Brazilian government bond. The Selic is
+  // an overnight policy rate, which is a different instrument at a different
+  // maturity and means something else inside a discount rate.
+  const tesouro = await latestYields();
+  if (tesouro.ok) {
+    const { nominal, real } = tesouro.value;
+    if (nominal) {
+      await writeIndicator(
+        INDICATOR_CODES.ntnf, `NTN-F ${nominal.maturity.slice(0, 4)} (Tesouro Prefixado)`, 'RATE',
+        nominal.rate * 100, null, 'PERCENT', 'BRL', nominal.asOf, tesouro.provenance.source,
+      );
+      console.log(`  ${G}ok${O}     ${INDICATOR_CODES.ntnf.padEnd(8)} ${'juro nominal longo'.padEnd(26)} ${(nominal.rate * 100).toFixed(2)}%  ${D}venc. ${nominal.maturity}${O}`);
+      tally.macro.updated.push(INDICATOR_CODES.ntnf);
+    }
+    if (real) {
+      await writeIndicator(
+        INDICATOR_CODES.ntnb, `NTN-B ${real.maturity.slice(0, 4)} (Tesouro IPCA+)`, 'RATE',
+        real.rate * 100, null, 'PERCENT', 'BRL', real.asOf, tesouro.provenance.source,
+      );
+      console.log(`  ${G}ok${O}     ${INDICATOR_CODES.ntnb.padEnd(8)} ${'juro real longo'.padEnd(26)} ${(real.rate * 100).toFixed(2)}%  ${D}venc. ${real.maturity}${O}`);
+      tally.macro.updated.push(INDICATOR_CODES.ntnb);
+    }
+  } else {
+    console.log(`  ${R}falhou${O} títulos do Tesouro — ${tesouro.reason}`);
+    tally.macro.failed.push('curva brasileira');
   }
 
   const curve = await latestCurve();
   if (!curve.ok) {
-    console.log(`  ${R}falhou${O} curva do Tesouro — ${curve.reason}`);
-    tally.macro.failed.push('curva do Tesouro');
+    console.log(`  ${R}falhou${O} curva do US Treasury — ${curve.reason}`);
+    tally.macro.failed.push('curva do US Treasury');
     return;
   }
   for (const [tenor, value] of Object.entries(curve.value.byTenor)) {
-    const code = `UST_${tenor}`;
-    await prisma.marketIndicator.upsert({
-      where: { code },
-      create: {
-        code, name: `US Treasury ${tenor}`, category: 'RATE', value, previous: value,
-        unit: 'PERCENT', currency: 'USD', asOf: new Date(curve.value.asOf), source: curve.provenance.source,
-      },
-      update: { value, asOf: new Date(curve.value.asOf), source: curve.provenance.source },
-    });
+    const code = tenor === '10Y' ? INDICATOR_CODES.ust10y : `UST_${tenor}`;
+    await writeIndicator(
+      code, `US Treasury ${tenor}`, 'RATE', value * 100, null,
+      'PERCENT', 'USD', curve.value.asOf, curve.provenance.source,
+    );
   }
   const ten = curve.value.byTenor['10Y'];
-  console.log(`  ${G}ok${O}     ${'curva do Tesouro'.padEnd(26)} ${Object.keys(curve.value.byTenor).length} vértices`
-    + `${ten === undefined ? '' : `, 10Y ${(ten * 100).toFixed(2)}%`}  ${D}${curve.value.asOf}${O}`);
-  tally.macro.updated.push('curva do Tesouro');
+  console.log(`  ${G}ok${O}     ${INDICATOR_CODES.ust10y.padEnd(8)} ${'juro americano 10 anos'.padEnd(26)} `
+    + `${ten === undefined ? '—' : `${(ten * 100).toFixed(2)}%`}  ${D}${curve.value.asOf}${O}`);
+  tally.macro.updated.push(INDICATOR_CODES.ust10y);
+
+  // What the platform still carries without a real source, said out loud.
+  const stillSimulated = await prisma.marketIndicator.findMany({
+    where: { code: { in: ['EMBIBR', 'ERPUS'] } }, select: { code: true, name: true },
+  });
+  for (const i of stillSimulated) {
+    console.log(`  ${Y}simulado${O} ${i.code.padEnd(8)} ${i.name} ${D}— sem fonte pública gratuita${O}`);
+  }
 }
 
 /* ---------------------------- statements ---------------------------- */
@@ -226,28 +288,69 @@ async function syncBrazilian(
 /* ------------------------------ quotes ------------------------------ */
 
 async function syncQuote(company: { id: string; ticker: string; country: string }): Promise<void> {
-  const q = await quote(company.ticker, company.country);
-  if (!q.ok) {
-    tally.quotes.failed.push(company.ticker);
-    return;
-  }
   const security = await prisma.security.findUnique({ where: { ticker: company.ticker } });
   if (!security) { tally.quotes.skipped.push(company.ticker); return; }
 
-  await prisma.security.update({
-    where: { id: security.id },
-    data: {
-      lastPrice: q.value.price,
-      previousClose: q.value.previousClose ?? security.previousClose,
-      dayHigh: q.value.dayHigh ?? security.dayHigh,
-      dayLow: q.value.dayLow ?? security.dayLow,
-      week52High: q.value.week52High ?? security.week52High,
-      week52Low: q.value.week52Low ?? security.week52Low,
-      averageVolume: q.value.volume ?? security.averageVolume,
-      priceAsOf: new Date(q.value.asOf),
-    },
+  const q = await quote(company.ticker, company.country);
+  if (q.ok) {
+    await prisma.security.update({
+      where: { id: security.id },
+      data: {
+        lastPrice: q.value.price,
+        previousClose: q.value.previousClose ?? security.previousClose,
+        dayHigh: q.value.dayHigh ?? security.dayHigh,
+        dayLow: q.value.dayLow ?? security.dayLow,
+        week52High: q.value.week52High ?? security.week52High,
+        week52Low: q.value.week52Low ?? security.week52Low,
+        averageVolume: q.value.volume ?? security.averageVolume,
+        priceAsOf: new Date(q.value.asOf),
+      },
+    });
+    tally.quotes.updated.push(company.ticker);
+  } else {
+    tally.quotes.failed.push(company.ticker);
+  }
+
+  /* The beta was a stored number with no derivation — no window, no index, no
+     error bar, and all three change it materially. Regressed here against the
+     market the company actually trades in, from the same source on both legs so
+     the two are measured on one calendar. */
+  const bars = await history(yahooSymbol(company.ticker, company.country));
+  if (!bars.ok) { tally.prices.failed.push(company.ticker); return; }
+
+  await prisma.priceBar.deleteMany({ where: { securityId: security.id } });
+  await prisma.priceBar.createMany({
+    data: bars.value.map((b) => ({
+      securityId: security.id, date: new Date(b.date),
+      open: b.open, high: b.high, low: b.low, close: b.close, volume: b.volume,
+    })),
   });
-  tally.quotes.updated.push(company.ticker);
+  tally.prices.updated.push(company.ticker);
+
+  const index = benchmarkSymbol(company.country);
+  const marketBars = benchmarkCache.get(index);
+  if (!marketBars) return;
+
+  const r = regressBeta(bars.value, marketBars, index);
+  if (!r) { tally.beta.failed.push(company.ticker); return; }
+  await prisma.security.update({ where: { id: security.id }, data: { beta: r.beta } });
+  tally.beta.updated.push(company.ticker);
+}
+
+/** Index history is fetched once per market, not once per company. */
+const benchmarkCache = new Map<string, { date: string; close: number }[]>();
+
+async function loadBenchmarks(countries: Set<string>): Promise<void> {
+  const symbols = new Set([...countries].map(benchmarkSymbol));
+  for (const s of symbols) {
+    const bars = await history(s);
+    if (bars.ok) {
+      benchmarkCache.set(s, bars.value);
+      console.log(`  ${G}ok${O}     ${s.padEnd(8)} ${bars.value.length} pregões ${D}até ${bars.provenance.asOf}${O}`);
+    } else {
+      console.log(`  ${R}falhou${O} ${s} — ${bars.reason}. Sem beta para esse mercado.`);
+    }
+  }
 }
 
 /* ------------------------------- main ------------------------------- */
@@ -306,7 +409,10 @@ async function main(): Promise<void> {
     for (const c of brazilian) tally.statements.failed.push(c.ticker);
   }
 
-  console.log('\nCotações');
+  console.log('\nÍndices de mercado');
+  await loadBenchmarks(new Set(companies.map((c) => c.country)));
+
+  console.log('\nCotações, histórico e beta');
   for (const c of companies) await syncQuote(c);
   console.log(`  ${G}${tally.quotes.updated.length} atualizadas${O}`
     + (tally.quotes.failed.length ? `, ${R}${tally.quotes.failed.length} sem cotação${O}` : ''));
@@ -328,6 +434,9 @@ async function main(): Promise<void> {
   console.log(`  demonstrações  ${G}${tally.statements.updated.length} empresas${O}`
     + (tally.statements.failed.length ? `  ${R}${tally.statements.failed.length} falharam${O}` : ''));
   console.log(`  cotações       ${G}${tally.quotes.updated.length}${O}`);
+  console.log(`  histórico      ${G}${tally.prices.updated.length}${O}`);
+  console.log(`  beta regredido ${G}${tally.beta.updated.length}${O}`
+    + (tally.beta.failed.length ? `  ${R}${tally.beta.failed.length} sem série suficiente${O}` : ''));
   console.log(`  indicadores    ${G}${tally.macro.updated.length}${O}`
     + (tally.macro.failed.length ? `  ${R}${tally.macro.failed.length} falharam${O}` : ''));
   console.log(`  documentos     ${G}${tally.news.updated.length} empresas${O}`);
