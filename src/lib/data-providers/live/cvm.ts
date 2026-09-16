@@ -327,9 +327,14 @@ export interface DfpYear {
  * and then read for each company rather than fetched per company — the
  * difference between one download and four hundred.
  */
-export async function fetchDfpYear(year: number): Promise<Fetched<DfpYear>> {
+export async function fetchDfpYear(
+  year: number, onProgress?: (bytes: number) => void,
+): Promise<Fetched<DfpYear>> {
   const url = dfpUrl(year);
-  const res = await getBytes(url);
+  // Tens of megabytes over whatever connection the operator has. A stall
+  // window rather than a deadline, so a slow download is not mistaken for a
+  // dead one, and progress so a long wait does not look like a hang.
+  const res = await getBytes(url, { stallMs: 60_000, retries: 3, onProgress });
   if (!res.ok) return res as Fetched<DfpYear>;
 
   let entries;

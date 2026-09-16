@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, afterEach } from 'vitest';
-import { getJson, getText } from '@/lib/data-providers/live/http';
+import { getBytes, getJson, getText } from '@/lib/data-providers/live/http';
 import { latest, SERIES } from '@/lib/data-providers/live/bcb';
 import { latestCurve } from '@/lib/data-providers/live/treasury';
 import { fromBrapi, fromYahoo, yahooSymbol } from '@/lib/data-providers/live/quotes';
@@ -210,5 +210,88 @@ describe('quotes', () => {
     const r = await fromYahoo('X', 'United States');
     expect(r.ok && r.provenance.source.length).toBeGreaterThan(0);
     expect(r.ok && r.provenance.url).toMatch(/^https:/);
+  });
+});
+
+describe('a download that stalls mid-body does not hang the process', () => {
+  /* The original timer covered only the request. `fetch` resolves when the
+     HEADERS arrive, so clearing the timeout there left the body downloading
+     with no limit at all — and a 50MB CVM archive that stalled mid-transfer
+     hung with no error, indistinguishable from slow progress. */
+
+  function stallingBody(chunksBeforeStall: number): Response {
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        if (chunksBeforeStall > 0) {
+          chunksBeforeStall--;
+          controller.enqueue(new Uint8Array(1024));
+          return;
+        }
+        // Never resolves, never errors — exactly the failure that hung.
+        await new Promise(() => {});
+      },
+    });
+    return new Response(stream, { status: 200 });
+  }
+
+  it('gives up on a body that stops arriving', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => stallingBody(2)));
+    const r = await getBytes('https://example.test/big.zip', { stallMs: 60, retries: 0 });
+    expect(r.ok).toBe(false);
+    expect(reasonOf(r)).toMatch(/stalled/);
+  }, 10_000);
+
+  it('does not give up on a download that is merely slow', async () => {
+    // Each chunk resets the clock, so a slow but progressing transfer finishes.
+    let remaining = 6;
+    const slow = () => new Response(new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        if (remaining-- <= 0) { controller.close(); return; }
+        await new Promise((r) => setTimeout(r, 40));
+        controller.enqueue(new Uint8Array(512));
+      },
+    }), { status: 200 });
+
+    vi.stubGlobal('fetch', vi.fn(async () => slow()));
+    const r = await getBytes('https://example.test/slow.zip', { stallMs: 200, retries: 0 });
+    expect(r.ok).toBe(true);
+    if (r.ok) expect(r.value.length).toBe(6 * 512);
+  }, 10_000);
+
+  it('retries a transient failure, because one attempt is not a fair test', async () => {
+    // "DFP 2023 — network error: fetch failed" skipped a whole year of filings
+    // on a single blip, over a connection carrying tens of megabytes.
+    let attempts = 0;
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      attempts++;
+      if (attempts < 3) throw new Error('fetch failed');
+      return new Response(new Uint8Array([1, 2, 3]), { status: 200 });
+    }));
+    const r = await getBytes('https://example.test/x.zip', { retries: 3 });
+    expect(r.ok).toBe(true);
+    expect(attempts).toBe(3);
+  }, 20_000);
+
+  it('still refuses to retry a 4xx', async () => {
+    const spy = vi.fn(async () => new Response('nope', { status: 404 }));
+    vi.stubGlobal('fetch', spy);
+    const r = await getBytes('https://example.test/missing.zip', { retries: 3 });
+    expect(r.ok).toBe(false);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it('reports progress as the body arrives', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => {
+      let n = 3;
+      return new Response(new ReadableStream<Uint8Array>({
+        pull(controller) {
+          if (n-- <= 0) { controller.close(); return; }
+          controller.enqueue(new Uint8Array(100));
+        },
+      }), { status: 200 });
+    }));
+    const seen: number[] = [];
+    await getBytes('https://example.test/x.zip', { onProgress: (b) => seen.push(b) });
+    expect(seen).toEqual([100, 200, 300]);
   });
 });

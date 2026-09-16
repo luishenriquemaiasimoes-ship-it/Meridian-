@@ -1,4 +1,4 @@
-import { getText } from './http';
+import { getBytes } from './http';
 import { failed, ok, type Fetched } from './types';
 import { numeric, parseCsv } from './csv';
 
@@ -60,10 +60,10 @@ export async function latestYields(): Promise<Fetched<TreasuryCurve>> {
   // The file carries the full history of every bond, so this is a large
   // download for two numbers. It is the official source and there is no
   // lighter endpoint that gives a long nominal yield.
-  const res = await getText(PRICES, { timeoutMs: 120_000 });
+  const res = await getBytes(PRICES, { stallMs: 60_000 });
   if (!res.ok) return res as Fetched<TreasuryCurve>;
 
-  const rows = parseCsv(Buffer.from(res.value, 'latin1'));
+  const rows = parseCsv(res.value);
   if (rows.length === 0) return failed(PRICES, 'the price file parsed to no rows');
 
   // Column names carry accents and have shifted before; find them by content.

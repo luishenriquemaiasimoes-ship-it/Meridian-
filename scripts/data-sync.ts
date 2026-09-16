@@ -383,7 +383,15 @@ async function main(): Promise<void> {
     const thisYear = new Date().getUTCFullYear();
     console.log(`\nCVM — baixando ${HISTORY} arquivos anuais`);
     for (let y = thisYear - 1; y > thisYear - 1 - HISTORY; y--) {
-      const a = await fetchDfpYear(y);
+      let shown = 0;
+      const a = await fetchDfpYear(y, (bytes) => {
+        const mb = Math.floor(bytes / 1_048_576);
+        if (mb > shown) {
+          shown = mb;
+          process.stdout.write(`\r  ${D}       DFP ${y} — ${mb} MB${O}   `);
+        }
+      });
+      if (shown > 0) process.stdout.write('\r' + ' '.repeat(40) + '\r');
       if (a.ok) {
         archives.set(y, a.value);
         console.log(`  ${G}ok${O}     DFP ${y} ${D}(${a.value.files.size} arquivos)${O}`);
