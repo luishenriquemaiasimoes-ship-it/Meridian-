@@ -37,10 +37,16 @@ function findEndOfCentralDirectory(buf: Buffer): number {
 export class ZipError extends Error {}
 
 /**
- * Reads every entry. Names are decoded as UTF-8 or CP437 per the ZIP flag,
- * which matters because the CVM's filenames carry accented Portuguese.
+ * Reads the entries, optionally only those whose name matches.
+ *
+ * The filter is applied BEFORE inflating, which is the point of it: a CVM
+ * archive carries nineteen CSVs and the model reads four, and inflating the
+ * other fifteen costs hundreds of megabytes to immediately discard.
+ *
+ * Names are decoded as UTF-8 or CP437 per the ZIP flag, which matters because
+ * the CVM's filenames carry accented Portuguese.
  */
-export function readZip(buf: Buffer): ZipEntry[] {
+export function readZip(buf: Buffer, wanted?: RegExp): ZipEntry[] {
   const eocd = findEndOfCentralDirectory(buf);
   if (eocd < 0) {
     throw new ZipError(`not a zip archive: no end-of-central-directory in ${buf.length} bytes`);
@@ -75,7 +81,7 @@ export function readZip(buf: Buffer): ZipEntry[] {
     const start = localOffset + 30 + localNameLength + localExtraLength;
     const raw = buf.subarray(start, start + compressedSize);
 
-    if (!name.endsWith('/')) {
+    if (!name.endsWith('/') && (!wanted || wanted.test(name))) {
       if (method === 0) {
         entries.push({ name, data: Buffer.from(raw) });
       } else if (method === 8) {

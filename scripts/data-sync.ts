@@ -27,7 +27,7 @@ import { latestCurve } from '../src/lib/data-providers/live/treasury';
 import { benchmarkSymbol, history, quote, yahooSymbol } from '../src/lib/data-providers/live/quotes';
 import { latestYields } from '../src/lib/data-providers/live/tesouro';
 import { regressBeta } from '../src/lib/finance/beta';
-import { fetchDfpYear, type DfpYear } from '../src/lib/data-providers/live/cvm';
+import { fetchDfpYear } from '../src/lib/data-providers/live/cvm';
 import { fetchRegistry, resolveCnpj, type Registry } from '../src/lib/data-providers/live/registry';
 import { annualYears, cikFor, companyFacts, recentFilings } from '../src/lib/data-providers/live/sec';
 import { isUsable, missingFrom, periodFromCvm, periodFromSec } from '../src/lib/data-providers/live/periods';
@@ -250,38 +250,87 @@ async function syncAmerican(company: { id: string; ticker: string; name: string 
   }
 }
 
-async function syncBrazilian(
-  company: { id: string; ticker: string; name: string; legalName: string | null },
-  archives: Map<number, DfpYear>, registry: Registry,
+/**
+ * Brazilian statements, one year of filings at a time.
+ *
+ * The first version downloaded all six archives, kept them parsed, and then
+ * looped the companies — and ran the process out of memory on the third year.
+ * An archive is tens of megabytes of CSV that becomes millions of JavaScript
+ * objects, and six of those do not fit anywhere.
+ *
+ * So the loop is inverted: a year is downloaded, every company is read out of
+ * it, and it is dropped before the next one is fetched. What survives across
+ * iterations is one small period object per company per year, which is the
+ * thing actually wanted.
+ */
+async function collectBrazilian(
+  companies: { id: string; ticker: string; name: string; legalName: string | null }[],
+  registry: Registry, historyYears: number,
+): Promise<Map<string, FinancialPeriod[]>> {
+  const byTicker = new Map<string, FinancialPeriod[]>();
+  const cnpjs = new Map<string, string>();
+
+  for (const c of companies) {
+    const found = resolveCnpj(registry, c.legalName ?? c.name, c.name);
+    if (found.ok) {
+      cnpjs.set(c.ticker, found.cnpj);
+      byTicker.set(c.ticker, []);
+    } else {
+      console.log(`  ${R}falhou${O} ${c.ticker} — ${found.reason}`);
+      for (const cand of found.candidates) console.log(`         ${D}talvez: ${cand}${O}`);
+      tally.statements.failed.push(c.ticker);
+    }
+  }
+  if (cnpjs.size === 0) return byTicker;
+
+  const thisYear = new Date().getUTCFullYear();
+  for (let y = thisYear - 1; y > thisYear - 1 - historyYears; y--) {
+    let shown = 0;
+    const archive = await fetchDfpYear(y, (bytes) => {
+      const mb = Math.floor(bytes / 1_048_576);
+      if (mb > shown) {
+        shown = mb;
+        process.stdout.write(`\r  ${D}       DFP ${y} — ${mb} MB${O}   `);
+      }
+    });
+    if (shown > 0) process.stdout.write(`\r${' '.repeat(44)}\r`);
+
+    if (!archive.ok) {
+      // A year not yet published, or one that would not download, is a gap in
+      // the history rather than a reason to abandon the rest.
+      console.log(`  ${Y}pulado${O} DFP ${y} — ${archive.reason}`);
+      continue;
+    }
+
+    let found = 0;
+    for (const [ticker, cnpj] of cnpjs) {
+      const p = periodFromCvm(archive.value, cnpj);
+      if (p) { byTicker.get(ticker)!.push(p); found++; }
+    }
+    console.log(`  ${G}ok${O}     DFP ${y} ${D}— ${found} de ${cnpjs.size} empresas${O}`);
+    // The archive falls out of scope here, before the next one is fetched.
+  }
+
+  return byTicker;
+}
+
+async function writeBrazilian(
+  company: { id: string; ticker: string }, periods: FinancialPeriod[],
 ): Promise<void> {
-  const legal = company.legalName ?? company.name;
-  const found = resolveCnpj(registry, legal, company.name);
-  if (!found.ok) {
-    console.log(`  ${R}falhou${O} ${company.ticker} — ${found.reason}`);
-    for (const c of found.candidates) console.log(`         ${D}talvez: ${c}${O}`);
-    tally.statements.failed.push(company.ticker);
-    return;
-  }
-
-  const periods: FinancialPeriod[] = [];
-  for (const archive of archives.values()) {
-    const p = periodFromCvm(archive, found.cnpj);
-    if (p) periods.push(p);
-  }
   if (periods.length === 0) {
-    console.log(`  ${R}falhou${O} ${company.ticker} — o CNPJ ${found.cnpj} não aparece em nenhum arquivo baixado`);
+    console.log(`  ${R}falhou${O} ${company.ticker} — não aparece em nenhum arquivo baixado`);
     tally.statements.failed.push(company.ticker);
     return;
   }
-
   periods.sort((a, b) => a.fiscalYear - b.fiscalYear);
-  const written = await writePeriods(company.id, company.ticker, periods, `CVM — DFP (CNPJ ${found.cnpj})`);
+  const written = await writePeriods(company.id, company.ticker, periods, 'CVM — DFP');
   if (written === 0) {
     console.log(`  ${R}falhou${O} ${company.ticker} — nenhum exercício utilizável`);
     tally.statements.failed.push(company.ticker);
     return;
   }
-  console.log(`  ${G}ok${O}     ${company.ticker.padEnd(8)} ${written} exercícios ${D}(CVM, ${periods[0].fiscalYear}–${periods[periods.length - 1].fiscalYear})${O}`);
+  console.log(`  ${G}ok${O}     ${company.ticker.padEnd(8)} ${written} exercícios `
+    + `${D}(CVM, ${periods[0].fiscalYear}–${periods[periods.length - 1].fiscalYear})${O}`);
   tally.statements.updated.push(company.ticker);
 }
 
@@ -374,47 +423,24 @@ async function main(): Promise<void> {
   const brazilian = companies.filter((c) => c.country === 'Brazil');
   const american = companies.filter((c) => c.country !== 'Brazil');
 
-  /* One archive carries every listed company in Brazil, so each year is
-     downloaded once and read for all of them — one download, not four hundred. */
-  const archives = new Map<number, DfpYear>();
-  let registry: Registry | null = null;
+  console.log('\nDemonstrações — Estados Unidos');
+  for (const c of american) await syncAmerican(c);
 
   if (brazilian.length > 0) {
-    const thisYear = new Date().getUTCFullYear();
-    console.log(`\nCVM — baixando ${HISTORY} arquivos anuais`);
-    for (let y = thisYear - 1; y > thisYear - 1 - HISTORY; y--) {
-      let shown = 0;
-      const a = await fetchDfpYear(y, (bytes) => {
-        const mb = Math.floor(bytes / 1_048_576);
-        if (mb > shown) {
-          shown = mb;
-          process.stdout.write(`\r  ${D}       DFP ${y} — ${mb} MB${O}   `);
-        }
-      });
-      if (shown > 0) process.stdout.write('\r' + ' '.repeat(40) + '\r');
-      if (a.ok) {
-        archives.set(y, a.value);
-        console.log(`  ${G}ok${O}     DFP ${y} ${D}(${a.value.files.size} arquivos)${O}`);
-      } else {
-        // A year not yet published is expected, not an error worth stopping for.
-        console.log(`  ${Y}pulado${O} DFP ${y} — ${a.reason}`);
+    console.log('\nDemonstrações — Brasil');
+    const reg = await fetchRegistry();
+    if (!reg.ok) {
+      console.log(`  ${R}falhou${O} cadastro da CVM — ${reg.reason}`);
+      console.log(`  ${D}nenhuma empresa brasileira será carregada; nada foi apagado.${O}`);
+      for (const c of brazilian) tally.statements.failed.push(c.ticker);
+    } else {
+      console.log(`  ${G}ok${O}     cadastro ${D}(${reg.value.entries.length} companhias ativas)${O}`);
+      const collected = await collectBrazilian(brazilian, reg.value, HISTORY);
+      for (const c of brazilian) {
+        const periods = collected.get(c.ticker);
+        if (periods) await writeBrazilian(c, periods);
       }
     }
-    const reg = await fetchRegistry();
-    if (reg.ok) {
-      registry = reg.value;
-      console.log(`  ${G}ok${O}     cadastro ${D}(${reg.value.entries.length} companhias ativas)${O}`);
-    } else {
-      console.log(`  ${R}falhou${O} cadastro — ${reg.reason}. Nenhuma empresa brasileira será carregada.`);
-    }
-  }
-
-  console.log('\nDemonstrações');
-  for (const c of american) await syncAmerican(c);
-  if (registry && archives.size > 0) {
-    for (const c of brazilian) await syncBrazilian(c, archives, registry);
-  } else {
-    for (const c of brazilian) tally.statements.failed.push(c.ticker);
   }
 
   console.log('\nÍndices de mercado');

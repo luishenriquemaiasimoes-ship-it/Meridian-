@@ -223,3 +223,34 @@ describe('capex is identified by the asset, not by the phrasing', () => {
     expect(findByDescription(rows, '6.02', isCapexLine)).toBeCloseTo(-79_000, 6);
   });
 });
+
+describe('an archive is read for what the model needs, not for everything in it', () => {
+  const buf = readFileSync(join(__dirname, 'fixtures', 'dfp_cia_aberta_2024.zip'));
+  const STATEMENTS = /_(dre|bpa|bpp|dfc_mi)_(con|ind)_\d{4}\.csv$/i;
+
+  it('skips entries nobody asked for', () => {
+    // A real archive carries nineteen CSVs and the model reads four. Inflating
+    // the other fifteen costs hundreds of megabytes to immediately discard —
+    // which ran the loader out of memory on the third year of history.
+    const all = readZip(buf).map((e) => e.name);
+    const wanted = readZip(buf, STATEMENTS).map((e) => e.name);
+    expect(all).toContain('leiame.txt');
+    expect(wanted).not.toContain('leiame.txt');
+    expect(wanted.length).toBeLessThan(all.length);
+  });
+
+  it('still returns every statement the model does read', () => {
+    const wanted = readZip(buf, STATEMENTS).map((e) => e.name);
+    for (const s of ['dre', 'bpa', 'bpp', 'dfc_mi']) {
+      expect(wanted.some((n) => n.includes(`_${s}_`))).toBe(true);
+    }
+  });
+
+  it('matches the parent-only files too, which are the fallback', () => {
+    expect(STATEMENTS.test('dfp_cia_aberta_dre_ind_2024.csv')).toBe(true);
+    expect(STATEMENTS.test('dfp_cia_aberta_dre_con_2024.csv')).toBe(true);
+    // And not the statements the model has no use for.
+    expect(STATEMENTS.test('dfp_cia_aberta_dva_con_2024.csv')).toBe(false);
+    expect(STATEMENTS.test('dfp_cia_aberta_dmpl_con_2024.csv')).toBe(false);
+  });
+});

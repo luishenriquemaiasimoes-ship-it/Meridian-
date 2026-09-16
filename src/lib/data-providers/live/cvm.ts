@@ -327,6 +327,16 @@ export interface DfpYear {
  * and then read for each company rather than fetched per company — the
  * difference between one download and four hundred.
  */
+/**
+ * The statements the model reads.
+ *
+ * The archive holds nineteen CSVs — the value added statement, the changes in
+ * equity, parent-only copies of everything — and parsing all of them turns tens
+ * of megabytes of text into millions of JavaScript objects for no purpose. Only
+ * these four are read, which is most of the memory this used to take.
+ */
+const WANTED = /_(dre|bpa|bpp|dfc_mi)_(con|ind)_\d{4}\.csv$/i;
+
 export async function fetchDfpYear(
   year: number, onProgress?: (bytes: number) => void,
 ): Promise<Fetched<DfpYear>> {
@@ -339,7 +349,7 @@ export async function fetchDfpYear(
 
   let entries;
   try {
-    entries = readZip(res.value);
+    entries = readZip(res.value, WANTED);
   } catch (e) {
     const why = e instanceof ZipError ? e.message : String(e);
     return failed(url, `could not unpack the archive: ${why}`);
@@ -347,10 +357,11 @@ export async function fetchDfpYear(
 
   const files = new Map<string, Row[]>();
   for (const entry of entries) {
-    if (!/\.csv$/i.test(entry.name)) continue;
     files.set(entry.name.toLowerCase(), parseCsv(entry.data));
   }
-  if (files.size === 0) return failed(url, `the archive held no CSV files (${entries.length} entries)`);
+  if (files.size === 0) {
+    return failed(url, 'the archive held none of the four statements the model reads');
+  }
 
   return ok({ year, files }, { source: `CVM — DFP ${year}`, url, asOf: `${year}-12-31` });
 }
